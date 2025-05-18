@@ -1,3 +1,4 @@
+import os
 import re
 
 from bson import ObjectId
@@ -12,7 +13,8 @@ All function for handling the GPUs in the DB will be here for ease of use and ma
 For example: adding new hardware, fetching hardware, and more.
 """
 # Connect to MongoDB (this assumes MongoDB is running on localhost)
-client = AsyncIOMotorClient('mongodb://localhost:27017')
+client = AsyncIOMotorClient(os.environ["MONGODB_URI"])
+#client = AsyncIOMotorClient('mongodb://localhost:27017')
 db = client["game_db"]  # Use your desired database name
 router = APIRouter()
 # Use the hardware collection
@@ -61,7 +63,6 @@ async def get_gpu_by_brand(brand: str):
     gpus = await gpus_cursor.to_list(length=None)
     validate_hardware_list(gpus, "gpu", brand=brand)
     return [Gpu(**gpu, id=str(gpu["_id"])) for gpu in gpus]
-
 
 @router.get("/gpus/model")
 async def get_gpu_by_model(model: str):

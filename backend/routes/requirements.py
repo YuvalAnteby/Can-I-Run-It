@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import List, Optional, Dict, Any
 
 from bson import ObjectId
@@ -9,7 +10,7 @@ from pydantic import BaseModel
 from backend.app.database import mongodb
 
 # Connect to MongoDB (this assumes MongoDB is running on localhost)
-client = AsyncIOMotorClient('mongodb://localhost:27017')
+client = AsyncIOMotorClient(os.environ["MONGODB_URI"])
 db = client["game_db"]  # Use your desired database name
 router = APIRouter()
 # Use the games collection

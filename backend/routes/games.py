@@ -1,3 +1,4 @@
+import os
 import re
 from typing import Optional
 
@@ -10,7 +11,7 @@ from backend.utils.validation import validate_games_list
 import json
 
 # Connect to MongoDB (this assumes MongoDB is running on localhost)
-client = AsyncIOMotorClient('mongodb://localhost:27017')
+client = AsyncIOMotorClient(os.environ["MONGODB_URI"])
 db = client["game_db"]  # Use your desired database name
 router = APIRouter()
 # Use the games collection
@@ -102,3 +103,5 @@ async def get_row_config():
         raise HTTPException(status_code=404, detail="Row config file not found.")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading config: {str(e)}")
+
+#async def get_games_rawg():

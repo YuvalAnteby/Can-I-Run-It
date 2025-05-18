@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient, ASGITransport
@@ -61,6 +62,7 @@ def fake_game():
         "is_ssd_recommended": True,
         "upscale_support": [],
         "api_support": ["DX11"],
+        "created_at": datetime.now(timezone.utc)
     }
 
 
@@ -93,6 +95,7 @@ def fakes_games_list(fake_action_games_list):
             "is_ssd_recommended": True,
             "upscale_support": ["Nvidia DLSS 3.7"],
             "api_support": ["DX11", "DX12", "Vulkan"],
+            "created_at": datetime.now(timezone.utc)
         }
     ]
 
@@ -121,6 +124,7 @@ def fake_action_games_list(fake_game):
             "is_ssd_recommended": True,
             "upscale_support": ["Nvidia DLSS 3.7", "AMD FST 3.1"],
             "api_support": ["DX11", "DX12"],
+            "created_at": datetime.now(timezone.utc)
         },
         {
             "_id": ObjectId("507f1f77bcf86cd799439013"),

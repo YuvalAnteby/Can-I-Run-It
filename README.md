@@ -70,6 +70,8 @@ frontend interface.
 - All major queries use indexed MongoDB fields for performance
 - Interactive API docs via Swagger UI at [`http://localhost:8000/docs`](http://localhost:8000/docs)
 - **Test coverage** for core routes using `pytest`, `AsyncMock`, and `httpx.AsyncClient` (valid/invalid inputs)
+- Containerized using Docker and docker-compose for the app, tests and MongoDB
+- Continuous Integration (CI) by using GitHub Actions
 
 #### Database & Scripts
 
@@ -81,13 +83,12 @@ frontend interface.
 - Consistent MongoDB structure with FastAPI integration via Motor
 
 ### 🔜 Upcoming
-
+- Public deployment 
 - User registration and login
 - User-specific features (preferences, history, saved hardware profiles and more)
 - Game price display using third-party APIs (Steam, Epic, etc.)
 - Filtering and search improvements (FPS, genre, release date, etc.)
 - Hardware upgrade suggestions based on requirement
-- Public deployment with CI/CD
 - LLM-based fallback: When no matching performance data exists for a given hardware + game + settings query, call a connected LLM (e.g. OpenAI GPT) to generate a short estimated performance summary.
 
 ---
@@ -120,6 +121,7 @@ async def get_gpu_by_brand(brand: str)
 
 - Docker & Docker Compose
 - Python 3.11+ (for non-Dockerized devs)
+- MongoDB with data 
 
 #### With Docker
 

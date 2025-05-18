@@ -1,3 +1,4 @@
+import os
 import re
 
 from bson import ObjectId
@@ -12,7 +13,8 @@ All functions for handling the CPUs in the DB will be here for ease of use and m
 For example: fetching all CPUs, fetch CPUs by brand, etc.
 """
 # Connect to MongoDB (this assumes MongoDB is running on localhost)
-client = AsyncIOMotorClient('mongodb://localhost:27017')
+client = AsyncIOMotorClient(os.environ["MONGODB_URI"])
+#client = AsyncIOMotorClient('mongodb://localhost:27017')
 db = client["game_db"]  # Use your desired database name
 router = APIRouter()
 # Use the hardware collection

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Optional
 
 from bson import ObjectId
 from pydantic import BaseModel
@@ -17,12 +17,12 @@ class Game(BaseModel):
     genres: List[str]
     desc: str
     trailer_url: str
-    portrait_url: str
+    portrait_url: Optional[str]
     buy_links: List[str]
-    landscape_s: str
-    landscape_m: str
-    landscape_l: str
-    landscape_xl: str
+    landscape_s: Optional[str] = None
+    landscape_m: Optional[str] = None
+    landscape_l: Optional[str] = None
+    landscape_xl: Optional[str] = None
     available_resolutions: List[str]
     supported_settings: List[str]
     is_ssd_recommended: bool
