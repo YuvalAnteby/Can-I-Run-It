@@ -14,4 +14,4 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
       - name: Run pytest
-        run: docker compose run --build --rm pytest
+        run: docker compose run --build --rm test

@@ -4,6 +4,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile_test
+    environment:
+        - MONGODB_URI=mongodb://mongodb:27017
 
   # App
   app:
