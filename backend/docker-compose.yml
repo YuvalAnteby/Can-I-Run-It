@@ -1,0 +1,43 @@
+services:
+  # Pytest unit testing
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile_test
+    environment:
+        - MONGODB_URI=mongodb://mongodb:27017
+
+  # App
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile_app
+    container_name: canyourunit-app
+    ports:
+      - "8000:8000"
+    depends_on:
+      - mongodb
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017
+    networks:
+      - canyourunit-net
+
+  # MongoDB
+  mongodb:
+    image: mongo:7.0.15
+    container_name: canyourunit-mongo
+    ports:
+      - "27017:27017"
+    networks:
+      - canyourunit-net
+    volumes:
+      - mongo_data:/data/db
+      - mongo_config:/data/configdb
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
+  mongo_config:
+
+networks:
+  canyourunit-net:
