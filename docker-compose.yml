@@ -2,7 +2,7 @@ services:
   # Pytest unit testing
   test:
     build:
-      context: .
+      context: backend
       dockerfile: Dockerfile_test
     environment:
         - MONGODB_URI=mongodb://mongodb:27017
@@ -10,9 +10,9 @@ services:
   # App
   app:
     build:
-      context: .
+      context: backend
       dockerfile: Dockerfile_app
-    container_name: canyourunit-app
+    container_name: ciri-app
     ports:
       - "8000:8000"
     depends_on:
@@ -20,16 +20,25 @@ services:
     environment:
       - MONGODB_URI=mongodb://mongodb:27017
     networks:
-      - canyourunit-net
-
+      - ciri-net
+  # React client
+  react:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    container_name: ciri-react
+    ports:
+      - "3000:3000"
+    networks:
+      - ciri-net
   # MongoDB
   mongodb:
     image: mongo:7.0.15
-    container_name: canyourunit-mongo
+    container_name: ciri-mongo
     ports:
       - "27017:27017"
     networks:
-      - canyourunit-net
+      - ciri-net
     volumes:
       - mongo_data:/data/db
       - mongo_config:/data/configdb
@@ -40,4 +49,4 @@ volumes:
   mongo_config:
 
 networks:
-  canyourunit-net:
+  ciri-net:
