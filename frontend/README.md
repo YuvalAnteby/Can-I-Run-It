@@ -46,14 +46,26 @@ The frontend connects to a FastAPI backend that provides game and performance da
 - Node.js (v18+ recommended)
 - Backend server running locally ([setup instructions here](https://github.com/YuvalAnteby/Can-I-Run-It/tree/main/backend))
 
-### Setup
+### Clone and build the repo
 
 ```bash
 git clone https://github.com/YuvalAnteby/Can-I-Run-It.git
 cd Can-I-Run-It
-docker-compose build
-docker-compose up react
+docker compose build
 ```
+
+### Run in development mode
+Runs React, allows live reloading.
+```bash
+docker compose up react_dev
+```
+
+### Run in production mode
+Runs React as static files.
+```bash
+docker compose up react_prod
+```
+
 The app will be available at: http://localhost:3000
 
 ---

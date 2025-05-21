@@ -7,8 +7,8 @@ services:
     environment:
         - MONGODB_URI=mongodb://mongodb:27017
 
-  # App
-  app:
+  # FastAPI backend
+  backend:
     build:
       context: backend
       dockerfile: Dockerfile_app
@@ -21,16 +21,39 @@ services:
       - MONGODB_URI=mongodb://mongodb:27017
     networks:
       - ciri-net
-  # React client
-  react:
+  # React - development environment
+  react_dev:
     build:
       context: frontend
-      dockerfile: Dockerfile
-    container_name: ciri-react
+      dockerfile: Dockerfile_dev
+    container_name: ciri-react-dev
+    depends_on:
+      - backend
+      - mongodb
     ports:
       - "3000:3000"
     networks:
       - ciri-net
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    profiles: ["dev"]
+  # React - production environment
+  react_prod:
+    build:
+      context: frontend
+      dockerfile: Dockerfile_prod
+    container_name: ciri-react-prod
+    depends_on:
+      - backend
+      - mongodb
+    ports:
+      - "3000:3000"
+    networks:
+      - ciri-net
+    profiles: ["prod"]
   # MongoDB
   mongodb:
     image: mongo:7.0.15
