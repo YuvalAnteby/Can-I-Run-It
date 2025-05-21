@@ -121,7 +121,17 @@ and [frontend/README.md](https://github.com/YuvalAnteby/Can-I-Run-It/blob/main/f
 ---
 
 ## 🖼️ Screenshots
-Coming soon! 🚧
+<p float="left">
+<img src="screenshots/hardware fill end.png" width="48%" alt="hardware selection">
+<img src="screenshots/main games selection.png" width="48%" alt="main game selection">
+</p>
+
+<p float="left">
+<img src="screenshots/hardware autocomplete.png" width="48%" alt="main game selection">
+<img src="screenshots/best FPS case.png" width="48%" alt="best fps case">
+</p>
+
+> Want to see more? [Click here for all screenshots](./screenshots)
 
 ---
 
