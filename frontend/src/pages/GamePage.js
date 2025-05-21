@@ -24,21 +24,28 @@ const GamePage = () => {
             + `&ram=${ramAmount}`
             + `&resolution=${chosenResolution}`
             + `&setting_name=${chosenSetting}`
-            + `&${chosenFps ? `&fps=${chosenFps}` : ''}` // Keeping the option to have no FPS chosen or choosing FPS
+            + `${chosenFps ? `&fps=${chosenFps}` : ''}` // Keeping the option to have no FPS chosen or choosing FPS
         const fetchPerformances = async () => {
+            if (!chosenResolution || !chosenSetting)
+                return
             try {
-                if (chosenResolution !== "" && chosenSetting !== "") {
-                    const response = await axios.get(URL);
-                    const receivedFps = response.data.fps;
-                    setFetchedFps(receivedFps);
-                    console.log("fetchedFps", receivedFps);
-                    // Compare fetched FPS with chosen FPS
-                    if (chosenFps) {
-                        setIsFpsMet(receivedFps >= parseInt(chosenFps));
-                    }
+                const response = await axios.get(URL);
+                const receivedFps = response.data.fps;
+                setFetchedFps(receivedFps);
+                // Compare fetched FPS with chosen FPS
+                if (chosenFps) {
+                    setIsFpsMet(receivedFps >= parseInt(chosenFps));
                 }
             } catch (error) {
-                console.log(`Error fetching game requirements: `, error);
+                if (error.response && error.response.status === 404) {
+                    setIsFpsMet(null);
+                    setFetchedFps(null);
+                } else if (error.response && error.response.status === 422) {
+                    setIsFpsMet(false);
+                    setFetchedFps(null);
+                } else {
+                    console.log(`Error fetching game requirements: `, error);
+                }
             }
         };
         fetchPerformances();
@@ -73,21 +80,21 @@ const GamePage = () => {
                         setFps={setFps}/>
 
                     {/* Show we have no info if no FPS info was fetched */}
-                    {chosenFps && fetchedFps && isFpsMet === null && (
+                    {chosenFps && fetchedFps === null && isFpsMet === null && (
                         <Typography variant="h6">
                             Unknown performance for this setup & settings ❓
                         </Typography>
                     )}
 
                     {/* Show if the user can run or not depending on the FPS fetched */}
-                    {chosenFps && fetchedFps && isFpsMet !== null && (
+                    {chosenFps && isFpsMet !== null && (
                         <Typography variant="h6">
                             Your chosen FPS ({chosenFps}) is {isFpsMet ? "achievable ✅" : "not achievable ❌"}.
                         </Typography>
                     )}
 
                     {/* Show the best the user can expect if they didn't pick target FPS */}
-                    {chosenFps === null && fetchedFps && (
+                    {chosenFps === null && fetchedFps &&  (
                         <Typography variant="h6">
                             The best FPS you can expect on average: {fetchedFps}
                         </Typography>

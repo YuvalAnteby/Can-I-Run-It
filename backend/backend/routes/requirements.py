@@ -82,8 +82,12 @@ async def get_requirement(
         # print("GameDoc: ", game_doc)
         # Extract matching setups
         for setup in game_doc["setups"]:
-            if (setup["cpu_id"] == cpu_id and setup["gpu_id"] == gpu_id and setup["ram"] <= ram
-                    and (fps is None or setup["fps"] <= fps)):
+            if (
+                    setup["cpu_id"] == cpu_id and
+                    setup["gpu_id"] == gpu_id and
+                    setup["ram"] <= ram and
+                    (fps is None or (setup["fps"] is not None and setup["fps"] > fps))
+            ):
                 return (GameSetupRequest(game_id=game_id,
                                          cpu_id=setup["cpu_id"],
                                          gpu_id=setup["gpu_id"],
@@ -96,6 +100,9 @@ async def get_requirement(
                                          verified=setup.get("verified"),
                                          id=str(game_doc["_id"])
                                          ).model_dump())
+            else:
+                raise HTTPException(status_code=422, detail="Setup found but doesn't meet desired FPS")
+        raise HTTPException(status_code=404, detail="No matching setup found for the provided filters")
     except HTTPException as http_exception:
         raise http_exception
     except Exception as e:
