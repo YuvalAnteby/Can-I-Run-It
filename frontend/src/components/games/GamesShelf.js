@@ -67,7 +67,7 @@ const GamesShelf = ({title, fetchUrl, params, cpu, gpu, ramAmount, loading}) => 
                         : games.map((game) => (
                             <Box
                                 key={game.id}
-                                sx={{ width: { xs: '100%', sm: '48%', md: '23%' }, mb: 2 }}
+                                sx={{minWidth: 200 }}
                             >
                                 <GameCard game={game} cpu={cpu} gpu={gpu} ramAmount={ramAmount} />
                             </Box>
