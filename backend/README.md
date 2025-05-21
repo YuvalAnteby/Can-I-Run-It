@@ -66,13 +66,16 @@ async def get_gpu_by_brand(brand: str)
 - Python 3.11+ (for non-Dockerized devs)
 - MongoDB with data
 
-#### With Docker
-
+### Clone and build the repo
 ```bash
 git clone https://github.com/YuvalAnteby/Can-I-Run-It.git
 cd Can-I-Run-It
-docker-compose build
-docker-compose up app
+docker compose build
+```
+
+### Run the backend and MongoDB 
+```bash
+docker compose up backend
 ```
 
 API:  [`http://localhost:8000`](http://localhost:8000)<br />
