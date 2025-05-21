@@ -1,5 +1,5 @@
 import React, {useState} from 'react';
-import {Button} from "@mui/material";
+import {Box, Button} from "@mui/material";
 import RamSelection from "../components/hardware/RamSelection";
 import HardwareSelection from "../components/hardware/HardwareSelection";
 import {useNavigate} from "react-router-dom";
@@ -42,33 +42,33 @@ const SetupFill = () => {
 
     return (
         /* Main div */
-        <div
-            style={{
+        <Box
+            sx={{
                 height: '100vh',
                 display: 'flex',
                 flexDirection: 'column',
                 textAlign: 'center',
                 alignItems: 'center',
-                justifyContent: 'center',
+                justifyContent: 'space-evenly',
                 width: '100%',
             }}>
-            <h2 style={{marginBottom: '5px'}}>Let's find your CPU</h2>
+
             {/* CPU div */}
-            <div
-                style={{
+            <Box
+                sx={{
                     width: '60%', // Ensure the CpuSelection takes up 60% of the container's width
                     display: 'flex',
                     flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
                 }}>
+                <h2 style={{marginBottom: '5px'}}>Let's find your CPU</h2>
                 <HardwareSelection type="CPU"
                                    brand={cpuBrand}
                                    setBrand={setCpuBrand}
                                    hardware={cpu}
                                    setHardware={setCpu}
                                    onChange={handleContinueToGpu}/>
-
                 <Button
                     variant="contained"
                     sx={{margin: '10px'}}
@@ -76,21 +76,20 @@ const SetupFill = () => {
                     disabled={!cpu}>
                     Continue to pick your GPU
                 </Button>
-            </div>
+            </Box>
 
             {/* GPU div */}
             {showGpu && cpu && (
-                <div
-                    style={{
-                        height: '100vh',
+                <Box
+                    sx={{
                         width: '100%',
                         display: 'flex',
                         flexDirection: 'column',
                         alignItems: 'center',
                     }}>
                     <h2 style={{marginBottom: '0px'}}>Now let's find your GPU</h2>
-                    <div
-                        style={{
+                    <Box
+                        sx={{
                             width: '60%', // Ensure the CpuSelection takes up 60% of the container's width
                             display: 'flex',
                             flexDirection: 'column',
@@ -110,24 +109,21 @@ const SetupFill = () => {
                             disabled={!gpu || !cpu}>
                             Continue to pick your RAM amount
                         </Button>
-                    </div>
-                </div>
+                    </Box>
+                </Box>
             )}
 
             {/* RAM div */}
             {showRam && showGpu && cpu && gpu && (
-                <div
-                    style={{
-                        height: '100vh',
+                <Box
+                    sx={{
                         width: '100%',
                         display: 'flex',
                         marginTop: '0px',
                         flexDirection: 'column',
                         alignItems: 'center',
                     }}>
-                    <RamSelection style={{
-                        marginTop: '0px',
-                    }} ramAmount={ramAmount} setRamAmount={setRamAmount}/>
+                    <RamSelection sx={{marginTop: '0px'}} ramAmount={ramAmount} setRamAmount={setRamAmount}/>
 
                     <Button
                         variant="contained"
@@ -136,10 +132,10 @@ const SetupFill = () => {
                         disabled={!ramAmount || !cpu || !gpu}>
                         Continue to games
                     </Button>
-                </div>
+                </Box>
             )}
 
-        </div>
+        </Box>
     );
 }
 export default SetupFill;
