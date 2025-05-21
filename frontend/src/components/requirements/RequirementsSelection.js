@@ -39,7 +39,7 @@ const RequirementsSelection = ({game, resolution, setResolution, setting, setSet
                 </Select>
             </FormControl>
             {/* FPS picker */}
-            <FpsPicker minFps={0} maxFps={240} fps={fps} setFps={setFps}/>
+            <FpsPicker minFps={30} maxFps={240} fps={fps} setFps={setFps}/>
 
         </Box>
     )
