@@ -31,14 +31,13 @@ const GamePage = () => {
                     const response = await axios.get(URL);
                     const receivedFps = response.data.fps;
                     setFetchedFps(receivedFps);
-                    console.log("fetchedFps", receivedFps);
                     // Compare fetched FPS with chosen FPS
                     if (chosenFps) {
                         setIsFpsMet(receivedFps >= parseInt(chosenFps));
                     }
                 }
             } catch (error) {
-                console.log(`Error fetching game requirements: `, error);
+                console.error(`Error fetching game requirements: `, error);
             }
         };
         fetchPerformances();
@@ -87,7 +86,7 @@ const GamePage = () => {
                     )}
 
                     {/* Show the best the user can expect if they didn't pick target FPS */}
-                    {chosenFps === null && fetchedFps && (
+                    {((chosenFps === null && fetchedFps) || (chosenFps === 0 && fetchedFps)) && (
                         <Typography variant="h6">
                             The best FPS you can expect on average: {fetchedFps}
                         </Typography>
