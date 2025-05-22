@@ -6,7 +6,7 @@ import RequirementsSelection from "../components/requirements/RequirementsSelect
 import axios from "axios";
 import AdditionalInfo from "../components/requirements/AdditionalInfo";
 
-const GamePage = () => {
+const GameDetailsPage = () => {
     const location = useLocation();
     //console.log("Location State:", location.state); // Debugging line
     const {game, cpu, gpu, ramAmount} = location.state || {};
@@ -110,4 +110,4 @@ const GamePage = () => {
     );
 };
 
-export default GamePage;
+export default GameDetailsPage;

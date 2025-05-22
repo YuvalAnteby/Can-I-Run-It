@@ -3,8 +3,8 @@ import {Routes, Route} from 'react-router-dom';
 import {ThemeProvider, CssBaseline} from '@mui/material';
 import Welcome from './pages/Welcome';
 import SetupFill from './pages/SetupFill';
-import Games from './pages/Games';
-import GamePage from './pages/GamePage';
+import GamesPage from './pages/GamesPage';
+import GameDetailsPage from './pages/GameDetailsPage';
 import darkTheme from './darkTheme';
 
 
@@ -16,8 +16,8 @@ function App() {
             <Routes>
                 <Route path="/" element={<Welcome/>}/>
                 <Route path="/setup" element={<SetupFill/>}/>
-                <Route path="/games" element={<Games/>}/>
-                <Route path="/game/:gameId" element={<GamePage/>}/>
+                <Route path="/games" element={<GamesPage/>}/>
+                <Route path="/game/:gameId" element={<GameDetailsPage/>}/>
             </Routes>
 
         </ThemeProvider>
