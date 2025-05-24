@@ -3,26 +3,11 @@ import GameCard from "./GameCard";
 import axios from "axios";
 import {Box, Stack, Typography} from "@mui/material";
 import SkeletonCard from "./SkeletonCard";
+import {useGamesShelves} from "../hooks/useGamesShelves";
 
 const GamesShelf = ({title, fetchUrl, params, cpu, gpu, ramAmount, loading}) => {
-    const BASE_URL = process.env.REACT_APP_BASE_URL;
-    const [games, setGames] = useState([]);
 
-
-    useEffect(() => {
-        const fetchGames = async () => {
-            try {
-                const res = await axios.get(`${BASE_URL}${fetchUrl}`, {params});
-                setGames(res.data);
-            } catch (error) {
-                console.error(`Failed to fetch games for ${title}`, error);
-            }
-        };
-        if (!loading) {
-            fetchGames();
-        }
-    }, [fetchUrl, loading, params, title]);
-
+    const games = useGamesShelves({fetchUrl, params, title, loading});
 
     return (
         <Box sx={{mb: 4}}>
@@ -65,10 +50,7 @@ const GamesShelf = ({title, fetchUrl, params, cpu, gpu, ramAmount, loading}) => 
                             <SkeletonCard key={index} />
                         ))
                         : games.map((game) => (
-                            <Box
-                                key={game.id}
-                                sx={{minWidth: 200 }}
-                            >
+                            <Box key={game.id} sx={{minWidth: 200 }}>
                                 <GameCard game={game} cpu={cpu} gpu={gpu} ramAmount={ramAmount} />
                             </Box>
                         ))
