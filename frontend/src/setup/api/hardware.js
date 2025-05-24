@@ -3,7 +3,7 @@
  */
 import axios from "axios";
 
-const BASE_URL = "http://localhost:8000/api"
+const BASE_URL = process.env.REACT_BASE_URL;
 
 /**
  * Gets names of CPU brands.
@@ -42,7 +42,7 @@ export const getModelsByBrand = async (type, brand) => {
  * @returns {Promise<Array>} array of matching hardware model objects
  */
 export const getModelByName = async (type, model) => {
-  const url = `${BASE_URL}/api/hardware/${type.toLowerCase()}s/model?model=${model}`;
+  const url = `${BASE_URL}/hardware/${type.toLowerCase()}s/model?model=${model}`;
   const res = await axios.get(url);
   return res.data;
 };

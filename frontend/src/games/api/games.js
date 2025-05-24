@@ -3,15 +3,14 @@
  */
 import axios from "axios";
 
-
-const ALL_GAMES_URL = `http://localhost:8000/api/games`
+const BASE_URL = process.env.REACT_BASE_URL;
 
 /**
  * Fetches the shelves for the games page
  * @returns {Promise<any>}
  */
 export const fetchShelvesConfigs = async () => {
-    const res = await axios.get("http://localhost:8000/api/games/row-config");
+    const res = await axios.get(`${BASE_URL}/games/row-config`);
     console.log(res.data);
     return res.data;
 };
@@ -21,6 +20,6 @@ export const fetchShelvesConfigs = async () => {
  * @returns {Promise<any>} list of game objects
  */
 export const fetchGames = async () => {
-    const response = await axios.get(ALL_GAMES_URL);
+    const response = await axios.get(`${BASE_URL}/games`);
     return response.data;
 }

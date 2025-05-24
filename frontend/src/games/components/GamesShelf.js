@@ -5,14 +5,14 @@ import {Box, Stack, Typography} from "@mui/material";
 import SkeletonCard from "./SkeletonCard";
 
 const GamesShelf = ({title, fetchUrl, params, cpu, gpu, ramAmount, loading}) => {
-
+    const BASE_URL = process.env.REACT_BASE_URL;
     const [games, setGames] = useState([]);
 
 
     useEffect(() => {
         const fetchGames = async () => {
             try {
-                const res = await axios.get("http://localhost:8000/api" + fetchUrl, {params});
+                const res = await axios.get(`${BASE_URL}/${fetchUrl}`, {params});
                 setGames(res.data);
             } catch (error) {
                 console.error(`Failed to fetch games for ${title}`, error);

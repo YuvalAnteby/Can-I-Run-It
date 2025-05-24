@@ -6,7 +6,8 @@ import axios from "axios";
  * @returns {Promise<*>} FPS estimation from backend
  */
 export const fetchPerformanceResult = async (params) => {
-    const url = new URL("http://localhost:8000/api/req/game-requirements/");
+    const BASE_URL = process.env.REACT_BASE_URL;
+    const url = new URL(`${BASE_URL}/req/game-requirements/`);
 
     Object.entries(params).forEach(([key, val]) => {
         if (val !== null && val !== "") {
