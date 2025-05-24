@@ -2,7 +2,7 @@ import React from 'react';
 import {Box, FormControl, InputLabel, MenuItem, Select} from "@mui/material";
 import FpsPicker from "./FpsPicker";
 
-const RequirementsSelection = ({game, resolution, setResolution, setting, setSetting, fps, setFps}) => {
+const SettingsSelection = ({game, resolution, setResolution, setting, setSetting, fps, setFps}) => {
 
     return (
         <Box sx={{padding: '20px'}}>
@@ -45,4 +45,4 @@ const RequirementsSelection = ({game, resolution, setResolution, setting, setSet
     )
 
 }
-export default RequirementsSelection;
+export default SettingsSelection;

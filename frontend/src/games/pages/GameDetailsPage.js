@@ -2,7 +2,7 @@ import React, {useState} from "react";
 import {useLocation} from "react-router-dom";
 import {Typography, Box} from "@mui/material";
 import GameBanner from "../components/GameBanner";
-import RequirementsSelection from "../../performances/components/RequirementsSelection";
+import SettingsSelection from "../../performances/components/SettingsSelection";
 import AdditionalInfo from "../../performances/components/AdditionalInfo";
 import {useGamePerformance} from "../../performances/hooks/useGamePerformance";
 
@@ -39,7 +39,7 @@ const GameDetailsPage = () => {
             }}>
                 {/* Requirements picker and results */}
                 <Box sx={{flex: 1}}>
-                    <RequirementsSelection
+                    <SettingsSelection
                         game={game}
                         resolution={chosenResolution}
                         setResolution={setResolution}
