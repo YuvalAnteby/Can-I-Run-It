@@ -1,44 +1,25 @@
-import React, {useState} from 'react';
+/**
+ * Guided hardware filling page, a user will pick in the order CPU -> GPU -> RAM and then continue to games.
+ * Flow logic is in useSetupFill hook.
+ */
+import React from 'react';
 import {Box, Button} from "@mui/material";
-import RamSelection from "../components/hardware/RamSelection";
-import HardwareSelection from "../components/hardware/HardwareSelection";
-import {useNavigate} from "react-router-dom";
+import RamSelection from "../components/RamSelection";
+import HardwareSelection from "../components/HardwareSelection";
+import {useSetupFill} from "../hooks/useSetupFill";
 
 const SetupFill = () => {
-    const [cpuBrand, setCpuBrand] = useState(''); // Track selected CPU brand
-    const [cpu, setCpu] = useState(''); // Track selected CPU model
 
-    const [gpuBrand, setGpuBrand] = useState(''); // Track selected GPU brand
-    const [gpu, setGpu] = useState(''); // Track selected GPU model
-
-    const [ramAmount, setRamAmount] = useState('');
-
-    const [showGpu, setShowGpu] = useState(false); // Track if GPU selection should be shown
-    const [showRam, setShowRam] = useState(false); // Track if RAM selection should be shown
-
-    const navigate = useNavigate();
-
-    const handleContinueToGames = () => {
-        if (cpu && gpu && ramAmount) {
-            navigate("/games", {state: {cpu, gpu, ramAmount}})
-        }
-    }
-
-    const handleContinueToGpu = () => {
-        if (cpu) {
-            setShowGpu(true);
-        } else {
-            setShowGpu(false);
-        }
-    };
-
-    const handleContinueToRam = () => {
-        if (cpu && gpu) {
-            setShowRam(true);
-        } else {
-            setShowRam(false);
-        }
-    };
+    const {
+        cpuBrand, setCpuBrand,
+        cpu, setCpu,
+        gpuBrand, setGpuBrand,
+        gpu, setGpu,
+        ramAmount, setRamAmount,
+        showGpu, handleContinueToGpu,
+        showRam, handleContinueToRam,
+        handleContinueToGames
+    } = useSetupFill();
 
     return (
         /* Main div */

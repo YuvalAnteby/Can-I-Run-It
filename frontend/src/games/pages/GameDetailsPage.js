@@ -1,56 +1,25 @@
-import React, {useEffect, useState} from "react";
+import React, {useState} from "react";
 import {useLocation} from "react-router-dom";
 import {Typography, Box} from "@mui/material";
-import GameBanner from "../components/games/GameBanner";
-import RequirementsSelection from "../components/requirements/RequirementsSelection";
-import axios from "axios";
-import AdditionalInfo from "../components/requirements/AdditionalInfo";
+import GameBanner from "../components/GameBanner";
+import SettingsSelection from "../../performances/components/SettingsSelection";
+import AdditionalInfo from "../../performances/components/AdditionalInfo";
+import {useGamePerformance} from "../../performances/hooks/useGamePerformance";
 
-const GamePage = () => {
+const GameDetailsPage = () => {
     const location = useLocation();
-    //console.log("Location State:", location.state); // Debugging line
     const {game, cpu, gpu, ramAmount} = location.state || {};
+
     const [chosenResolution, setResolution] = useState('');
     const [chosenSetting, setSetting] = useState('');
     const [chosenFps, setFps] = useState(null);
-    const [fetchedFps, setFetchedFps] = useState(null); ///TODO remove on release
-    const [isFpsMet, setIsFpsMet] = useState(null);
 
-    useEffect(() => {
-        const URL = `http://localhost:8000/api/req/game-requirements/`
-            + `?game_id=${game.id.trim()}`
-            + `&cpu_id=${cpu.id.trim()}`
-            + `&gpu_id=${gpu.id.trim()}`
-            + `&ram=${ramAmount}`
-            + `&resolution=${chosenResolution}`
-            + `&setting_name=${chosenSetting}`
-            + `${chosenFps ? `&fps=${chosenFps}` : ''}` // Keeping the option to have no FPS chosen or choosing FPS
-        const fetchPerformances = async () => {
-            if (!chosenResolution || !chosenSetting)
-                return
-            try {
-                const response = await axios.get(URL);
-                const receivedFps = response.data.fps;
-                setFetchedFps(receivedFps);
-                // Compare fetched FPS with chosen FPS
-                if (chosenFps) {
-                    setIsFpsMet(receivedFps >= parseInt(chosenFps));
-                }
-            } catch (error) {
-                if (error.response && error.response.status === 404) {
-                    setIsFpsMet(null);
-                    setFetchedFps(null);
-                } else if (error.response && error.response.status === 422) {
-                    setIsFpsMet(false);
-                    setFetchedFps(null);
-                } else {
-                    console.log(`Error fetching game requirements: `, error);
-                }
-            }
-        };
-        fetchPerformances();
-    }, [chosenFps, chosenSetting, chosenResolution, game.id, cpu.id, gpu.id, ramAmount]);
-
+    const {fetchedFps, isFpsMet} = useGamePerformance({
+        game, cpu, gpu, ramAmount,
+        resolution: chosenResolution,
+        setting: chosenSetting,
+        targetFps: chosenFps
+    });
 
     if (!game) {
         return <Typography variant="h4">Error game not found</Typography>;
@@ -70,7 +39,7 @@ const GamePage = () => {
             }}>
                 {/* Requirements picker and results */}
                 <Box sx={{flex: 1}}>
-                    <RequirementsSelection
+                    <SettingsSelection
                         game={game}
                         resolution={chosenResolution}
                         setResolution={setResolution}
@@ -110,4 +79,4 @@ const GamePage = () => {
     );
 };
 
-export default GamePage;
+export default GameDetailsPage;

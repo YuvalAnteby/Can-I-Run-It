@@ -18,7 +18,7 @@ const Welcome = () => {
                 color: textColor,
                 height: '100vh',
             }}>
-            <h1>Welcome to PC Part Picker</h1>
+            <h1>Welcome to Can I Run It</h1>
             <Button variant="contained" style={{ margin: '10px' }}
                     //TODO add users and log in functionality
             >Login</Button>
