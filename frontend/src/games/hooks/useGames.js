@@ -1,5 +1,5 @@
 import {useEffect, useState} from "react";
-import {fetchShelvesConfigs} from "../api/ShelvesConfig";
+import {fetchShelvesConfigs} from "../api/games";
 import {fetchGames} from "../api/games";
 
 /**
