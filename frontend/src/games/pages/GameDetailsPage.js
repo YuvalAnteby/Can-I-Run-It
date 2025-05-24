@@ -1,10 +1,10 @@
 import React, {useState} from "react";
 import {useLocation} from "react-router-dom";
 import {Typography, Box} from "@mui/material";
-import GameBanner from "../components/games/GameBanner";
-import RequirementsSelection from "../components/requirements/RequirementsSelection";
-import AdditionalInfo from "../components/requirements/AdditionalInfo";
-import {useGamePerformance} from "../hooks/useGamePerformance";
+import GameBanner from "../components/GameBanner";
+import RequirementsSelection from "../../performances/components/RequirementsSelection";
+import AdditionalInfo from "../../performances/components/AdditionalInfo";
+import {useGamePerformance} from "../../performances/hooks/useGamePerformance";
 
 const GameDetailsPage = () => {
     const location = useLocation();

@@ -14,7 +14,7 @@ import {
     Select,
     TextField
 } from "@mui/material";
-import {useHardwareSearch} from '../../hooks/useHardwareSearch';
+import {useHardwareSearch} from '../hooks/useHardwareSearch';
 
 const HardwareSelection = ({type, brand, setBrand, hardware, setHardware}) => {
     const {companies, searchResults} = useHardwareSearch(type, brand, hardware, setHardware);

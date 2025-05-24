@@ -4,7 +4,7 @@
  */
 
 import {useEffect, useState} from "react";
-import {fetchPerformanceResult} from "../api/requirements";
+import {fetchPerformanceResult} from "../../setup/api/requirements";
 
 export const useGamePerformance = ({game, cpu, gpu, ramAmount, resolution, setting, targetFps}) => {
 

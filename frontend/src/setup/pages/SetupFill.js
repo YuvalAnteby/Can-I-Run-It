@@ -4,8 +4,8 @@
  */
 import React from 'react';
 import {Box, Button} from "@mui/material";
-import RamSelection from "../components/hardware/RamSelection";
-import HardwareSelection from "../components/hardware/HardwareSelection";
+import RamSelection from "../components/RamSelection";
+import HardwareSelection from "../components/HardwareSelection";
 import {useSetupFill} from "../hooks/useSetupFill";
 
 const SetupFill = () => {

@@ -1,5 +1,5 @@
 import React, {useEffect, useState} from 'react';
-import GameCard from "../games/GameCard";
+import GameCard from "./GameCard";
 import axios from "axios";
 import {Box, Stack, Typography} from "@mui/material";
 import SkeletonCard from "./SkeletonCard";

@@ -1,7 +1,7 @@
 import React from 'react';
 import {useLocation} from "react-router-dom";
 import {Box, Skeleton} from "@mui/material";
-import GamesShelf from "../components/games/GamesShelf";
+import GamesShelf from "../components/GamesShelf";
 import {useGames} from "../hooks/useGames";
 
 

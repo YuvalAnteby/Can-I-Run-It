@@ -2,9 +2,9 @@ import React from 'react';
 import {Routes, Route} from 'react-router-dom';
 import {ThemeProvider, CssBaseline} from '@mui/material';
 import Welcome from './pages/Welcome';
-import SetupFill from './pages/SetupFill';
-import GamesPage from './pages/GamesPage';
-import GameDetailsPage from './pages/GameDetailsPage';
+import SetupFill from './setup/pages/SetupFill';
+import GamesPage from './games/pages/GamesPage';
+import GameDetailsPage from './games/pages/GameDetailsPage';
 import darkTheme from './darkTheme';
 
 
