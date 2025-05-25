@@ -5,7 +5,7 @@ from httpx import AsyncClient, ASGITransport
 from unittest.mock import AsyncMock, patch
 from bson import ObjectId
 
-from backend.src.routes.requirements import router as requirements_router
+from backend.src.routes.performances import router as requirements_router
 from backend.src.routes.games import router as games_router
 
 

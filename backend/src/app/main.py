@@ -7,7 +7,7 @@ from starlette.middleware.cors import CORSMiddleware
 from backend.src.routes.cpus import router as cpus_router
 from backend.src.routes.gpus import router as gpus_router
 from backend.src.routes.games import router as games_router
-from backend.src.routes.requirements import router as requirements_router
+from backend.src.routes.performances import router as requirements_router
 
 app = FastAPI()
 
