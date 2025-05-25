@@ -4,7 +4,6 @@ import re
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel
 
 from backend.utils.validation import validate_hardware_list
 
@@ -19,20 +18,6 @@ db = client["game_db"]  # Use your desired database name
 router = APIRouter()
 # Use the hardware collection
 collection = db.hardware
-
-
-class Gpu(BaseModel):
-    brand: str
-    model: str
-    fullname: str
-    type: str
-    # Convert ObjectId to string
-    id: str
-
-    class Config:
-        json_encoders = {
-            ObjectId: str  # This will convert ObjectId to a string automatically
-        }
 
 
 @router.get("/gpus")
