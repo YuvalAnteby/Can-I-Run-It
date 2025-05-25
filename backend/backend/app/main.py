@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
@@ -26,7 +28,7 @@ app.include_router(requirements_router, prefix="/api/req", tags=["Requirements"]
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # React frontend origin
+    allow_origins=[os.environ["ALLOWED_ORIGINS"]],  # React frontend origin
     #allow_origins=["*"],  # all origins
     allow_credentials=True,
     allow_methods=["*"],  # Allow all HTTP methods
