@@ -1,7 +1,8 @@
 from bson import ObjectId
 from pydantic import BaseModel
 
-class Cpu(BaseModel):
+
+class Gpu(BaseModel):
     brand: str
     model: str
     fullname: str
@@ -13,3 +14,4 @@ class Cpu(BaseModel):
         json_encoders = {
             ObjectId: str  # This will convert ObjectId to a string automatically
         }
+

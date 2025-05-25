@@ -1,13 +1,9 @@
-import logging
 import os
 from typing import List, Optional, Dict, Any
 
-from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel
 
-from backend.app.database import mongodb
 
 # Connect to MongoDB (this assumes MongoDB is running on localhost)
 client = AsyncIOMotorClient(os.environ["MONGODB_URI"])
@@ -17,24 +13,7 @@ router = APIRouter()
 collection = db.game_requirements
 
 
-class GameSetupRequest(BaseModel):
-    game_id: str
-    cpu_id: str
-    gpu_id: str
-    ram: int
-    resolution: str
-    setting_name: str
-    fps: Optional[int] = None
-    taken_by: str
-    notes: str
-    verified: bool
-    # Convert ObjectId to string
-    id: str
 
-    class Config:
-        json_encoders = {
-            ObjectId: str  # This will convert ObjectId to a string automatically
-        }
 
 
 # TODO add the rest of the variables from setup element of the DB
