@@ -3,9 +3,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient, ASGITransport
-from backend.routes.cpus import router as cpus_router
-from backend.routes.gpus import router as gpus_router
-from tests.conftest import load_data, fake_cpus_list
+
+from backend.src.routes.cpus import router as cpus_router
+from backend.src.routes.gpus import router as gpus_router
+from backend.tests.conftest import load_data
 
 # Create a temporary app with only this router for testing
 app = FastAPI()

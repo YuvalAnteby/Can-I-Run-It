@@ -2,7 +2,7 @@ import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient, ASGITransport
 from unittest.mock import AsyncMock, patch
-from backend.routes.games import router as games_router
+from backend.src.routes.games import router as games_router
 
 # Create a temporary app with only this router for testing
 app = FastAPI()

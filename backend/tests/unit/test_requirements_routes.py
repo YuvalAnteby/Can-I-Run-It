@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from httpx import AsyncClient, ASGITransport
 from unittest.mock import AsyncMock, patch
 
-from backend.routes.requirements import router as requirements_router
+from backend.src.routes.requirements import router as requirements_router
 
 app = FastAPI()
 app.include_router(requirements_router)
