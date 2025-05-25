@@ -30,7 +30,6 @@ export const getGpuBrands = () => {
  * @returns {Promise<Array>} array of hardware model objects
  */
 export const getModelsByBrand = async (type, brand) => {
-    console.log(BASE_URL);
     const url = `${BASE_URL}/hardware/${type.toLowerCase()}s/brand?brand=${brand}`;
     const res = await axios.get(url);
     return res.data;
