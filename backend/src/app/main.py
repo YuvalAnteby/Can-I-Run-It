@@ -1,12 +1,13 @@
 import os
 
 from fastapi import FastAPI
+import uvicorn
 from starlette.middleware.cors import CORSMiddleware
 
-from backend.routes.cpus import router as cpus_router
-from backend.routes.gpus import router as gpus_router
-from backend.routes.games import router as games_router
-from backend.routes.requirements import router as requirements_router
+from backend.src.routes.cpus import router as cpus_router
+from backend.src.routes.gpus import router as gpus_router
+from backend.src.routes.games import router as games_router
+from backend.src.routes.requirements import router as requirements_router
 
 app = FastAPI()
 
@@ -36,5 +37,4 @@ app.add_middleware(
 )
 
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

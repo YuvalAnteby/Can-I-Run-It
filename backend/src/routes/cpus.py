@@ -1,11 +1,10 @@
 import os
 import re
 
-from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
-
-from backend.utils.validation import validate_hardware_list
+from backend.src.models.Cpu import Cpu
+from backend.src.utils.validation import validate_hardware_list
 
 """
 All functions for handling the CPUs in the DB will be here for ease of use and maintainability.

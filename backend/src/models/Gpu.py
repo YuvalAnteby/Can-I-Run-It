@@ -1,6 +1,7 @@
 from pydantic import BaseModel
+from bson import ObjectId
 
-class Cpu(BaseModel):
+class Gpu(BaseModel):
     brand: str
     model: str
     fullname: str

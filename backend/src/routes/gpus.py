@@ -1,11 +1,11 @@
 import os
 import re
 
-from bson import ObjectId
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter
 from motor.motor_asyncio import AsyncIOMotorClient
+from backend.src.models import Gpu
 
-from backend.utils.validation import validate_hardware_list
+from backend.src.utils.validation import validate_hardware_list
 
 """
 All function for handling the GPUs in the DB will be here for ease of use and maintainability.
