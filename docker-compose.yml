@@ -5,7 +5,7 @@ services:
       context: backend
       dockerfile: Dockerfile_test
     environment:
-        - MONGODB_URI=mongodb://mongodb:27017
+      - MONGODB_URI=mongodb://mongodb:27017
 
   # FastAPI backend
   backend:
@@ -16,7 +16,14 @@ services:
     ports:
       - "8000:8000"
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      start_period: 10s
+      interval: 30s
+      timeout: 10s
+      retries: 3
     env_file:
       - .env
     networks:
@@ -41,7 +48,7 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    profiles: ["dev"]
+    profiles: [ "dev" ]
   # React - production environment
   react_prod:
     build:
@@ -55,10 +62,16 @@ services:
       - "3000:3000"
     networks:
       - ciri-net
-    profiles: ["prod"]
+    profiles: [ "prod" ]
   # MongoDB
   mongodb:
     image: mongo:7.0.15
+    healthcheck:
+      test: ["CMD-SHELL", "mongosh --quiet --eval \"db.adminCommand('ping')\""]
+      start_period: 15s
+      interval: 30s
+      timeout: 10s
+      retries: 3
     container_name: ciri-mongo
     ports:
       - "27017:27017"
