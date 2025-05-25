@@ -4,7 +4,6 @@ import re
 from bson import ObjectId
 from fastapi import APIRouter, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel
 
 from backend.utils.validation import validate_hardware_list
 
@@ -14,25 +13,11 @@ For example: fetching all CPUs, fetch CPUs by brand, etc.
 """
 # Connect to MongoDB (this assumes MongoDB is running on localhost)
 client = AsyncIOMotorClient(os.environ["MONGODB_URI"])
-#client = AsyncIOMotorClient('mongodb://localhost:27017')
+# client = AsyncIOMotorClient('mongodb://localhost:27017')
 db = client["game_db"]  # Use your desired database name
 router = APIRouter()
 # Use the hardware collection
 collection = db.hardware
-
-
-class Cpu(BaseModel):
-    brand: str
-    model: str
-    fullname: str
-    type: str
-    # Convert ObjectId to string
-    id: str
-
-    class Config:
-        json_encoders = {
-            ObjectId: str  # This will convert ObjectId to a string automatically
-        }
 
 
 @router.get("/cpus")
