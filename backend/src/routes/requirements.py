@@ -3,6 +3,8 @@ from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 
+from backend.src.models.Performance import GameSetupRequest
+
 # Connect to MongoDB (this assumes MongoDB is running on localhost)
 client = AsyncIOMotorClient(os.environ["MONGODB_URI"])
 db = client["game_db"]  # Use your desired database name
