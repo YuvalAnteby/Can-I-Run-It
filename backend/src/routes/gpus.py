@@ -4,8 +4,8 @@ import re
 from fastapi import APIRouter
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from backend.schemas.Gpu import Gpu
-from backend.utils.validation import validate_hardware_list
+from backend.src.schemas.Gpu import Gpu
+from backend.src.utils.validation import validate_hardware_list
 
 """
 All function for handling the GPUs in the DB will be here for ease of use and maintainability.

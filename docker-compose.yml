@@ -2,16 +2,16 @@ services:
   # Pytest unit testing
   test:
     build:
-      context: backend
-      dockerfile: Dockerfile_test
+      context: .
+      dockerfile: backend/Dockerfile_test
     environment:
       - MONGODB_URI=mongodb://mongodb:27017
 
   # FastAPI backend
   backend:
     build:
-      context: backend
-      dockerfile: Dockerfile_app
+      context: .
+      dockerfile: backend/Dockerfile_app
     container_name: ciri-app
     ports:
       - "8000:8000"

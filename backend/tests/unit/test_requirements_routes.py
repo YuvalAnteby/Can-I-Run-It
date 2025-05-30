@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from httpx import AsyncClient, ASGITransport
 from unittest.mock import AsyncMock, patch
 
-from backend.routes.requirements import router as requirements_router
+from backend.src.routes.requirements import router as requirements_router
 
 app = FastAPI()
 app.include_router(requirements_router)
@@ -12,7 +12,7 @@ app.include_router(requirements_router)
 @pytest.mark.asyncio
 async def test_get_requirement_returns_404_when_game_not_found():
     # Valid game doc, but no matching setup in the list
-    with patch("backend.routes.requirements.collection.find_one", new_callable=AsyncMock) as mock_find_one:
+    with patch("backend.src.routes.requirements.collection.find_one", new_callable=AsyncMock) as mock_find_one:
         mock_find_one.return_value = None
 
         transport = ASGITransport(app=app)

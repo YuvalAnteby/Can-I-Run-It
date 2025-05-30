@@ -4,10 +4,9 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
-from pathlib import Path
-from backend.app.database import mongodb
-from backend.schemas.Game import Game
-from backend.utils.validation import validate_games_list
+from backend.src.app.database import mongodb
+from backend.src.schemas.Game import Game
+from backend.src.utils.validation import validate_games_list
 import json
 
 # Connect to MongoDB (this assumes MongoDB is running on localhost)

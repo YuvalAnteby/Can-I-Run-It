@@ -1,13 +1,14 @@
 FROM python:3
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
 
 WORKDIR /app
 
 # install dependecies
-COPY requirements.txt .
+COPY backend/requirements.txt ./requirements.txt
 RUN python -m pip install -r requirements.txt
 
 COPY . .
 
 # run the tests
-CMD ["pytest", "tests/unit", "--maxfail=1", "--disable-warnings", "-v"]
+CMD ["pytest", "backend/tests/unit", "--maxfail=1", "--disable-warnings", "-v"]
