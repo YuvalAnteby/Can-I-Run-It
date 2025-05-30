@@ -1,7 +1,8 @@
-import {Box, Typography} from "@mui/material";
+import {Box, Button, Typography} from "@mui/material";
 import React from "react";
 
-const MainMessage = () => {
+const MainMessage = ({onCheckClick}) => {
+
     return (
         <Box sx={{
             display: 'flex',
@@ -17,6 +18,12 @@ const MainMessage = () => {
             }}>
                 <Typography variant="h3">Can my PC handle that?</Typography>
                 <Typography variant="h6">Instantly check game performance for your hardware</Typography>
+                <Button
+                    variant="contained"
+                    sx={{marginTop: '24px', backgroundColor: '#AEEA00',}}
+                    onClick={onCheckClick}
+                >Check a game now
+                </Button>
             </Box>
             <Box component="img" src="/home_img.png"
                  sx={{
