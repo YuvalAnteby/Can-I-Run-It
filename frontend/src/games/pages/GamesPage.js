@@ -27,7 +27,7 @@ const GamesPage = () => {
 
     return (
         // Render shelves with fetched game data
-        <Box sx={{padding: '20px'}}>
+        <Box sx={{display: 'flex', flexDirection: 'column', padding: '20px', width: '100%'}}>
             {shelves.map((shelf) => (
                 <GamesShelf
                     key={shelf.row_id}
