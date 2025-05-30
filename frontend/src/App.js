@@ -7,6 +7,7 @@ import GamesPage from './games/pages/GamesPage';
 import GameDetailsPage from './games/pages/GameDetailsPage';
 import darkTheme from './darkTheme';
 import {useHealth} from "./useHealthCheck";
+import Layout from "./shared/components/Layout";
 
 
 function App() {
@@ -24,10 +25,12 @@ function App() {
                     </Alert>
                 )}
                 <Routes>
-                    <Route path="/" element={<Welcome/>}/>
-                    <Route path="/setup" element={<SetupFill/>}/>
-                    <Route path="/games" element={<GamesPage/>}/>
-                    <Route path="/game/:gameId" element={<GameDetailsPage/>}/>
+                    <Route element={<Layout/>}>
+                        <Route path="/" element={<Welcome/>}/>
+                        <Route path="/setup" element={<SetupFill/>}/>
+                        <Route path="/games" element={<GamesPage/>}/>
+                        <Route path="/game/:gameId" element={<GameDetailsPage/>}/>
+                    </Route>
                 </Routes>
             </>
         </ThemeProvider>
