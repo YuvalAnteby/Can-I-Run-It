@@ -14,7 +14,6 @@ const darkTheme = createTheme({
             primary: '#e0e1dd', // Text color everywhere
             secondary: '#aeb2c2',
         },
-        divider: 'rgba(224,225,221,0.2)',
     },
     components: {
         MuiInputLabel: {
@@ -45,24 +44,6 @@ const darkTheme = createTheme({
                 root: {
                     backgroundColor: '#415a77',
                     '&:hover': { backgroundColor: '#2d3e50' },
-                },
-            },
-        },
-        MuiAppBar: {
-            defaultProps: { color: 'transparent', elevation: 0 },
-            styleOverrides: {
-                root: {
-                    backgroundColor: '#1b263b',
-                    borderColor: 'divider',
-                    borderBottom: `1px solid rgba(224,225,221,0.15)`,
-
-                },
-            },
-        },
-        MuiButtonBase: {
-            styleOverrides: {
-                root: {
-                    '&:hover': { opacity: 1 },
                 },
             },
         },

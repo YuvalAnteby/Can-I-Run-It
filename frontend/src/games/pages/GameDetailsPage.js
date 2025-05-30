@@ -26,7 +26,7 @@ const GameDetailsPage = () => {
     }
 
     return (
-        <Box sx={{padding: 3}}>
+        <Box sx={{padding: 3, width: "100%", height: "100%", paddingTop: '60px',}}>
             {/* Trailer with basic info of the game */}
             <GameBanner game={game}/>
 
