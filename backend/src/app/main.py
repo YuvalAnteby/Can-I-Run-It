@@ -1,5 +1,4 @@
 import os
-from sys import prefix
 
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
