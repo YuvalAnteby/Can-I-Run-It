@@ -122,8 +122,7 @@ and [frontend/README.md](https://github.com/YuvalAnteby/Can-I-Run-It/blob/main/f
 
 ## 🖼️ Screenshots
 <p float="left">
-<img src="screenshots/hardware fill end.png" width="48%" alt="hardware selection">
-<img src="screenshots/main games selection.png" width="48%" alt="main game selection">
+<img src="screenshots/home%20page%20desktop.png" alt="main game selection">
 </p>
 
 <p float="left">
