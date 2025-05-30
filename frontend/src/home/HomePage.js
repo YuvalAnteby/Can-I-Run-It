@@ -9,6 +9,7 @@ const HomePage = () => {
 
     const textColor = '#e0e1dd';
     const navigate = useNavigate(); //Hook to navigate to another page
+
     return (
         <Box
             sx={{

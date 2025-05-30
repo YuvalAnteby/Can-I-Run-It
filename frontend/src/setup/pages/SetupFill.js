@@ -7,8 +7,13 @@ import {Box, Button} from "@mui/material";
 import RamSelection from "../components/RamSelection";
 import HardwareSelection from "../components/HardwareSelection";
 import {useSetupFill} from "../hooks/useSetupFill";
+import {useSetup} from "../../shared/contexts/SetupContext";
+import {useLocation, useNavigate} from "react-router-dom";
 
 const SetupFill = () => {
+    const {setup, setSetup} = useSetup();
+    const navigate = useNavigate();
+    const location = useLocation();
 
     const {
         cpuBrand, setCpuBrand,
@@ -18,8 +23,15 @@ const SetupFill = () => {
         ramAmount, setRamAmount,
         showGpu, handleContinueToGpu,
         showRam, handleContinueToRam,
-        handleContinueToGames
     } = useSetupFill();
+
+    const returnTo = location.state?.from || "";
+    const handleFinish = () => {
+        if (!cpu || !gpu || !ramAmount) return;
+        setSetup({cpu, gpu, ram: ramAmount});
+        navigate(returnTo);
+    };
+
 
     return (
         /* Main div */
@@ -108,9 +120,10 @@ const SetupFill = () => {
                     <Button
                         variant="contained"
                         sx={{margin: '10px'}}
-                        onClick={handleContinueToGames}
-                        disabled={!ramAmount || !cpu || !gpu}>
-                        Continue to games
+                        disabled={!ramAmount || !cpu || !gpu}
+                        onClick={handleFinish}
+                    >
+                        Continue
                     </Button>
                 </Box>
             )}

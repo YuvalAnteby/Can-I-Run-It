@@ -17,20 +17,12 @@
     "row_id": "action"
   },
   {
-    "title": "RPG Games",
+    "title": "Has Performance Info",
     "fetch_url": "/games/category",
     "params": {
-      "genre": "RPG",
+      "genre": "Has Performance Info",
       "limit": 10
     },
-    "row_id": "rpg"
-  },
-  {
-    "title": "All Games",
-    "fetch_url": "/games/",
-    "params": {
-      "limit": 10
-    },
-    "row_id": "all"
+    "row_id": "has_info"
   }
 ]

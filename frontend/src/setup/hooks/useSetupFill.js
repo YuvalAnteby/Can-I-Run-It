@@ -3,7 +3,6 @@
  * Controls when to show each step and navigates to games page when setup is complete.
  */
 import {useState} from "react";
-import {useNavigate} from "react-router-dom";
 
 export const useSetupFill = () => {
     const [cpuBrand, setCpuBrand] = useState(''); // Track selected CPU brand
@@ -17,20 +16,12 @@ export const useSetupFill = () => {
     const [showGpu, setShowGpu] = useState(false); // Track if GPU selection should be shown
     const [showRam, setShowRam] = useState(false); // Track if RAM selection should be shown
 
-    const navigate = useNavigate();
-
     const handleContinueToGpu = () => {
         setShowGpu(!!cpu);
     };
 
     const handleContinueToRam = () => {
         setShowRam(!!cpu && !!gpu);
-    };
-
-    const handleContinueToGames = () => {
-        if (cpu && gpu && ramAmount) {
-            navigate("/games", {state: {cpu, gpu, ramAmount}})
-        }
     };
 
     return {
@@ -41,6 +32,5 @@ export const useSetupFill = () => {
         ramAmount, setRamAmount,
         showGpu, handleContinueToGpu,
         showRam, handleContinueToRam,
-        handleContinueToGames
     };
 };

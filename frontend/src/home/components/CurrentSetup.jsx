@@ -1,7 +1,13 @@
 import {Box, Button, Typography} from "@mui/material";
 import React from "react";
+import {useSetup} from "../../shared/contexts/SetupContext";
+import {useLocation, useNavigate} from "react-router-dom";
 
 const CurrentSetup = () => {
+    const {setup} = useSetup();
+    const navigate = useNavigate();
+    const location = useLocation();
+
     return (
         <Box
             border={1}                 // 1px solid (theme.palette.divider)
@@ -19,23 +25,23 @@ const CurrentSetup = () => {
             <Box sx={{
                 display: 'flex',
                 flexDirection: 'column',
-
-            }}>
+            }}
+            >
                 <Typography variant="h6" sx={{fontWeight: 'bold', textAlign: 'center'}}>Your current setup</Typography>
-                {/* TODO fetch user setup to show up here, or a setup we just picked for a guest */}
+
                 <Typography variant="body2" color="textSecondary" sx={{textAlign: 'center'}}
                 >
-                    No setup saved
+                    {setup.cpu ? `${setup.cpu.model}, ${setup.gpu.model}, ${setup.ram} GB` : "No setup saved"}
                 </Typography>
             </Box>
             <Button
                 variant="contained"
                 sx={{margin: '12px'}}
                 onClick={() => {
-                    console.log("clicked edit setup")
+                    navigate("/setup", {state: {from: location.pathname}});
                 }}
             >
-                Update setup
+                {setup.cpu ? "Update setup" : "Create setup"}
             </Button>
         </Box>
     )
