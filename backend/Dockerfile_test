@@ -4,8 +4,8 @@ ENV PYTHONUNBUFFERED=1
 WORKDIR /app
 
 # install dependecies
-COPY requiremenets.txt .
-RUN python -m pip install -r requiremenets.txt
+COPY requirements.txt .
+RUN python -m pip install -r requirements.txt
 
 COPY . .
 
