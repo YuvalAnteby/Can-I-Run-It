@@ -4,7 +4,7 @@ import re
 from fastapi import APIRouter
 from motor.motor_asyncio import AsyncIOMotorClient
 
-from backend.models.Gpu import Gpu
+from backend.schemas.Gpu import Gpu
 from backend.utils.validation import validate_hardware_list
 
 """

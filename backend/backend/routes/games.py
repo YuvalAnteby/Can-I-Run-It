@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException
 from motor.motor_asyncio import AsyncIOMotorClient
 from pathlib import Path
 from backend.app.database import mongodb
-from backend.models.Game import Game
+from backend.schemas.Game import Game
 from backend.utils.validation import validate_games_list
 import json
 
