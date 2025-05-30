@@ -14,12 +14,14 @@ const HomePage = () => {
             sx={{
                 display: 'flex',
                 flexDirection: 'column',
+                width: '100%',
                 alignItems: 'center',
                 color: textColor,
             }}>
             {/* main message */}
             <MainMessage />
-
+            {/* current setup */}
+            <CurrentSetup />
 
         </Box>
     );
