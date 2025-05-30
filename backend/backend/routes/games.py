@@ -88,23 +88,6 @@ async def search_games(name: Optional[str] = None, year: Optional[str] = None, p
 
     return [Game(**game) for game in games]
 
-
-@router.get("/games/row-config")
-async def get_row_config():
-    """
-    Load and return the row config JSON file.
-    """
-    try:
-        config_path = Path(__file__).parent.parent / "config" / "row-config.json"
-        with open(config_path, "r") as f:
-            data = json.load(f)
-        return data
-    except FileNotFoundError:
-        raise HTTPException(status_code=404, detail="Row config file not found.")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error loading config: {str(e)}")
-
-
 @router.get("/games/home-rows")
 async def get_home_shelves():
     """
