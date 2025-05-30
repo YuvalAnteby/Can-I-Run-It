@@ -1,6 +1,7 @@
 import os
+from sys import prefix
 
-from fastapi import FastAPI
+from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
 
 from backend.src.routes.cpus import router as cpus_router
@@ -10,8 +11,15 @@ from backend.src.routes.health import router as health_router
 from backend.src.routes.requirements import router as requirements_router
 
 app = FastAPI()
-
+api_router = APIRouter(prefix="/api")
 # Include routers
+api_router.include_router(cpus_router, prefix="/hardware", tags=["CPUs"])
+api_router.include_router(gpus_router, prefix="/hardware", tags=["GPUs"])
+api_router.include_router(games_router, prefix="", tags=["Games"])
+api_router.include_router(health_router, prefix="", tags=["Health"])
+api_router.include_router(requirements_router, prefix="/req", tags=["Requirements"])
+app.include_router(api_router)
+
 @app.get("/")
 def read_root():
     """
@@ -20,12 +28,6 @@ def read_root():
     :return:
     """
     return {"message": "Welcome to the Can You Run It Backend!"}
-
-app.include_router(cpus_router, prefix="/api/hardware", tags=["CPUs"])
-app.include_router(gpus_router, prefix="/api/hardware", tags=["GPUs"])
-app.include_router(games_router, prefix="/api", tags=["Games"])
-app.include_router(health_router, prefix="/api", tags=["Health"])
-app.include_router(requirements_router, prefix="/api/req", tags=["Requirements"])
 
 # Add CORS middleware
 app.add_middleware(
