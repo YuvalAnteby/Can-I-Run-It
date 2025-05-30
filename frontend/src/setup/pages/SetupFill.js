@@ -25,6 +25,7 @@ const SetupFill = () => {
         /* Main div */
         <Box
             sx={{
+                height: '100vh',
                 display: 'flex',
                 flexDirection: 'column',
                 textAlign: 'center',
