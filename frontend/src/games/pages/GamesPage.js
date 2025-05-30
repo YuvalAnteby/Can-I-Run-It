@@ -9,9 +9,9 @@ const GamesPage = () => {
 
     const location = useLocation();
     const {cpu, gpu, ramAmount} = location.state || {};
-    const {shelves, games, loading} = useGames(cpu, gpu, ramAmount);
+    const {shelves, games} = useGames(cpu, gpu, ramAmount);
 
-    if (loading) {
+   /* if (loading) {
         // Show a skeleton loading animation
         return (
             <Box sx={{padding: '20px'}}>
@@ -23,7 +23,7 @@ const GamesPage = () => {
                 ))}
             </Box>
         );
-    }
+    } */
 
     return (
         // Render shelves with fetched game data
@@ -37,7 +37,6 @@ const GamesPage = () => {
                     cpu={cpu}
                     gpu={gpu}
                     ramAmount={ramAmount}
-                    loading={loading}
                 />
             ))}
         </Box>

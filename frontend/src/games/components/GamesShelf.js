@@ -2,11 +2,12 @@ import React from 'react';
 import GameCard from "./GameCard";
 import {Box, Typography} from "@mui/material";
 import SkeletonCard from "./SkeletonCard";
-import {useGamesShelves} from "../hooks/useGamesShelves";
+import {useHomeShelves} from "../hooks/useGamesShelves";
 
-const GamesShelf = ({title, fetchUrl, params, cpu, gpu, ramAmount, loading}) => {
+const GamesShelf = ({title, fetchUrl, cpu, gpu, ramAmount}) => {
 
-    const games = useGamesShelves({fetchUrl, params, title, loading});
+    const games = useHomeShelves({fetchUrl, title});
+    const loading = false;
 
     return (
         <Box>
@@ -18,14 +19,6 @@ const GamesShelf = ({title, fetchUrl, params, cpu, gpu, ramAmount, loading}) => 
                 alignItems: 'baseline',
             }}>
                 <Typography variant="h5">{title}</Typography>
-                <Typography
-                    variant="body2"
-                    color="textSecondary"
-                    onClick={() => console.log(`Browsing more from "${title}" shelf`)} // placeholder
-                    sx={{cursor: 'pointer'}}
-                >
-                    BROWSE MORE
-                </Typography>
             </Box>
 
             <Box sx={{
@@ -35,7 +28,7 @@ const GamesShelf = ({title, fetchUrl, params, cpu, gpu, ramAmount, loading}) => 
                 py: 1,
                 '&::-webkit-scrollbar': {display: 'none'}, // optional: hide scrollbar
             }}>
-                {loading
+                { loading
                     ? [...Array(4)].map((_, index) => (
                         <SkeletonCard key={index}/>
                     ))
