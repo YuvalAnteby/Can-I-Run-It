@@ -1,6 +1,7 @@
 import {useEffect, useState} from "react";
-import {fetchShelvesConfigs} from "../api/games";
+import {fetchHomeShelves, fetchShelvesConfigs} from "../api/games";
 import {fetchGames} from "../api/games";
+import {useSetup} from "../../shared/contexts/SetupContext";
 
 /**
  * Fetches games from the backend, handles debouncing search input, filtering games and fetching shelves
@@ -18,8 +19,9 @@ import {fetchGames} from "../api/games";
  * ram: number
  * }}
  */
-export const useGames = (cpu, gpu, ram) => {
-
+export const useGames = () => {
+    const {setup} = useSetup();
+    const cpu = setup.cpu, gpu = setup.gpu, ram = setup.ram;
     const [shelves, setShelves] = useState([]);
     const [games, setGames] = useState([]); // All games from API
     const [filteredGames, setFilteredGames] = useState([]); // Games matching search
@@ -61,7 +63,7 @@ export const useGames = (cpu, gpu, ram) => {
     useEffect(() => {
         const loadShelves = async () => {
             try {
-                const data = await fetchShelvesConfigs();
+                const data = await fetchHomeShelves();
                 setShelves(data);
             } catch (error) {
                 console.error("Failed to load shelf config:", error);

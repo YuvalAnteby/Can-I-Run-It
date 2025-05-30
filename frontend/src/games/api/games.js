@@ -15,13 +15,22 @@ export const fetchShelvesConfigs = async () => {
 };
 
 /**
+ * Fetches the shelves for the home page
+ * @returns {Promise<any>}
+ */
+export const fetchHomeShelves = async () => {
+    const res = await axios.get(`${BASE_URL}/games/home-rows`);
+    return res.data;
+};
+
+/**
  * Fetches games for a specific game shelf
  * @param fetchUrl shelf related pathing in URL
- * @param params extra params (e.g. limit)
  * @returns {Promise<any>} list of game objects
  */
-export const fetchGamesByShelf = async (fetchUrl, params) => {
-    const res = await axios.get(`${BASE_URL}${fetchUrl}`, {params});
+export const fetchGamesByShelf = async (fetchUrl) => {
+    console.log(`URL: ${BASE_URL}${fetchUrl}`);
+    const res = await axios.get(`${BASE_URL}${fetchUrl}`);
     return res.data;
 }
 
