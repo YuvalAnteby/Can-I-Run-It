@@ -1,7 +1,7 @@
 import React from 'react';
 import {Routes, Route} from 'react-router-dom';
 import {ThemeProvider, CssBaseline, Alert} from '@mui/material';
-import Welcome from './pages/Welcome';
+import HomePage from './home/HomePage';
 import SetupFill from './setup/pages/SetupFill';
 import GamesPage from './games/pages/GamesPage';
 import GameDetailsPage from './games/pages/GameDetailsPage';
@@ -26,7 +26,7 @@ function App() {
                 )}
                 <Routes>
                     <Route element={<Layout/>}>
-                        <Route path="/" element={<Welcome/>}/>
+                        <Route path="/" element={<HomePage/>}/>
                         <Route path="/setup" element={<SetupFill/>}/>
                         <Route path="/games" element={<GamesPage/>}/>
                         <Route path="/game/:gameId" element={<GameDetailsPage/>}/>
