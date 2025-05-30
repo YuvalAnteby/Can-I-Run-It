@@ -104,4 +104,20 @@ async def get_row_config():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error loading config: {str(e)}")
 
-#async def get_games_rawg():
+
+@router.get("/games/home-rows")
+async def get_home_shelves():
+    """
+    Gets the home page shelves from the DB
+    """
+    config_collection = db.get_collection("configs")
+    docs = await config_collection.find({"name": "home_page"}, {"_id": 0}).to_list(length=1)
+    if not docs:
+        return []
+    # Make sure only enabled shelves are returned
+    shelves = docs[0].get("shelves", [])
+    enabled_shelves = []
+    for i in shelves:
+        if i.get("enabled"):
+            enabled_shelves.append(i)
+    return enabled_shelves
