@@ -1,4 +1,4 @@
-from backend.src.app.database import mongo_db
+from backend.src.app.database import client
 from fastapi import APIRouter, HTTPException
 
 router = APIRouter()
@@ -10,8 +10,9 @@ async def health_check():
     """
     try:
         # MongoDB “ping” command
-        await mongo_db.admin.command("ping")
-    except Exception:
+        await client.admin.command("ping")
+    except Exception as e:
+        print("health ERROR: ", e)
         # If ping fails, return 503
         raise HTTPException(status_code=503, detail="MongoDB unreachable")
     # If ping succeeds, return simple healthy response
