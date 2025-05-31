@@ -15,7 +15,7 @@ api_router = APIRouter(prefix="/api")
 api_router.include_router(cpus_router, prefix="/hardware", tags=["CPUs"])
 api_router.include_router(gpus_router, prefix="/hardware", tags=["GPUs"])
 api_router.include_router(games_router, prefix="", tags=["Games"])
-api_router.include_router(health_router, prefix="", tags=["Health"])
+api_router.include_router(health_router, prefix="/health", tags=["Health"])
 api_router.include_router(requirements_router, prefix="/req", tags=["Requirements"])
 app.include_router(api_router)
 
