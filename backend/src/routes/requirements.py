@@ -1,19 +1,14 @@
-import os
 from typing import List, Optional, Dict, Any
+from backend.src.app.database import mongo_db
 
 from fastapi import APIRouter, HTTPException
-from motor.motor_asyncio import AsyncIOMotorClient
 
+from backend.src.controllers.requirements import fetch_game_doc, find_matching_setup
+from backend.src.schemas.Performance import GameSetupRequest, build_setup_response
 
-# Connect to MongoDB (this assumes MongoDB is running on localhost)
-client = AsyncIOMotorClient(os.environ["MONGODB_URI"])
-db = client["game_db"]  # Use your desired database name
 router = APIRouter()
 # Use the games collection
-collection = db.game_requirements
-
-
-
+collection = mongo_db.game_requirements
 
 
 # TODO add the rest of the variables from setup element of the DB
@@ -39,84 +34,30 @@ async def get_requirement(
     :return: a dictionary of the setup's performance in the game with provided filtering.
     Consists of basic information of combination provided & FPS & notes & source
     """
-    # Construct the filter for setups
-    setup_filter = {
-        "cpu_id": cpu_id,
-        "gpu_id": gpu_id,
-        "ram": {"$lte": ram}  # Allow cases where stored RAM is less than or equal to input RAM
-    }
-    if fps is not None:
-        setup_filter["fps"] = fps  # Add FPS condition only if provided
-    try:
-        # Query to find a matching document
-        game_doc = await collection.find_one({
-            "game_id": game_id,
-            "resolution": resolution,
-            "setting_name": setting_name,
-            # "setups": {"$elemMatch": setup_filter}  # Filter within setups
-            # "setups": setup_filter  # Filter within setups
-        })
-        if game_doc is None:
-            raise HTTPException(status_code=404, detail="Combination not found")
-        # print("GameDoc: ", game_doc)
-        # Extract matching setups
-        for setup in game_doc["setups"]:
-            if (
-                    setup["cpu_id"] == cpu_id and
-                    setup["gpu_id"] == gpu_id and
-                    setup["ram"] <= ram and
-                    (fps is None or (setup["fps"] is not None and setup["fps"] > fps))
-            ):
-                return (GameSetupRequest(game_id=game_id,
-                                         cpu_id=setup["cpu_id"],
-                                         gpu_id=setup["gpu_id"],
-                                         ram=setup["ram"],
-                                         resolution=game_doc["resolution"],
-                                         setting_name=game_doc["setting_name"],
-                                         fps=setup.get("fps"),
-                                         taken_by=setup.get("taken_by"),
-                                         notes=setup.get("notes"),
-                                         verified=setup.get("verified"),
-                                         id=str(game_doc["_id"])
-                                         ).model_dump())
-            else:
-                raise HTTPException(status_code=422, detail="Setup found but doesn't meet desired FPS")
-        raise HTTPException(status_code=404, detail="No matching setup found for the provided filters")
-    except HTTPException as http_exception:
-        raise http_exception
-    except Exception as e:
-        print(f"Error fetching documents: {e}")
-        raise HTTPException(status_code=500, detail=f"Error fetching documents: {str(e)}")
+    game_doc = await fetch_game_doc(game_id, resolution, setting_name)
+    matching_setup = find_matching_setup(
+        setups=game_doc.get("setups", []),
+        cpu_id=cpu_id,
+        gpu_id=gpu_id,
+        ram=ram,
+        fps=fps
+    )
+    return build_setup_response(game_doc, matching_setup)
 
 
 @router.get("/game-requirements/all", response_model=List[Dict[str, Any]])
 async def get_all_game_requirements():
-    """
-    TODO remove on release - FOR DEBUGGING ONLY
-    Gets all requirements from the DB.
-
-    :return: list of dictionaries of all games and setups performances as recorded in the DB.
-    Consists of basic information of combination provided & FPS & notes & source
-    """
     try:
         cursor = collection.find()
         documents = await cursor.to_list(length=None)
         result = []
+        # for each game, resolution and setting
         for document in documents:
-            game_id = str(document["game_id"])  # Convert _id to string
+            # get all the setups
             for setup in document["setups"]:
-                result.append(GameSetupRequest(game_id=game_id,
-                                               cpu_id=setup["cpu_id"],
-                                               gpu_id=setup["gpu_id"],
-                                               ram=setup["ram"],
-                                               resolution=document["resolution"],
-                                               setting_name=document["setting_name"],
-                                               fps=setup.get("fps"),
-                                               id=str(document["_id"])
-                                               ).model_dump())
+                response = build_setup_response(game_doc=document, setup=setup)
+                result.append(response)
         return result  # Returns all documents as JSON
     except Exception as e:
         print(f"Error fetching documents: {e}")
         raise HTTPException(status_code=500, detail=f"Error fetching documents: {str(e)}")
-
-# return [Cpu(**cpu, id=str(cpu["_id"])) for cpu in cpus]
