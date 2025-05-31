@@ -63,8 +63,6 @@ def find_matching_setup(
             stored_fps = setup.get("fps")
             # User can't run at desired FPS
             if isinstance(stored_fps, int) is not None and stored_fps < fps:
-                print("stored_fps: ", type(stored_fps), stored_fps)
-                print("fps: ", fps, type(fps))
                 raise HTTPException(status_code=422, detail="Setup found but doesn't meet desired FPS")
         # If we reached here that means we found a positive performance data for user
         return setup
