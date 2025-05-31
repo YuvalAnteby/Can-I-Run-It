@@ -1,11 +1,12 @@
-import re
 from typing import Optional
 
 from backend.src.app.database import mongo_db
 from backend.src.schemas.Game import Game
+from backend.src.utils.regex_wrapper import games_genre_regex
 from backend.src.utils.validation import validate_games_list
 
 collection = mongo_db.games
+
 
 async def fetch_all_games():
     """
@@ -24,8 +25,10 @@ async def fetch_games_by_category(genre, limit: Optional[int] = None):
     Controller, retrieve all games with given genre from the DB.
     :return: List of dictionaries with matching genre.
     """
-    genre_regex = {"$regex": re.compile(genre, re.IGNORECASE)}
-    games_cursor = collection.find({"genres": genre_regex})
+    query = {
+        "genres": games_genre_regex(genre)
+    }
+    games_cursor = collection.find(query)
     games = await games_cursor.to_list(length=limit)
     validate_games_list(games, limit=limit, genre=genre)
     return [Game(**game, id=str(game["_id"])) for game in games]

@@ -29,3 +29,11 @@ def hardware_model_regex(model: str):
        """
     pattern = re.compile(model, re.IGNORECASE)
     return {"$regex": pattern}
+
+
+def games_genre_regex(genre: str):
+    """
+    :return: MongoDB‐style regex dict that matches `genre` strings case‐insensitively.
+    """
+    pattern = re.compile(genre, re.IGNORECASE)
+    return {"$regex": pattern}
