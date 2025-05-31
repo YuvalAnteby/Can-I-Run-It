@@ -5,10 +5,10 @@ from fastapi import APIRouter
 from backend.src.controllers.games import fetch_all_games, fetch_games_by_category, fetch_newly_added_games, \
     fetch_home_shelves
 
-router = APIRouter()
+router = APIRouter(prefix="/games", tags=["Games"])
 
 
-@router.get("/")
+@router.get("")
 async def get_all_games():
     return await fetch_all_games()
 

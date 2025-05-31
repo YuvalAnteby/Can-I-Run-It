@@ -325,4 +325,4 @@ def load_data(type_, fake_data):
     # Mock the DB to return GPUs (invalid for this route)
     mock_cursor = AsyncMock()
     mock_cursor.to_list = AsyncMock(return_value=fake_data)
-    return patch(f"backend.src.routes.{type_}s.collection.find", return_value=mock_cursor)
+    return patch(f"backend.src.controllers.{type_}s.collection.find", return_value=mock_cursor)

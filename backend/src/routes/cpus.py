@@ -7,7 +7,7 @@ router = APIRouter(prefix="/cpus", tags=["CPUs"])
 
 @router.get("")
 async def get_all_cpus():
-    return fetch_all_cpus()
+    return await fetch_all_cpus()
 
 
 @router.get("/brand")
