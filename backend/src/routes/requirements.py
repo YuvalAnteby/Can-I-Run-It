@@ -1,15 +1,12 @@
 from typing import List, Optional, Dict, Any
-from backend.src.app.database import mongo_db
 
 from fastapi import APIRouter, HTTPException
 
+from backend.src.app.database import mongo_db
 from backend.src.controllers.requirements import fetch_game_doc, find_matching_setup
-from backend.src.schemas.Performance import GameSetupRequest, build_setup_response
+from backend.src.schemas.Performance import build_setup_response
 
 router = APIRouter()
-# Use the games collection
-collection = mongo_db.game_requirements
-
 
 # TODO add the rest of the variables from setup element of the DB
 @router.get("/game-requirements/", response_model=Dict[str, Any])
@@ -48,7 +45,7 @@ async def get_requirement(
 @router.get("/game-requirements/all", response_model=List[Dict[str, Any]])
 async def get_all_game_requirements():
     try:
-        cursor = collection.find()
+        cursor = mongo_db.game_requirements.find()
         documents = await cursor.to_list(length=None)
         result = []
         # for each game, resolution and setting
