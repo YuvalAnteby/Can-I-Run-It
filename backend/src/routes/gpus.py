@@ -2,10 +2,10 @@ from fastapi import APIRouter
 
 from backend.src.controllers.gpus import fetch_all_gpus, fetch_gpus_by_brand, fetch_gpus_by_model
 
-router = APIRouter()
+router = APIRouter(prefix="/gpus", tags=["GPUs"])
 
 
-@router.get("/gpus")
+@router.get("")
 async def get_all_gpus():
     return await fetch_all_gpus()
 
