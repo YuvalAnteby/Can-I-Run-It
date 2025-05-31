@@ -4,8 +4,8 @@ services:
     build:
       context: .
       dockerfile: backend/Dockerfile_test
-    env_file:
-      - .env
+    environment:
+      - MONGODB_URI=mongodb://mongodb:27017
 
   # FastAPI backend
   backend:
