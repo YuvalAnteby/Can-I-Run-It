@@ -5,8 +5,8 @@ from httpx import AsyncClient, ASGITransport
 from unittest.mock import AsyncMock, patch
 from bson import ObjectId
 
-from backend.routes.requirements import router as requirements_router
-from backend.routes.games import router as games_router
+from backend.src.routes.requirements import router as requirements_router
+from backend.src.routes.games import router as games_router
 
 
 @pytest.fixture
@@ -325,4 +325,4 @@ def load_data(type_, fake_data):
     # Mock the DB to return GPUs (invalid for this route)
     mock_cursor = AsyncMock()
     mock_cursor.to_list = AsyncMock(return_value=fake_data)
-    return patch(f"backend.routes.{type_}s.collection.find", return_value=mock_cursor)
+    return patch(f"backend.src.controllers.{type_}s.collection.find", return_value=mock_cursor)

@@ -3,9 +3,10 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient, ASGITransport
-from backend.routes.cpus import router as cpus_router
-from backend.routes.gpus import router as gpus_router
-from tests.conftest import load_data, fake_cpus_list
+
+from backend.src.routes.cpus import router as cpus_router
+from backend.src.routes.gpus import router as gpus_router
+from backend.tests.conftest import load_data
 
 # Create a temporary app with only this router for testing
 app = FastAPI()
@@ -73,7 +74,7 @@ async def test_get_hardware_by_model_returns_500_when_no_model_exist(
     data = request.getfixturevalue(wrong_data)
     mock_cursor = AsyncMock()
     mock_cursor.to_list = AsyncMock(return_value=data)
-    with patch(f"backend.routes.{type_}s.collection.find", return_value=mock_cursor):
+    with patch(f"backend.src.controllers.{type_}s.collection.find", return_value=mock_cursor):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             response = await ac.get(f"{endpoint}/model?model=rizen",
@@ -99,7 +100,7 @@ async def test_get_cpu_by_brand_wrong_brand_returns_500(
     data = request.getfixturevalue(wrong_data)
     mock_cursor = AsyncMock()
     mock_cursor.to_list = AsyncMock(return_value=data)
-    with patch(f"backend.routes.{type_}s.collection.find", return_value=mock_cursor):
+    with patch(f"backend.src.controllers.{type_}s.collection.find", return_value=mock_cursor):
         transport = ASGITransport(app=app)
         async with AsyncClient(transport=transport, base_url="http://test") as ac:
             response = await ac.get(f"{endpoint}/brand?brand={correct_brand}")

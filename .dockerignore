@@ -1,0 +1,32 @@
+# Ignore all node_modules in frontend or backend
+**/node_modules
+# python
+**/__pycache__
+**/*.py[cod]
+**/*.pyo
+# logs
+*.log
+npm-debug.log*
+yarn-error.log*
+yarn-debug.log*
+# git
+.git
+.gitignore
+# Ignore any local build artifacts
+build/
+dist/
+# MacOS
+.DS_Store
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+# Tests
+coverage/
+htmlcov/
+.tox/
+.pytest_cache/
+# Docs
+*.md
+*.rst
