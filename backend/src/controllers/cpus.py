@@ -7,7 +7,6 @@ from typing import Any, Dict, Optional
 from backend.src.app.database import mongo_db
 from backend.src.schemas.Cpu import Cpu
 from backend.src.utils.regex_wrapper import hardware_model_regex, hardware_brand_regex
-from backend.src.utils.validation import validate_hardware_list
 from backend.src.repository.cpus import RepositoryCPU
 
 cpu_repo = RepositoryCPU(mongo_db.hardware)
@@ -20,7 +19,6 @@ async def fetch_all_cpus(limit: Optional[int] = None) -> list[Cpu]:
     :return: List of all CPUs as dictionaries.
     """
     cpus: list[Dict[str, Any]] = await cpu_repo.get_cpus(limit=limit)
-    validate_hardware_list(cpus, "cpu")
     return [Cpu(**cpu, id=str(cpu["_id"])) for cpu in cpus]
 
 
@@ -34,7 +32,6 @@ async def fetch_cpus_by_brand(brand: str, limit: Optional[int] = None) -> list[C
     """
     additional_query = {"brand": hardware_brand_regex(brand)}
     cpus: list[Dict[str, Any]] = await cpu_repo.get_cpus(additional_query=additional_query, limit=limit)
-    validate_hardware_list(cpus, "cpu", brand=brand)
     return [Cpu(**cpu, id=str(cpu["_id"])) for cpu in cpus]
 
 
@@ -53,5 +50,4 @@ async def fetch_cpus_by_model(model: str, limit: Optional[int] = None):
         ]
     }
     cpus: list[Dict[str, Any]] = await cpu_repo.get_cpus(additional_query=additional_query, limit=limit)
-    validate_hardware_list(cpus, "cpu", model=model)
     return [Cpu(**cpu, id=str(cpu["_id"])) for cpu in cpus]
