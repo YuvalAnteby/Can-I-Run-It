@@ -1,0 +1,18 @@
+services:
+  # TODO mongodb
+  # TODO fast api backend
+
+  # React - production environment
+  react_prod:
+    build:
+      context: ../frontend
+      dockerfile: ../frontend/Dockerfile_prod
+    container_name: ciri-react-prod
+    depends_on:
+      - backend
+      - mongodb
+    ports:
+      - "3000:3000"
+    networks:
+      - ciri-net
+    profiles: [ "prod" ]

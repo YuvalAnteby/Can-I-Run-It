@@ -1,0 +1,18 @@
+# Stage 1 — build / install deps
+FROM python:3.12-slim AS builder
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+
+WORKDIR /app
+COPY ../backend/requirements.txt backend/
+RUN python -m pip install --no-cache-dir -r backend/requirements.txt
+
+# Stage 2 — runtime
+FROM builder AS runtime
+WORKDIR /app
+ARG BACKEND_PORT
+EXPOSE $BACKEND_PORT
+
+# Add /app to PYTHONPATH so 'backend' module can be found
+ENV PYTHONPATH=/app
+
+CMD sh -c "uvicorn backend.src.app.main:app --host 0.0.0.0 --port $BACKEND_PORT --reload"

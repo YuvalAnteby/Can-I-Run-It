@@ -1,0 +1,28 @@
+services:
+  mongodb-test:
+    image: mongo:7.0.15
+    container_name: ciri-mongo-test
+    tmpfs:
+      - /data/db  # In-memory for speed
+    networks:
+      - test-net
+
+  test:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.test
+    container_name: ciri-tests
+    command: pytest -v
+    depends_on:
+      - mongodb-test
+    environment:
+      - MONGODB_URI=mongodb://mongodb-test:27017
+      - ENVIRONMENT=testing
+    volumes:
+      - ./backend:/app
+      - ./test-results:/app/test-results
+    networks:
+      - test-net
+
+networks:
+  test-net:
