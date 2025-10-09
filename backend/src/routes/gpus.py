@@ -3,7 +3,7 @@ from typing import Optional
 from fastapi import APIRouter, Query
 
 from backend.src.controllers.gpus import fetch_all_gpus, fetch_gpus_by_brand, fetch_gpus_by_model
-from backend.src.schemas import Gpu
+from backend.src.schemas.Gpu import Gpu
 
 router = APIRouter(prefix="/gpus", tags=["GPUs"])
 
