@@ -37,9 +37,11 @@ services:
       - ciri-net
     environment:
       - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - REACT_APP_BASE_URL=http://localhost:${BACKEND_PORT:-4000}/api
 
     volumes:
-      - ./frontend:/app
+      - ../frontend:/app
       - /app/node_modules
 
   mongodb:
