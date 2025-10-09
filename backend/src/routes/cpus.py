@@ -21,8 +21,8 @@ async def get_cpus(
     - **model**: Filter by model name (case-insensitive, searches both model and fullname fields)
     """
     if brand:
-        return await fetch_cpus_by_brand(brand=brand)
+        return await fetch_cpus_by_brand(brand=brand, limit=limit)
     elif model:
-        return await fetch_cpus_by_model(model=model)
+        return await fetch_cpus_by_model(model=model, limit=limit)
     else:
-        return await fetch_all_cpus()
+        return await fetch_all_cpus(limit=limit)
