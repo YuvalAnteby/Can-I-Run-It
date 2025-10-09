@@ -9,7 +9,7 @@ router = APIRouter(prefix="/gpus", tags=["GPUs"])
 
 
 @router.get("", response_model=list[Gpu])
-async def get_GPUs(
+async def get_gpus(
         brand: Optional[str] = Query(None, description="Filter by GPU brand (e.g., Intel, AMD)"),
         model: Optional[str] = Query(None, min_length=2, max_length=30, description="Filter by GPU model (e.g., RYZEN3600)"),
         limit: Optional[int] = Query(None, ge=1, le=500, description="Maximum number of results")
