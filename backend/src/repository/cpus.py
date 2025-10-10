@@ -1,13 +1,13 @@
 from typing import Dict, Optional, Any
 
-from motor.motor_asyncio import AsyncIOMotorCollection
+from pymongo.asynchronous.collection import AsyncCollection
 from backend.src.schemas.Cpu import Cpu
 from backend.src.utils.regex_wrapper import hardware_type_regex
 
 
 class RepositoryCPU:
 
-    def __init__(self, collection: AsyncIOMotorCollection):
+    def __init__(self, collection: AsyncCollection):
         self.collection = collection
 
     async def get_cpus(

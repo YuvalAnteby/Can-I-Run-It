@@ -1,10 +1,11 @@
 from typing import Optional, Any, Dict, List
-from motor.motor_asyncio import AsyncIOMotorCollection
+from pymongo.asynchronous.collection import AsyncCollection
+
 
 
 class RepositoryGame:
 
-    def __init__(self, collection: AsyncIOMotorCollection):
+    def __init__(self, collection: AsyncCollection):
         self.collection = collection
 
     async def get_games(

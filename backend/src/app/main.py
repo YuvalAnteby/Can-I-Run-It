@@ -3,12 +3,10 @@ import os
 from fastapi import FastAPI, APIRouter
 from starlette.middleware.cors import CORSMiddleware
 
-from backend.src.routes.admin_games import router as admin_router
-from backend.src.routes.cpus import router as cpus_router
-from backend.src.routes.gpus import router as gpus_router
-from backend.src.routes.games import router as games_router
-from backend.src.routes.health import router as health_router
-from backend.src.routes.requirements import router as requirements_router
+from ..routes.cpus import router as cpus_router
+from ..routes.gpus import router as gpus_router
+from ..routes.games import router as games_router
+from ..routes.health import router as health_router
 
 app = FastAPI(
     title="Can I Run It API",
@@ -19,7 +17,8 @@ app = FastAPI(
         {"name": "GPUs", "description": "Endpoints for GPU data and info."},
         {"name": "Games", "description": "Endpoints for retrieving game information."},
         {"name": "Health", "description": "Health check endpoints for the API."},
-        {"name": "Admin", "description": "Admin routes to edit the Database."},
+        {"name": "Admin - Games", "description": "Admin routes to manage gamed in MongoDB."},
+        {"name": "Admin - Hardware", "description": "Admin routes to manage hardware in MongoDB."},
     ]
 )
 

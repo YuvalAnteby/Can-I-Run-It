@@ -47,3 +47,29 @@ class Game(BaseModel):
         json_encoders = {
             ObjectId: str
         }
+
+class GameCreateDTO(Game):
+    game_id: str = Field(..., min_length=1, description="Unique game identifier")
+    id: Optional[str] = None
+    created_at: datetime = None
+
+class GameUpdateDTO(BaseModel):
+    """Schema for updating a game (all fields optional)"""
+    name: Optional[str] = Field(None, min_length=1)
+    publisher: Optional[str] = Field(None, min_length=1)
+    developer: Optional[str] = Field(None, min_length=1)
+    release_date: Optional[int] = Field(None, ge=1970, le=2100)
+    genres: Optional[List[str]] = None
+    desc: Optional[str] = Field(None, min_length=1)
+    trailer_url: Optional[str] = None
+    portrait_url: Optional[str] = None
+    buy_links: Optional[List[str]] = None
+    landscape_s: Optional[str] = None
+    landscape_m: Optional[str] = None
+    landscape_l: Optional[str] = None
+    landscape_xl: Optional[str] = None
+    available_resolutions: Optional[List[str]] = None
+    supported_settings: Optional[List[str]] = None
+    is_ssd_recommended: Optional[bool] = None
+    upscale_support: Optional[List[str]] = None
+    api_support: Optional[List[str]] = None
