@@ -1,14 +1,13 @@
 from typing import Optional, List, Dict, Any
 
-from backend.src.app.database import mongo_db
+from fastapi.params import Depends
+
+from backend.src.repository.games import RepositoryGame
 from backend.src.schemas.Game import Game
 from backend.src.utils.regex_wrapper import games_genre_regex
-from backend.src.repository.games import RepositoryGame
-
-game_repo = RepositoryGame(mongo_db.games)
 
 
-async def fetch_all_games() -> List[Game]:
+async def fetch_all_games(game_repo: RepositoryGame = Depends()) -> List[Game]:
     """
     Controller, retrieve all games from the database.
 
@@ -18,7 +17,11 @@ async def fetch_all_games() -> List[Game]:
     return [Game(**game, id=str(game["_id"])) for game in games]
 
 
-async def fetch_games_by_category(genre: str, limit: Optional[int] = None) -> List[Game]:
+async def fetch_games_by_category(
+        genre: str,
+        limit: Optional[int] = None,
+        game_repo: RepositoryGame = Depends()
+) -> List[Game]:
     """
     Controller, retrieve all games with given genre from the DB.
 
@@ -31,7 +34,7 @@ async def fetch_games_by_category(genre: str, limit: Optional[int] = None) -> Li
     return [Game(**game, id=str(game["_id"])) for game in games]
 
 
-async def fetch_newly_added_games(limit: int = 10) -> List[Game]:
+async def fetch_newly_added_games(limit: int = 10, game_repo: RepositoryGame = Depends()) -> List[Game]:
     """
     Returns the last `limit` games added to the DB, sorted by creation time.
 
@@ -46,7 +49,7 @@ async def fetch_newly_added_games(limit: int = 10) -> List[Game]:
     return [Game(**game, id=str(game["_id"])) for game in games]
 
 
-async def fetch_home_shelves() -> List[Dict[str, Any]]:
+async def fetch_home_shelves(game_repo: RepositoryGame = Depends()) -> List[Dict[str, Any]]:
     """
     Gets the enabled home page shelves from the DB.
 

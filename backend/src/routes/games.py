@@ -1,6 +1,8 @@
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Depends
+
+from backend.src.app.dependencies import get_games_repo
 
 from backend.src.controllers.games import (
     fetch_all_games,
@@ -8,6 +10,7 @@ from backend.src.controllers.games import (
     fetch_newly_added_games,
     fetch_home_shelves
 )
+from backend.src.repository.games import RepositoryGame
 from backend.src.schemas.Game import Game
 
 router = APIRouter(prefix="/games", tags=["Games"])
@@ -16,7 +19,8 @@ router = APIRouter(prefix="/games", tags=["Games"])
 @router.get("", response_model=list[Game])
 async def get_games(
         genre: Optional[str] = Query(None, description="Filter by game genre"),
-        limit: Optional[int] = Query(None, ge=1, le=1000, description="Maximum number of results")
+        limit: Optional[int] = Query(None, ge=1, le=1000, description="Maximum number of results"),
+        game_repo: RepositoryGame = Depends(get_games_repo)
 ) -> list[Game]:
     """
     Retrieve games with optional filters.
@@ -26,24 +30,25 @@ async def get_games(
     - **limit**: Limit number of results
     """
     if genre:
-        return await fetch_games_by_category(genre, limit)
+        return await fetch_games_by_category(genre=genre, limit=limit, game_repo=game_repo)
     else:
         return await fetch_all_games()
 
 
 @router.get("/newly-added", response_model=list[Game])
 async def get_newly_added_games(
-        limit: int = Query(10, ge=1, le=100, description="Number of games to return")
+        limit: int = Query(10, ge=1, le=100, description="Number of games to return"),
+        game_repo: RepositoryGame = Depends(get_games_repo)
 ) -> list[Game]:
     """
     Get the most recently added games, sorted by creation date.
     """
-    return await fetch_newly_added_games(limit)
+    return await fetch_newly_added_games(limit=limit, game_repo=game_repo)
 
 
 @router.get("/home-rows")
-async def get_home_shelves():
+async def get_home_shelves(game_repo: RepositoryGame = Depends(get_games_repo)):
     """
     Get the enabled home page shelf configurations.
     """
-    return await fetch_home_shelves()
+    return await fetch_home_shelves(game_repo=game_repo)
