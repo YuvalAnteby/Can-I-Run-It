@@ -1,12 +1,16 @@
 from datetime import datetime, timezone
+from typing import AsyncGenerator
+
 import pytest
+from bson import ObjectId
 from fastapi import FastAPI
 from httpx import AsyncClient, ASGITransport
-from unittest.mock import AsyncMock, patch
-from bson import ObjectId
 
-from backend.src.routes.requirements import router as requirements_router
+from backend.src.app.dependencies import get_cpu_repo, get_gpu_repo, get_games_repo
+from backend.src.routes.cpus import router as cpus_router
 from backend.src.routes.games import router as games_router
+from backend.src.routes.gpus import router as gpus_router
+from backend.src.routes.requirements import router as requirements_router
 
 
 @pytest.fixture
@@ -18,6 +22,8 @@ def test_app():
     app = FastAPI()
     app.include_router(requirements_router)
     app.include_router(games_router)
+    app.include_router(cpus_router)
+    app.include_router(gpus_router)
     return app
 
 
@@ -34,6 +40,33 @@ async def async_client(test_app: FastAPI):
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
 
+
+@pytest.fixture
+async def async_client_mock(
+    test_app: FastAPI,
+    mock_cpu_repo,        # from unit/conftest.py (AsyncMock spec=RepositoryCPU)
+    mock_gpu_repo,        # from unit/conftest.py (AsyncMock spec=RepositoryGPU)
+    mock_game_repo
+) -> AsyncGenerator[AsyncClient, None]:
+    """
+    Async HTTP client for the hardware test app.
+    This fixture sets dependency overrides BEFORE the client is created so
+    the injected dependencies inside endpoints are the mocked repos.
+    """
+    # Override dependencies so endpoints receive the AsyncMock instances
+    test_app.dependency_overrides[get_cpu_repo] = lambda: mock_cpu_repo
+    test_app.dependency_overrides[get_gpu_repo] = lambda: mock_gpu_repo
+    test_app.dependency_overrides[get_games_repo] = lambda: mock_game_repo
+
+
+    transport = ASGITransport(app=test_app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        yield client
+
+    # cleanup: remove overrides so they don't leak into other tests
+    test_app.dependency_overrides.pop(get_cpu_repo, None)
+    test_app.dependency_overrides.pop(get_gpu_repo, None)
+    test_app.dependency_overrides.pop(get_games_repo, None)
 
 @pytest.fixture
 def fake_game():
@@ -67,7 +100,7 @@ def fake_game():
 
 
 @pytest.fixture
-def fakes_games_list(fake_action_games_list):
+def fake_games_list(fake_action_games_list):
     """
     Returns a list of dictionaries that looks like real games from the DB.
     Reused in game and requirements related tests.
@@ -147,6 +180,7 @@ def fake_action_games_list(fake_game):
             "is_ssd_recommended": False,
             "upscale_support": ["Nvidia DLSS 3.7", "AMD FST 3.1", "Intel Xess 1.3"],
             "api_support": ["DX12"],
+            "created_at": datetime.now(timezone.utc)
         },
         {
             "_id": ObjectId("507f1f77bcf86cd799439014"),
@@ -169,6 +203,7 @@ def fake_action_games_list(fake_game):
             "is_ssd_recommended": False,
             "upscale_support": ["Intel Xess 1.3"],
             "api_support": ["DX12", "Vulkan"],
+            "created_at": datetime.now(timezone.utc)
         }
     ]
 
@@ -310,19 +345,3 @@ def fake_gpus_list_wrong_brand():
             "type": "gpu"
         }
     ]
-
-
-def load_data(type_, fake_data):
-    """
-    Utility to select the correct fake data and patch the MongoDB .find().to_list() call
-    for the given hardware type ('cpu' or 'gpu').
-
-    :param type_: "cpu" or "gpu"
-    :param fake_data: list of mocked CPU/ GPU dictionaries
-    :return: context manager that patches the .find() call
-    """
-    # Use the relevant fake data source
-    # Mock the DB to return GPUs (invalid for this route)
-    mock_cursor = AsyncMock()
-    mock_cursor.to_list = AsyncMock(return_value=fake_data)
-    return patch(f"backend.src.controllers.{type_}s.collection.find", return_value=mock_cursor)
