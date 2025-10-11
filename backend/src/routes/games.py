@@ -30,9 +30,9 @@ async def get_games(
     - **limit**: Limit number of results
     """
     if genre:
-        return await fetch_games_by_category(genre=genre, limit=limit, game_repo=game_repo)
+        return await fetch_games_by_category(game_repo=game_repo, genre=genre, limit=limit)
     else:
-        return await fetch_all_games()
+        return await fetch_all_games(game_repo=game_repo, limit=limit)
 
 
 @router.get("/newly-added", response_model=list[Game])
@@ -43,7 +43,7 @@ async def get_newly_added_games(
     """
     Get the most recently added games, sorted by creation date.
     """
-    return await fetch_newly_added_games(limit=limit, game_repo=game_repo)
+    return await fetch_newly_added_games(game_repo=game_repo, limit=limit)
 
 
 @router.get("/home-rows")

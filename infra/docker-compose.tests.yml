@@ -1,3 +1,4 @@
+name: ciri-tests
 services:
   mongodb-test:
     image: mongo:7.0.15
@@ -7,20 +8,22 @@ services:
     networks:
       - test-net
 
-  test:
+  backend-test:
     build:
-      context: ./backend
-      dockerfile: Dockerfile.test
+      context: ..
+      dockerfile: ./infra/Dockerfile.backend.tests
     container_name: ciri-tests
-    command: pytest -v
     depends_on:
       - mongodb-test
+    env_file:
+      - .env
     environment:
       - MONGODB_URI=mongodb://mongodb-test:27017
       - ENVIRONMENT=testing
+      - TEST_TYPE=   # empty = run all stages
     volumes:
-      - ./backend:/app
-      - ./test-results:/app/test-results
+      - ../backend:/app/backend
+      - ./backend-test-results:/app/backend-test-results
     networks:
       - test-net
 

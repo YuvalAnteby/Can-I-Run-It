@@ -204,3 +204,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# tests results
+**/*-test-results/
