@@ -1,3 +1,5 @@
+from typing import Optional
+
 from bson import ObjectId
 from pydantic import BaseModel, field_validator, Field
 
@@ -23,3 +25,6 @@ class Gpu(BaseModel):
         return v.strip()
 
 
+class GpuCreateDTO(Gpu):
+    id: Optional[str] = Field(default=None, min_length=24, max_length=24)  # client may omit; server will generate if None
+    type: Optional[str] = 'gpu'  # default to 'gpu' if not provided

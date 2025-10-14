@@ -7,6 +7,7 @@ from ..routes.cpus import router as cpus_router
 from ..routes.gpus import router as gpus_router
 from ..routes.games import router as games_router
 from ..routes.health import router as health_router
+from ..routes.admin_hardware import router as admin_hardware_router
 
 app = FastAPI(
     title="Can I Run It API",
@@ -27,6 +28,7 @@ api_router = APIRouter(prefix="/api")
 # Include routers
 api_router.include_router(cpus_router, prefix="/hardware", tags=["CPUs"])
 api_router.include_router(gpus_router, prefix="/hardware", tags=["GPUs"])
+api_router.include_router(admin_hardware_router, prefix="/admin/hardware", tags=["Admin - Hardware"])
 api_router.include_router(games_router, prefix="", tags=["Games"])
 api_router.include_router(health_router, prefix="/health", tags=["Health"])
 

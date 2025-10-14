@@ -11,6 +11,7 @@ from backend.src.routes.cpus import router as cpus_router
 from backend.src.routes.games import router as games_router
 from backend.src.routes.gpus import router as gpus_router
 from backend.src.routes.requirements import router as requirements_router
+from backend.src.routes.admin_hardware import router as admin_hardware_router
 
 
 @pytest.fixture
@@ -24,6 +25,7 @@ def test_app():
     app.include_router(games_router)
     app.include_router(cpus_router)
     app.include_router(gpus_router)
+    app.include_router(admin_hardware_router)
     return app
 
 
