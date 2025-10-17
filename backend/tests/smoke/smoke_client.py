@@ -36,6 +36,19 @@ class FakeGameRepo:
             }
         return None
 
+    async  def create_game(self, game_data: dict) -> str | None:
+        """Mock create_game method."""
+        return "mocked_game_id"
+
+    async def delete_game(self, game_id: str) -> bool:
+        """Mock delete_game method."""
+        return True
+
+    async def bulk_insert_games(self, games_data: list[dict]) -> dict:
+        """Mock bulk_insert_games method."""
+        return {"skipped": [], "inserted": []}
+
+
 @pytest.fixture
 async def smoke_client():
     """
