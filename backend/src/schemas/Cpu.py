@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Literal
 
 from bson import ObjectId
 from pydantic import BaseModel, field_validator, Field
@@ -27,4 +27,4 @@ class Cpu(BaseModel):
 
 class CpuCreateDTO(Cpu):
     id: Optional[str] = Field(default=None, min_length=24, max_length=24)  # client may omit; server will generate if None
-    type: Optional[str] = 'cpu'  # default to 'cpu' if not provided
+    type: Literal['cpu'] = Field(default='cpu') # default to 'cpu' if not provided
