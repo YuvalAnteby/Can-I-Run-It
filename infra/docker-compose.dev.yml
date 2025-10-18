@@ -9,6 +9,8 @@ services:
       args:
         BACKEND_PORT: ${BACKEND_PORT}
     container_name: ciri-backend
+    environment:
+        - ENV=dev
     env_file:
       - .env
     ports:
