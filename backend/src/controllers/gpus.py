@@ -36,7 +36,7 @@ async def fetch_gpus_by_brand(brand: str, limit: Optional[int] = None, gpu_repo:
     return [Gpu(**gpu, id=str(gpu["_id"])) for gpu in gpus]
 
 
-async def fetch_gpus_by_model(model: str, limit: Optional[int] = None, gpu_repo: RepositoryGPU = Depends()):
+async def fetch_gpus_by_model(model: str, limit: Optional[int] = None, gpu_repo: RepositoryGPU = Depends()) -> list[Gpu]:
     """
     Retrieve GPUs with the given model from the database.
 

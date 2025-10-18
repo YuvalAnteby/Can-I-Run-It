@@ -19,7 +19,7 @@ async def fetch_all_cpus(limit: Optional[int] = None, cpu_repo: RepositoryCPU = 
     :return: List of all CPUs as dictionaries.
     """
     cpus: list[Dict[str, Any]] = await cpu_repo.get_cpus(limit=limit)
-    return [Cpu(**cpu, id=str(cpu["_id"])) for cpu in cpus]
+    return [Cpu(**cpu,id=str(cpu["_id"]),) for cpu in cpus]
 
 
 async def fetch_cpus_by_brand(brand: str, limit: Optional[int] = None, cpu_repo: RepositoryCPU = Depends()) -> list[Cpu]:
@@ -36,7 +36,7 @@ async def fetch_cpus_by_brand(brand: str, limit: Optional[int] = None, cpu_repo:
     return [Cpu(**cpu, id=str(cpu["_id"])) for cpu in cpus]
 
 
-async def fetch_cpus_by_model(model: str, limit: Optional[int] = None, cpu_repo: RepositoryCPU = Depends()):
+async def fetch_cpus_by_model(model: str, limit: Optional[int] = None, cpu_repo: RepositoryCPU = Depends()) -> list[Cpu]:
     """
     Retrieve CPUs with the given model from the database.
 

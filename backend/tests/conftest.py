@@ -28,21 +28,6 @@ def test_app():
     app.include_router(admin_hardware_router)
     return app
 
-
-@pytest.fixture
-async def async_client(test_app: FastAPI):
-    """
-    Reusable async client for sending requests to test_app.
-    Use this in tests like:
-
-        async def test_something(async_client):
-            response = await async_client.get("/games")
-    """
-    transport = ASGITransport(app=test_app)
-    async with AsyncClient(transport=transport, base_url="http://test") as client:
-        yield client
-
-
 @pytest.fixture
 async def async_client_mock(
     test_app: FastAPI,
@@ -219,6 +204,7 @@ def fake_cpus_list():
     return [
         {
             "_id": ObjectId("6758bbf1849fa5acb6884201"),
+            "hardware_id": "brand0_ryzen_1234",
             "brand": "brand1",
             "model": "RYZEN 1234",
             "fullname": "Ryzen 0 1234",
@@ -226,6 +212,7 @@ def fake_cpus_list():
         },
         {
             "_id": ObjectId("6758bbf1849fa5acb6884202"),
+            "hardware_id": "brand1_ryzen_5678",
             "brand": "brand1",
             "model": "RYZEN 5678",
             "fullname": "Ryzen 8 5678",
@@ -233,6 +220,7 @@ def fake_cpus_list():
         },
         {
             "_id": ObjectId("6758bbf1849fa5acb6884203"),
+            "hardware_id": "brand2_i11_1234k",
             "brand": "brand2",
             "model": "I11 1234k",
             "fullname": "Core I11 1234k",
@@ -240,6 +228,7 @@ def fake_cpus_list():
         },
         {
             "_id": ObjectId("6758bbf1849fa5acb6884204"),
+            "hardware_id": "brand2_i11_5678k",
             "brand": "brand2",
             "model": "I11 5678k",
             "fullname": "Core I11 5678k",
@@ -247,6 +236,7 @@ def fake_cpus_list():
         },
         {
             "_id": ObjectId("6758bbf1849fa5acb6884205"),
+            "hardware_id": "brand3_ri_22_987",
             "brand": "brand3",
             "model": "RI 22 987",
             "fullname": "brand3 RI 22 987",
@@ -264,6 +254,7 @@ def fake_gpus_list():
     return [
         {
             "_id": ObjectId("6758bbf1849fa5acb6884206"),
+            "hardware_id": "brand4_rtxc_1234",
             "brand": "brand4",
             "model": "RTXC 1234",
             "fullname": "RTXC 1234 (6GB)",
@@ -271,6 +262,7 @@ def fake_gpus_list():
         },
         {
             "_id": ObjectId("6758bbf1849fa5acb6884207"),
+            "hardware_id": "brand4_rtxc_1234",
             "brand": "brand4",
             "model": "RTXC 1234",
             "fullname": "RTXC 1234 (12GB)",
@@ -278,6 +270,7 @@ def fake_gpus_list():
         },
         {
             "_id": ObjectId("6758bbf1849fa5acb6884208"),
+            "hardware_id": "brand5_rx_5800",
             "brand": "brand5",
             "model": "RX 5800",
             "fullname": "RTX 5800",
@@ -285,6 +278,7 @@ def fake_gpus_list():
         },
         {
             "_id": ObjectId("6758bbf1849fa5acb6884209"),
+            "hardware_id": "brand5_rx_5800xt",
             "brand": "brand5",
             "model": "RX 5800XT",
             "fullname": "RTX 5800XT",
@@ -300,50 +294,3 @@ def fake_hardware_list(fake_cpus_list, fake_gpus_list):
     Reused in CPU and GPU related tests.
     """
     return fake_cpus_list + fake_gpus_list
-
-
-@pytest.fixture
-def fake_cpus_list_wrong_brand():
-    return [
-        {
-            "_id": ObjectId("6758bbf1849fa5acb6884203"),
-            "brand": "brand2",
-            "model": "I11 1234k",
-            "fullname": "Core I11 1234k",
-            "type": "cpu"
-        },
-        {
-            "_id": ObjectId("6758bbf1849fa5acb6884204"),
-            "brand": "brand2",
-            "model": "I11 5678k",
-            "fullname": "Core I11 5678k",
-            "type": "cpu"
-        },
-        {
-            "_id": ObjectId("6758bbf1849fa5acb6884205"),
-            "brand": "brand3",
-            "model": "RI 22 987",
-            "fullname": "brand3 RI 22 987",
-            "type": "cpu"
-        }
-    ]
-
-
-@pytest.fixture
-def fake_gpus_list_wrong_brand():
-    return [
-        {
-            "_id": ObjectId("6758bbf1849fa5acb6884208"),
-            "brand": "brand5",
-            "model": "RX 5800",
-            "fullname": "RTX 5800",
-            "type": "gpu"
-        },
-        {
-            "_id": ObjectId("6758bbf1849fa5acb6884209"),
-            "brand": "brand5",
-            "model": "RX 5800XT",
-            "fullname": "RTX 5800XT",
-            "type": "gpu"
-        }
-    ]

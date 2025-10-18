@@ -3,7 +3,6 @@ from bson import ObjectId
 from bson.errors import InvalidId
 
 from pymongo.asynchronous.collection import AsyncCollection
-from backend.src.schemas.Cpu import Cpu
 from backend.src.utils.regex_wrapper import hardware_type_regex
 
 
@@ -16,7 +15,7 @@ class RepositoryCPU:
             self,
             limit: Optional[int] = None,
             additional_query: Optional[Dict[str, Any]] = None
-    ) -> list[Cpu]:
+    ) -> list[Dict[str, Any]]:
         """
        Fetches CPUs from the MongoDB collection with optional additional query parameters.
        :param limit: Maximum number of results to return
@@ -67,12 +66,9 @@ class RepositoryCPU:
         inserted = []
         skipped = []
         for cpu_data in cpus_data:
-            cpu_id = cpu_data["brand"].lower() + "_" + cpu_data["model"].lower().replace(' ', '_')
-            cpu_data["id"] = cpu_id
-            existing = await self.collection.find_one({"id": cpu_id, "type": "cpu"})
-            if existing:
-                skipped.append(cpu_id)
-                continue
-            await self.collection.insert_one(cpu_data)
-            inserted.append(cpu_id)
+            result = await self.create_cpu(cpu_data)
+            if result:
+                inserted.append(cpu_data["hardware_id"])
+            else:
+                skipped.append(cpu_data["hardware_id"])
         return {"inserted": inserted, "skipped": skipped}

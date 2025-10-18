@@ -1,7 +1,6 @@
 from typing import Dict, Optional, Any
 
 from pymongo.asynchronous.collection import AsyncCollection
-from backend.src.schemas.Gpu import Gpu
 from backend.src.utils.regex_wrapper import hardware_type_regex
 
 
@@ -14,7 +13,7 @@ class RepositoryGPU:
             self,
             limit: Optional[int] = None,
             additional_query: Optional[Dict[str, Any]] = None
-    ) -> list[Gpu]:
+    ) -> list[Dict[str, Any]]:
         """
        Fetches GPUs from the MongoDB collection with optional additional query parameters.
        :param limit: Maximum number of results to return
@@ -57,12 +56,9 @@ class RepositoryGPU:
         inserted = []
         skipped = []
         for gpu_data in gpus_data:
-            gpu_id = gpu_data["brand"].lower() + "_" + gpu_data["model"].lower().replace(' ', '_')
-            gpu_data["id"] = gpu_id
-            existing = await self.collection.find_one({"id": gpu_id, "type": "gpu"})
-            if existing:
-                skipped.append(gpu_id)
-                continue
-            await self.collection.insert_one(gpu_data)
-            inserted.append(gpu_id)
+            result = await self.create_gpu(gpu_data)
+            if result:
+                inserted.append(gpu_data["hardware_id"])
+            else:
+                skipped.append(gpu_data["hardware_id"])
         return {"inserted": inserted, "skipped": skipped}

@@ -17,6 +17,8 @@ async def create_cpu_controller(cpu: CpuCreateDTO, cpu_repo: RepositoryCPU = Dep
     """
     cpu_data = cpu.model_dump(exclude={"id"})
     cpu_data["type"] = "cpu"
+    # Generate hardware_id field from the brand and model
+    cpu_data["hardware_id"] = cpu.brand.lower() + "_" + cpu.model.lower().replace(' ', '_')
     inserted_id = await cpu_repo.create_cpu(cpu_data)
     if inserted_id is None:
         raise HTTPException(status_code=409, detail=f"CPU '{cpu.fullname}' already exists.")
@@ -32,7 +34,11 @@ async def create_gpu_controller(gpu: Gpu, gpu_repo: RepositoryGPU = Depends()) -
     """
     gpu_data = gpu.model_dump(exclude={"id"})
     gpu_data["type"] = "gpu"
+    # Generate hardware_id field from the brand and model
+    gpu_data["hardware_id"] = gpu.brand.lower() + "_" + gpu.model.lower().replace(' ', '_')
     inserted_id = await gpu_repo.create_gpu(gpu_data)
+    if inserted_id is None:
+        raise HTTPException(status_code=409, detail=f"CPU '{gpu.fullname}' already exists.")
     return inserted_id
 
 async def delete_cpu_controller(cpu_id: str, cpu_repo: RepositoryCPU = Depends()) -> str:
@@ -66,7 +72,10 @@ async def bulk_create_cpus_controller(cpus: List[CpuCreateDTO], cpu_repo: Reposi
     :param cpu_repo: RepositoryCPU instance for DB operations
     :return: Dict with lists of inserted and skipped ids
     """
-    cpus_data = [cpu.model_dump(exclude={"id"}) | {"type": "cpu"} for cpu in cpus]
+    cpus_data = [cpu.model_dump(exclude={"id"}) for cpu in cpus]
+    for cpu in cpus_data:
+        cpu["type"] = "cpu"
+        cpu["hardware_id"] = cpu["brand"].lower() + "_" + cpu["model"].lower().replace(' ', '_')
     result = await cpu_repo.bulk_insert_cpus(cpus_data)
     return result
 
@@ -77,6 +86,9 @@ async def bulk_create_gpus_controller(gpus: List[Gpu], gpu_repo: RepositoryGPU =
     :param gpu_repo: RepositoryGPU instance for DB operations
     :return: Dict with lists of inserted and skipped ids
     """
-    gpus_data = [gpu.model_dump(exclude={"id"}) | {"type": "gpu"} for gpu in gpus]
+    gpus_data = [gpu.model_dump(exclude={"id"}) for gpu in gpus]
+    for gpu in gpus_data:
+        gpu["type"] = "gpu"
+        gpu["hardware_id"] = gpu["brand"].lower() + "_" + gpu["model"].lower().replace(' ', '_')
     result = await gpu_repo.bulk_insert_gpus(gpus_data)
     return result

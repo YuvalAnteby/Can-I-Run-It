@@ -4,6 +4,7 @@ from bson import ObjectId
 from pydantic import BaseModel, field_validator, Field
 
 class Gpu(BaseModel):
+    hardware_id: str = Field(..., min_length=1, description="Unique hardware identifier. made from the brand and model.")
     brand: str = Field(..., min_length=1)
     model: str = Field(..., min_length=1)
     fullname: str = Field(..., min_length=1)
@@ -26,5 +27,6 @@ class Gpu(BaseModel):
 
 
 class GpuCreateDTO(Gpu):
+    hardware_id: Optional[str] = Field(default=None, min_length=1)
     id: Optional[str] = Field(default=None, min_length=24, max_length=24)  # client may omit; server will generate if None
     type: Literal['gpu'] = Field(default='gpu') # default to 'gpu' if not provided
