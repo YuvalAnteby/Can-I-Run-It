@@ -101,20 +101,22 @@ cd Can-I-Run-It
 docker compose build
 ```
 ### Run in development mode
-Runs the backend, MongoDB and React apps, allows live reloading. 
+Runs the backend, MongoDB and React apps, allows live reloading. remove `-d` to see logs live.
 ```bash
-docker compose --profile dev up
+docker compose -f infra/docker-compose.dev.yml up -d
 ```
-
+<!---
 ### Run in production mode
 Runs the backend, MongoDB and React apps as static files.
 ```bash
-docker compose --profile prod up
+docker compose -f infra/docker-compose.dev.yml up -d
 ```
+--->
 
+### Access the apps (default ports)
 - Frontend: http://localhost:3000
-- Backend:  http://localhost:8000
-- API docs:  http://localhost:8000/docs
+- Backend:  http://localhost:4000
+- API docs:  http://localhost:4000/docs
 - For more info see [backend/README.md](https://github.com/YuvalAnteby/Can-I-Run-It/blob/main/backend/README.md) 
 and [frontend/README.md](https://github.com/YuvalAnteby/Can-I-Run-It/blob/main/frontend/README.md)
 

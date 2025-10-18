@@ -11,16 +11,18 @@ Tests results will be found in `/infra/backend-test-results/`
 - [Backend tests with Docker](#testing-backend-with-docker)
   - [Running all tests](#running-all-tests)
   - [Running specific tests](#running-specific-tests)
+- [Tests results](#tests-results)
 
 ---
 
 ### Prerequisites
 
-Clone the repo and navigate to root folder
+Clone the repo and build the testing environment
 
 ```bash
 git clone https://github.com/YuvalAnteby/Can-I-Run-It.git
 cd Can-I-Run-It
+docker compose -f infra/docker-compose.tests.yml up backend-test 
 ```
 
 ---
@@ -32,7 +34,7 @@ Ensure Docker is installed and running.
 #### Running all tests
 
 ```bash
-docker compose -f ./infra/docker-compose.tests.yml run backend-test --build --abort-on-container-exit  
+docker compose -f ./infra/docker-compose.tests.yml up --abort-on-container-exit  
 ```
 
 #### Running specific tests
@@ -58,3 +60,9 @@ docker compose -f infra/docker-compose.tests.yml down -v
 ```
 
 ---
+
+
+### Tests results
+After running tests, results will be available in sub folders in `./infra/` directory.</br>
+You can view the test reports and logs there.</br> 
+E.g. `./infra/backend-test-results/` for backend test results.
