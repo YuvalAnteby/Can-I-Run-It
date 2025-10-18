@@ -30,3 +30,6 @@ htmlcov/
 # Docs
 *.md
 *.rst
+
+# tests results
+**/*-test-results/

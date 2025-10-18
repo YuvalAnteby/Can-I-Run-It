@@ -1,0 +1,19 @@
+# Stage 1 — build / install deps
+FROM python:3.12-slim AS builder
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+
+WORKDIR /app
+COPY ../backend/requirements.txt backend/
+RUN python -m pip install --no-cache-dir -r backend/requirements.txt
+
+# Stage 2 — runtime
+FROM builder AS runtime
+WORKDIR /app
+ENV PYTHONPATH=/app
+# run the tests - will run the type of tests by given type, if no env value received will run all tests
+CMD ["sh", "-c", "\
+if [ -z \"$TEST_TYPE\" ]; then \
+    pytest backend/tests --maxfail=1 --disable-warnings -v --junitxml=/app/backend-test-results/all.xml; \
+else \
+    pytest backend/tests/$TEST_TYPE -m $TEST_TYPE --maxfail=1 --disable-warnings -v --junitxml=/app/backend-test-results/$TEST_TYPE.xml; \
+fi"]
