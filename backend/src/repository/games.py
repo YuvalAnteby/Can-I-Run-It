@@ -1,9 +1,8 @@
-from typing import Optional, Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from bson import ObjectId
 from bson.errors import InvalidId
 from pymongo.asynchronous.collection import AsyncCollection
-
 
 
 class RepositoryGame:
@@ -12,11 +11,11 @@ class RepositoryGame:
         self.collection = collection
 
     async def get_games(
-            self,
-            limit: Optional[int] = None,
-            sort_by: Optional[str] = None,
-            sort_order: int = 1,  # 1 for ascending, -1 for descending
-            additional_query: Optional[Dict[str, Any]] = None
+        self,
+        limit: Optional[int] = None,
+        sort_by: Optional[str] = None,
+        sort_order: int = 1,  # 1 for ascending, -1 for descending
+        additional_query: Optional[Dict[str, Any]] = None,
     ) -> List[Dict[str, Any]]:
         """
         Fetches games from the MongoDB collection with optional filters and sorting.
@@ -47,12 +46,8 @@ class RepositoryGame:
         :return: Configuration document or None
         """
         config_collection = self.collection.database.get_collection("configs")
-        docs = await config_collection.find(
-            {"name": config_name},
-            {"_id": 0}
-        ).to_list(length=1)
+        docs = await config_collection.find({"name": config_name}, {"_id": 0}).to_list(length=1)
         return docs[0] if docs else None
-
 
     async def create_game(self, game_data: dict) -> str | None:
         """

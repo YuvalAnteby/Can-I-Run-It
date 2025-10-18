@@ -3,15 +3,20 @@ Provides endpoints for creating and deleting games in the database.
 These endpoints are intended for admin use and ensure uniqueness of game's metadata entries.
 """
 
-from fastapi import APIRouter, Depends
 from typing import List
 
+from fastapi import APIRouter, Depends
+
 from backend.src.app.dependencies import get_games_repo
-from backend.src.controllers.admin_games import create_game_controller, delete_game_controller, \
-    bulk_create_games_controller
+from backend.src.controllers.admin_games import (
+    bulk_create_games_controller,
+    create_game_controller,
+    delete_game_controller,
+)
 from backend.src.schemas.Game import GameCreateDTO
 
 router = APIRouter(prefix="", tags=["Admin - Games"])
+
 
 @router.post("/", response_model=str)
 async def create_game(game: GameCreateDTO, games_repo=Depends(get_games_repo)):

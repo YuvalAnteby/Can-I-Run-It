@@ -1,7 +1,8 @@
 import pytest
 from httpx import AsyncClient
 
-from backend.tests.smoke.smoke_client import smoke_client
+from .smoke_client import smoke_client
+
 
 @pytest.mark.smoke
 @pytest.mark.asyncio
@@ -13,6 +14,7 @@ async def test_create_game_endpoint_smoke(smoke_client: AsyncClient):
     response = await smoke_client.post("/api/admin/games")
     assert response.status_code != 404
 
+
 @pytest.mark.smoke
 @pytest.mark.asyncio
 async def test_delete_game_endpoint_smoke(smoke_client: AsyncClient):
@@ -22,6 +24,7 @@ async def test_delete_game_endpoint_smoke(smoke_client: AsyncClient):
     """
     response = await smoke_client.delete("/api/admin/games/test")
     assert response.status_code != 404
+
 
 @pytest.mark.smoke
 @pytest.mark.asyncio

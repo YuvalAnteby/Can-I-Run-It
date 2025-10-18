@@ -94,16 +94,15 @@ This monorepo contains the backend (built with Python, FastAPI, MongoDB) and the
 - Node.js
 - Python 3.11+
 
-### Clone and build the repo
+### Clone the repo
 ```bash
 git clone https://github.com/YuvalAnteby/Can-I-Run-It.git
 cd Can-I-Run-It
-docker compose build
 ```
 ### Run in development mode
 Runs the backend, MongoDB and React apps, allows live reloading. remove `-d` to see logs live.
 ```bash
-docker compose -f infra/docker-compose.dev.yml up -d
+docker compose -f infra/docker-compose.dev.yml up -d --build
 ```
 <!---
 ### Run in production mode

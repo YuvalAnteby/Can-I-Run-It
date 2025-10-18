@@ -2,13 +2,14 @@
 All functions for handling the GPUs in the DB will be here for ease of use and maintainability.
 For example: fetching all GPUs, fetch GPUs by brand, etc.
 """
+
 from typing import Any, Dict, Optional
 
 from fastapi import Depends
 
-from backend.src.schemas.Gpu import Gpu
-from backend.src.utils.regex_wrapper import hardware_model_regex, hardware_brand_regex
 from backend.src.repository.gpus import RepositoryGPU
+from backend.src.schemas.Gpu import Gpu
+from backend.src.utils.regex_wrapper import hardware_brand_regex, hardware_model_regex
 
 
 async def fetch_all_gpus(limit: Optional[int] = None, gpu_repo: RepositoryGPU = Depends()) -> list[Gpu]:
@@ -22,7 +23,9 @@ async def fetch_all_gpus(limit: Optional[int] = None, gpu_repo: RepositoryGPU = 
     return [Gpu(**gpu, id=str(gpu["_id"])) for gpu in gpus]
 
 
-async def fetch_gpus_by_brand(brand: str, limit: Optional[int] = None, gpu_repo: RepositoryGPU = Depends()) -> list[Gpu]:
+async def fetch_gpus_by_brand(
+    brand: str, limit: Optional[int] = None, gpu_repo: RepositoryGPU = Depends()
+) -> list[Gpu]:
     """
     Controller retrieve GPUs with the given brand from the database.
 
@@ -36,7 +39,9 @@ async def fetch_gpus_by_brand(brand: str, limit: Optional[int] = None, gpu_repo:
     return [Gpu(**gpu, id=str(gpu["_id"])) for gpu in gpus]
 
 
-async def fetch_gpus_by_model(model: str, limit: Optional[int] = None, gpu_repo: RepositoryGPU = Depends()) -> list[Gpu]:
+async def fetch_gpus_by_model(
+    model: str, limit: Optional[int] = None, gpu_repo: RepositoryGPU = Depends()
+) -> list[Gpu]:
     """
     Retrieve GPUs with the given model from the database.
 
@@ -48,7 +53,7 @@ async def fetch_gpus_by_model(model: str, limit: Optional[int] = None, gpu_repo:
     additional_query = {
         "$or": [  # Match the input's regex with the full name or the shorten model name.
             {"model": hardware_model_regex(model)},
-            {"fullname": hardware_model_regex(model)}
+            {"fullname": hardware_model_regex(model)},
         ]
     }
     gpus: list[Dict[str, Any]] = await gpu_repo.get_gpus(additional_query=additional_query, limit=limit)

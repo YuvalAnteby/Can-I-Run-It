@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from backend.src.repository.games import RepositoryGame
 from backend.src.schemas.Game import Game
@@ -15,11 +15,7 @@ async def fetch_all_games(game_repo: RepositoryGame, limit: Optional[int] = None
     return [Game(**game, id=str(game["_id"])) for game in games]
 
 
-async def fetch_games_by_category(
-        game_repo: RepositoryGame,
-        genre: str,
-        limit: Optional[int] = None
-) -> List[Game]:
+async def fetch_games_by_category(game_repo: RepositoryGame, genre: str, limit: Optional[int] = None) -> List[Game]:
     """
     Controller, retrieve all games with given genre from the DB.
 
@@ -41,11 +37,7 @@ async def fetch_newly_added_games(game_repo: RepositoryGame, limit: int = 10) ->
     :param limit: Number of games to return (default: 10)
     :return: List of newly added games.
     """
-    games = await game_repo.get_games(
-        limit=limit,
-        sort_by="created_at",
-        sort_order=-1  # Descending (newest first)
-    )
+    games = await game_repo.get_games(limit=limit, sort_by="created_at", sort_order=-1)  # Descending (newest first)
     return [Game(**game, id=str(game["_id"])) for game in games]
 
 

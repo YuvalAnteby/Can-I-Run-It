@@ -1,7 +1,9 @@
-from fastapi import Depends, HTTPException
 from typing import List
-from backend.src.schemas.Game import GameCreateDTO
+
+from fastapi import Depends, HTTPException
+
 from backend.src.repository.games import RepositoryGame
+from backend.src.schemas.Game import GameCreateDTO
 
 
 async def create_game_controller(game: GameCreateDTO, games_repo: RepositoryGame = Depends()) -> str:
@@ -18,7 +20,10 @@ async def create_game_controller(game: GameCreateDTO, games_repo: RepositoryGame
     game_data["game_id"] = f"{game.name.strip().lower().replace(' ', '_')}_{game.release_date}"
     inserted_id = await games_repo.create_game(game_data)
     if inserted_id is None:
-        raise HTTPException(status_code=409, detail=f"Game '{game.fullname} {game.release_date}' already exists.")
+        raise HTTPException(
+            status_code=409,
+            detail=f"Game '{game.fullname} {game.release_date}' already exists.",
+        )
     return inserted_id
 
 
@@ -43,8 +48,8 @@ async def bulk_create_games_controller(games: List[GameCreateDTO], games_repo: R
     :return: Dict with lists of inserted and skipped ids
     """
     games_data = [
-        game.model_dump(exclude={"id"}) |
-        {"game_id": f"{game.name.strip().lower().replace(' ', '_')}_{game.release_date}"}
+        game.model_dump(exclude={"id"})
+        | {"game_id": f"{game.name.strip().lower().replace(' ', '_')}_{game.release_date}"}
         for game in games
     ]
     result = await games_repo.bulk_insert_games(games_data)

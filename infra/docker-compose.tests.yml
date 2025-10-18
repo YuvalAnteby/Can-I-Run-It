@@ -8,6 +8,15 @@ services:
     networks:
       - test-net
 
+  backend-lint:
+    build:
+      context: ..
+      dockerfile: ./infra/Dockerfile.backend.tests
+      target: lint   # ← important! run the lint stage
+    container_name: ciri-lint
+    volumes:
+      - ../backend:/app/backend
+
   backend-test:
     build:
       context: ..

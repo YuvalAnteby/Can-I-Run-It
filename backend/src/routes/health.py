@@ -1,7 +1,9 @@
-from backend.src.app.database import client
 from fastapi import APIRouter, HTTPException
 
+from backend.src.app.database import client
+
 router = APIRouter()
+
 
 @router.get("/mongo", status_code=200)
 async def mongo_health_check():
@@ -18,10 +20,10 @@ async def mongo_health_check():
     # If ping succeeds, return simple healthy response
     return {"status": "ok"}
 
+
 @router.get("/ping", status_code=200)
 async def health_check():
     """
     Basic ping test
     """
     return {"status": "ok"}
-

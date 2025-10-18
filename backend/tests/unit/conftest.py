@@ -18,6 +18,7 @@ def mock_gpu_repo():
     """Fixture for a mocked GPU repository."""
     return AsyncMock(spec=RepositoryGPU)
 
+
 @pytest.fixture
 def mock_game_repo():
     """Fixture for a mocked game repository."""

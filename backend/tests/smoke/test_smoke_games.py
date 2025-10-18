@@ -1,6 +1,8 @@
 import pytest
 from httpx import AsyncClient
-from backend.tests.smoke.smoke_client import smoke_client
+
+from .smoke_client import smoke_client
+
 
 @pytest.mark.smoke
 @pytest.mark.asyncio
@@ -13,6 +15,7 @@ async def test_get_all_games(smoke_client: AsyncClient):
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 
+
 @pytest.mark.smoke
 @pytest.mark.asyncio
 async def test_get_games_by_genre(smoke_client: AsyncClient):
@@ -22,6 +25,7 @@ async def test_get_games_by_genre(smoke_client: AsyncClient):
     response = await smoke_client.get("/api/games?genre=action")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
 
 @pytest.mark.smoke
 @pytest.mark.asyncio
@@ -33,6 +37,7 @@ async def test_get_newly_added_games_default(smoke_client: AsyncClient):
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 
+
 @pytest.mark.smoke
 @pytest.mark.asyncio
 async def test_get_newly_added_games_custom_limit(smoke_client: AsyncClient):
@@ -42,6 +47,7 @@ async def test_get_newly_added_games_custom_limit(smoke_client: AsyncClient):
     response = await smoke_client.get("/api/games/newly-added?limit=5")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
 
 @pytest.mark.smoke
 @pytest.mark.asyncio

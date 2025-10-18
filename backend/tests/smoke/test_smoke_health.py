@@ -1,6 +1,8 @@
 import pytest
 from httpx import AsyncClient
-from backend.tests.smoke.smoke_client import smoke_client
+
+from .smoke_client import smoke_client
+
 
 @pytest.mark.smoke
 @pytest.mark.asyncio
@@ -9,6 +11,7 @@ async def test_health_check(smoke_client: AsyncClient):
     r = await smoke_client.get("/api/health/ping")
     assert r.status_code == 200
     assert r.json() == {"status": "ok"}
+
 
 @pytest.mark.smoke
 @pytest.mark.asyncio

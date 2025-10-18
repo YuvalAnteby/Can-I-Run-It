@@ -8,10 +8,10 @@ from httpx import AsyncClient
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_all_games(
-        test_app: FastAPI,
-        async_client_mock: AsyncClient,
-        mock_game_repo: AsyncMock,
-        fake_games_list: list
+    test_app: FastAPI,
+    async_client_mock: AsyncClient,
+    mock_game_repo: AsyncMock,
+    fake_games_list: list,
 ):
     """Test fetching all games."""
     mock_game_repo.get_games.return_value = fake_games_list
@@ -27,10 +27,10 @@ async def test_get_all_games(
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_games_with_genre(
-        test_app: FastAPI,
-        async_client_mock: AsyncClient,
-        mock_game_repo: AsyncMock,
-        fake_action_games_list: list
+    test_app: FastAPI,
+    async_client_mock: AsyncClient,
+    mock_game_repo: AsyncMock,
+    fake_action_games_list: list,
 ):
     """Test fetching games filtered by genre."""
     genre = "Action"
@@ -47,10 +47,10 @@ async def test_get_games_with_genre(
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_games_with_limit(
-        test_app: FastAPI,
-        async_client_mock: AsyncClient,
-        mock_game_repo: AsyncMock,
-        fake_games_list: list
+    test_app: FastAPI,
+    async_client_mock: AsyncClient,
+    mock_game_repo: AsyncMock,
+    fake_games_list: list,
 ):
     """Test fetching games with a limit."""
     limit = 2

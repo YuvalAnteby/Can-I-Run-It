@@ -1,6 +1,6 @@
 import pytest
-from httpx import AsyncClient, ASGITransport
-from fastapi import FastAPI
+from httpx import ASGITransport, AsyncClient
+
 from backend.src.app.dependencies import get_games_repo
 from backend.src.app.main import app
 
@@ -31,12 +31,12 @@ class FakeGameRepo:
                 "shelves": [
                     {"name": "Featured", "enabled": True},
                     {"name": "New Releases", "enabled": True},
-                    {"name": "Disabled Shelf", "enabled": False}
-                ]
+                    {"name": "Disabled Shelf", "enabled": False},
+                ],
             }
         return None
 
-    async  def create_game(self, game_data: dict) -> str | None:
+    async def create_game(self, game_data: dict) -> str | None:
         """Mock create_game method."""
         return "mocked_game_id"
 
@@ -59,4 +59,3 @@ async def smoke_client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
-
