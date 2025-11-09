@@ -37,8 +37,8 @@ jobs:
 
       - name: Build & run linter via docker-compose
         run: |
-          docker compose -f infra/docker-compose.tests.yml build backend-test
-          docker compose -f infra/docker-compose.tests.yml up --exit-code-from backend-test backend-test
+          docker compose -f infra/docker-compose.tests.yml build backend-lint
+          docker compose -f infra/docker-compose.tests.yml run --rm backend-lint
         env:
           ENVIRONMENT: testing
 
