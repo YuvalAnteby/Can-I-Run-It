@@ -8,7 +8,6 @@ on:
       - 'infra/**'
       - '.github/workflows/**'
       - '.env*'
-      # ignore doc related files
       - '!**/*.md'
       - '!docs/**'
 
@@ -23,6 +22,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Create test .env file
+        run: |
+          cat > infra/.env << EOF
+          MONGODB_URI=mongodb://mongodb-test:27017
+          ENVIRONMENT=testing
+          SECRET_KEY=test-secret-key-for-ci-only
+          JWT_SECRET=test-jwt-secret-for-ci
+          # Add any other required env vars with dummy values
+          EOF
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -56,6 +65,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Create test .env file
+        run: |
+          cat > infra/.env << EOF
+          MONGODB_URI=mongodb://mongodb-test:27017
+          ENVIRONMENT=testing
+          SECRET_KEY=test-secret-key-for-ci-only
+          JWT_SECRET=test-jwt-secret-for-ci
+          EOF
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -91,6 +109,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Create test .env file
+        run: |
+          cat > infra/.env << EOF
+          MONGODB_URI=mongodb://mongodb-test:27017
+          ENVIRONMENT=testing
+          SECRET_KEY=test-secret-key-for-ci-only
+          JWT_SECRET=test-jwt-secret-for-ci
+          EOF
+
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
@@ -124,6 +151,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Create test .env file
+        run: |
+          cat > infra/.env << EOF
+          MONGODB_URI=mongodb://mongodb-test:27017
+          ENVIRONMENT=testing
+          SECRET_KEY=test-secret-key-for-ci-only
+          JWT_SECRET=test-jwt-secret-for-ci
+          EOF
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -177,7 +213,11 @@ jobs:
 
       - name: Save backend docker image
         run: |
-          docker save $(docker compose -f infra/docker-compose.tests.yml images -q backend-test) -o backend-image.tar
+          # List images for debugging
+          docker images | grep backend
+          # Save the image (should be ciri-backend-test:latest if you added image: to compose)
+          docker save ciri-backend-test:latest -o backend-image.tar || \
+          docker save $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "backend-test" | head -n 1) -o backend-image.tar
 
       - name: Upload image artifact
         uses: actions/upload-artifact@v4
