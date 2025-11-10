@@ -29,6 +29,7 @@ services:
       - ENVIRONMENT=testing
       - TEST_TYPE=   # empty = run all stages
       - MONGO_PORT=27017
+      - ALLOWED_ORIGINS=http://localhost:3000
     volumes:
       - ../backend:/app/backend
       - ./backend-test-results:/app/backend-test-results
