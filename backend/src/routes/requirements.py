@@ -1,4 +1,4 @@
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
 
@@ -8,16 +8,18 @@ from backend.src.schemas.Performance import build_setup_response
 
 router = APIRouter()
 
+
 # TODO add the rest of the variables from setup element of the DB
 @router.get("/game-requirements/", response_model=Dict[str, Any])
 async def get_requirement(
-        game_id: str,
-        cpu_id: str,
-        gpu_id: str,
-        ram: int,
-        resolution: str,
-        setting_name: str,
-        fps: Optional[int] = None):
+    game_id: str,
+    cpu_id: str,
+    gpu_id: str,
+    ram: int,
+    resolution: str,
+    setting_name: str,
+    fps: Optional[int] = None,
+):
     """
     Gets the setup's performance result from the DB.
 
@@ -37,7 +39,7 @@ async def get_requirement(
         cpu_id=cpu_id,
         gpu_id=gpu_id,
         ram=ram,
-        fps=fps
+        fps=fps,
     )
     return build_setup_response(game_doc, matching_setup)
 

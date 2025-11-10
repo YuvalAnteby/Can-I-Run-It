@@ -1,0 +1,28 @@
+[flake8]
+max-line-length = 120
+extend-ignore = E203, W503, E501, W504, E402
+exclude =
+    .git,
+    __pycache__,
+    env,
+    venv,
+    .venv,
+    build,
+    dist,
+    migrations,
+    alembic,
+    backend/tests,
+    .pytest_cache,
+    .mypy_cache,
+    .tox
+max-complexity = 10
+per-file-ignores =
+    __init__.py: F401, F403
+    **/config.py: E501
+    **/settings.py: E501
+    **/models.py: E501
+    **/routers/*.py: F401
+    **/api/*.py: F401
+    **/dependencies.py: F401
+    **/test_*.py: F401, F811
+    tests/**: F401, F811

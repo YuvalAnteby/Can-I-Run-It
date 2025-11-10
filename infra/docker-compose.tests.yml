@@ -8,6 +8,15 @@ services:
     networks:
       - test-net
 
+  backend-lint:
+    build:
+      context: ..
+      dockerfile: ./infra/Dockerfile.backend.tests
+      target: lint   # ← important! run the lint stage
+    container_name: ciri-lint
+    volumes:
+      - ../backend:/app/backend
+
   backend-test:
     build:
       context: ..
@@ -15,12 +24,12 @@ services:
     container_name: ciri-tests
     depends_on:
       - mongodb-test
-    env_file:
-      - .env
     environment:
       - MONGODB_URI=mongodb://mongodb-test:27017
       - ENVIRONMENT=testing
       - TEST_TYPE=   # empty = run all stages
+      - MONGO_PORT=27017
+      - ALLOWED_ORIGINS=http://localhost:3000
     volumes:
       - ../backend:/app/backend
       - ./backend-test-results:/app/backend-test-results

@@ -6,3 +6,6 @@ pytest==8.3.5
 starlette==0.41.3
 uvicorn==0.34.0
 pytest-asyncio>=0.23.0
+flake8
+black
+isort

@@ -2,13 +2,14 @@
 All functions for handling the CPUs in the DB will be here for ease of use and maintainability.
 For example: fetching all CPUs, fetch CPUs by brand, etc.
 """
+
 from typing import Any, Dict, Optional
 
 from fastapi import Depends
 
-from backend.src.schemas.Cpu import Cpu
-from backend.src.utils.regex_wrapper import hardware_model_regex, hardware_brand_regex
 from backend.src.repository.cpus import RepositoryCPU
+from backend.src.schemas.Cpu import Cpu
+from backend.src.utils.regex_wrapper import hardware_brand_regex, hardware_model_regex
 
 
 async def fetch_all_cpus(limit: Optional[int] = None, cpu_repo: RepositoryCPU = Depends()) -> list[Cpu]:
@@ -19,10 +20,18 @@ async def fetch_all_cpus(limit: Optional[int] = None, cpu_repo: RepositoryCPU = 
     :return: List of all CPUs as dictionaries.
     """
     cpus: list[Dict[str, Any]] = await cpu_repo.get_cpus(limit=limit)
-    return [Cpu(**cpu,id=str(cpu["_id"]),) for cpu in cpus]
+    return [
+        Cpu(
+            **cpu,
+            id=str(cpu["_id"]),
+        )
+        for cpu in cpus
+    ]
 
 
-async def fetch_cpus_by_brand(brand: str, limit: Optional[int] = None, cpu_repo: RepositoryCPU = Depends()) -> list[Cpu]:
+async def fetch_cpus_by_brand(
+    brand: str, limit: Optional[int] = None, cpu_repo: RepositoryCPU = Depends()
+) -> list[Cpu]:
     """
     Controller retrieve CPUs with the given brand from the database.
 
@@ -36,7 +45,9 @@ async def fetch_cpus_by_brand(brand: str, limit: Optional[int] = None, cpu_repo:
     return [Cpu(**cpu, id=str(cpu["_id"])) for cpu in cpus]
 
 
-async def fetch_cpus_by_model(model: str, limit: Optional[int] = None, cpu_repo: RepositoryCPU = Depends()) -> list[Cpu]:
+async def fetch_cpus_by_model(
+    model: str, limit: Optional[int] = None, cpu_repo: RepositoryCPU = Depends()
+) -> list[Cpu]:
     """
     Retrieve CPUs with the given model from the database.
 
@@ -48,7 +59,7 @@ async def fetch_cpus_by_model(model: str, limit: Optional[int] = None, cpu_repo:
     additional_query = {
         "$or": [  # Match the input's regex with the full name or the shorten model name.
             {"model": hardware_model_regex(model)},
-            {"fullname": hardware_model_regex(model)}
+            {"fullname": hardware_model_regex(model)},
         ]
     }
     cpus: list[Dict[str, Any]] = await cpu_repo.get_cpus(additional_query=additional_query, limit=limit)

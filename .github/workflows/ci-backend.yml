@@ -1,0 +1,185 @@
+name: CI - Backend
+
+on:
+  pull_request:
+    branches: [ staging ]
+    paths:
+      - 'backend/**'
+      - 'infra/**'
+      - '.github/workflows/**'
+      - '.env*'
+      - '!**/*.md'
+      - '!docs/**'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create test .env file
+        run: |
+          cat > infra/.env << EOF
+          MONGODB_URI=mongodb://mongodb-test:27017
+          ENVIRONMENT=testing
+          SECRET_KEY=test-secret-key-for-ci-only
+          JWT_SECRET=test-jwt-secret-for-ci
+          # Add any other required env vars with dummy values
+          EOF
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('backend/Dockerfile', 'backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build & run linter via docker-compose
+        run: |
+          docker compose -f infra/docker-compose.tests.yml build backend-lint
+          docker compose -f infra/docker-compose.tests.yml run --rm backend-lint
+        env:
+          ENVIRONMENT: testing
+
+      - name: Upload lint logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-lint-logs
+          path: infra/backend-test-results/
+
+  ping_test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: lint
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create test .env file
+        run: |
+          cat > infra/.env << EOF
+          MONGODB_URI=mongodb://mongodb-test:27017
+          ENVIRONMENT=testing
+          SECRET_KEY=test-secret-key-for-ci-only
+          JWT_SECRET=test-jwt-secret-for-ci
+          EOF
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('backend/Dockerfile', 'backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Start compose and run ping test
+        run: |
+          docker compose -f infra/docker-compose.tests.yml build
+          docker compose -f infra/docker-compose.tests.yml up --exit-code-from backend-test --abort-on-container-exit
+        env:
+          ENVIRONMENT: testing
+          TEST_TYPE: ping
+
+      - name: Upload ping test logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-ping-logs
+          path: infra/backend-test-results/
+
+
+  backend_tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: ping_test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Create test .env file
+        run: |
+          cat > infra/.env << EOF
+          MONGODB_URI=mongodb://mongodb-test:27017
+          ENVIRONMENT=testing
+          SECRET_KEY=test-secret-key-for-ci-only
+          JWT_SECRET=test-jwt-secret-for-ci
+          EOF
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('backend/Dockerfile', 'backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Run unit tests (pytest)
+        run: |
+          docker compose -f infra/docker-compose.tests.yml build
+          docker compose -f infra/docker-compose.tests.yml up --exit-code-from backend-test --abort-on-container-exit
+        env:
+          ENVIRONMENT: testing
+          TEST_TYPE: unit
+
+      - name: Collect test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: infra/backend-test-results/
+
+  save_image_artifact:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: backend_tests
+    if: success()
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('backend/Dockerfile', 'backend/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Build backend image
+        run: |
+          docker compose -f infra/docker-compose.tests.yml build backend-test
+
+      - name: Save backend docker image
+        run: |
+          # List images for debugging
+          docker images | grep backend
+          # Save the image (should be ciri-backend-test:latest if you added image: to compose)
+          docker save ciri-backend-test:latest -o backend-image.tar || \
+          docker save $(docker images --format "{{.Repository}}:{{.Tag}}" | grep "backend-test" | head -n 1) -o backend-image.tar
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-image
+          path: backend-image.tar
+          retention-days: 7

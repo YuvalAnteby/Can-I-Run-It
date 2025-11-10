@@ -3,18 +3,24 @@ Provides endpoints for creating and deleting CPUs and GPUs in the database.
 These endpoints are intended for admin use and ensure uniqueness of hardware entries.
 """
 
-from fastapi import APIRouter, Depends
 from typing import List
-from backend.src.schemas.Cpu import CpuCreateDTO
-from backend.src.schemas.Gpu import GpuCreateDTO
+
+from fastapi import APIRouter, Depends
+
 from backend.src.app.dependencies import get_cpu_repo, get_gpu_repo
 from backend.src.controllers.admin_hardware import (
-    create_cpu_controller, create_gpu_controller,
-    delete_cpu_controller, delete_gpu_controller,
-    bulk_create_cpus_controller, bulk_create_gpus_controller
+    bulk_create_cpus_controller,
+    bulk_create_gpus_controller,
+    create_cpu_controller,
+    create_gpu_controller,
+    delete_cpu_controller,
+    delete_gpu_controller,
 )
+from backend.src.schemas.Cpu import CpuCreateDTO
+from backend.src.schemas.Gpu import GpuCreateDTO
 
 router = APIRouter(prefix="", tags=["Admin - Hardware"])
+
 
 @router.post("/cpus", response_model=str)
 async def create_cpu(cpu: CpuCreateDTO, cpu_repo=Depends(get_cpu_repo)):
@@ -30,6 +36,7 @@ async def create_cpu(cpu: CpuCreateDTO, cpu_repo=Depends(get_cpu_repo)):
     """
     return await create_cpu_controller(cpu, cpu_repo)
 
+
 @router.post("/gpus", response_model=str)
 async def create_gpu(gpu: GpuCreateDTO, gpu_repo=Depends(get_gpu_repo)):
     """
@@ -41,6 +48,7 @@ async def create_gpu(gpu: GpuCreateDTO, gpu_repo=Depends(get_gpu_repo)):
     :return: Database ID of the created GPU
     """
     return await create_gpu_controller(gpu, gpu_repo)
+
 
 @router.delete("/cpus/{cpu_id}", response_model=str)
 async def delete_cpu(cpu_id: str, cpu_repo=Depends(get_cpu_repo)):
@@ -54,6 +62,7 @@ async def delete_cpu(cpu_id: str, cpu_repo=Depends(get_cpu_repo)):
     """
     return await delete_cpu_controller(cpu_id, cpu_repo)
 
+
 @router.delete("/gpus/{gpu_id}", response_model=str)
 async def delete_gpu(gpu_id: str, gpu_repo=Depends(get_gpu_repo)):
     """
@@ -65,6 +74,7 @@ async def delete_gpu(gpu_id: str, gpu_repo=Depends(get_gpu_repo)):
     :return: Success message if deleted
     """
     return await delete_gpu_controller(gpu_id, gpu_repo)
+
 
 @router.post("/cpus/bulk", response_model=dict)
 async def bulk_create_cpus(cpus: List[CpuCreateDTO], cpu_repo=Depends(get_cpu_repo)):
@@ -78,6 +88,7 @@ async def bulk_create_cpus(cpus: List[CpuCreateDTO], cpu_repo=Depends(get_cpu_re
     :return: Dict with 'inserted' and 'skipped' lists of ids
     """
     return await bulk_create_cpus_controller(cpus, cpu_repo)
+
 
 @router.post("/gpus/bulk", response_model=dict)
 async def bulk_create_gpus(gpus: List[GpuCreateDTO], gpu_repo=Depends(get_gpu_repo)):

@@ -1,20 +1,19 @@
+from unittest.mock import AsyncMock
+
 import pytest
 from fastapi import FastAPI
 from httpx import AsyncClient
-from unittest.mock import AsyncMock
-
-from backend.src.app.dependencies import get_cpu_repo, get_gpu_repo
-
 
 # --- CPU Route Tests ---
+
 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_all_cpus(
-        test_app: FastAPI,
-        async_client_mock: AsyncClient,
-        mock_cpu_repo: AsyncMock,
-        fake_cpus_list: list
+    test_app: FastAPI,
+    async_client_mock: AsyncClient,
+    mock_cpu_repo: AsyncMock,
+    fake_cpus_list: list,
 ):
     """Test fetching all CPUs."""
     mock_cpu_repo.get_cpus.return_value = fake_cpus_list
@@ -31,10 +30,10 @@ async def test_get_all_cpus(
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_cpus_with_limit(
-        test_app: FastAPI,
-        async_client_mock: AsyncClient,
-        mock_cpu_repo: AsyncMock,
-        fake_cpus_list: list
+    test_app: FastAPI,
+    async_client_mock: AsyncClient,
+    mock_cpu_repo: AsyncMock,
+    fake_cpus_list: list,
 ):
     """Test fetching all CPUs with a limit."""
     limit = 2
@@ -47,16 +46,16 @@ async def test_get_cpus_with_limit(
     # The limit is passed to the controller, which passes it to the repo.
     # The mock is on the repo, so we check if the repo method was called with the limit.
     call_args = mock_cpu_repo.get_cpus.call_args[1]
-    assert call_args['limit'] == limit
+    assert call_args["limit"] == limit
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_cpus_by_brand(
-        test_app: FastAPI,
-        async_client_mock: AsyncClient,
-        mock_cpu_repo: AsyncMock,
-        fake_cpus_list: list
+    test_app: FastAPI,
+    async_client_mock: AsyncClient,
+    mock_cpu_repo: AsyncMock,
+    fake_cpus_list: list,
 ):
     """Test fetching CPUs by brand."""
     brand = "brand1"
@@ -74,10 +73,10 @@ async def test_get_cpus_by_brand(
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_cpus_by_model(
-        test_app: FastAPI,
-        async_client_mock: AsyncClient,
-        mock_cpu_repo: AsyncMock,
-        fake_cpus_list: list
+    test_app: FastAPI,
+    async_client_mock: AsyncClient,
+    mock_cpu_repo: AsyncMock,
+    fake_cpus_list: list,
 ):
     """Test fetching CPUs by model."""
     model = "RYZEN"
@@ -93,11 +92,7 @@ async def test_get_cpus_by_model(
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_get_cpus_empty_result(
-        test_app: FastAPI,
-        async_client_mock: AsyncClient,
-        mock_cpu_repo: AsyncMock
-):
+async def test_get_cpus_empty_result(test_app: FastAPI, async_client_mock: AsyncClient, mock_cpu_repo: AsyncMock):
     """Test fetching CPUs with a query that returns no results."""
     mock_cpu_repo.get_cpus.return_value = []
 
@@ -109,13 +104,14 @@ async def test_get_cpus_empty_result(
 
 # --- GPU Route Tests ---
 
+
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_all_gpus(
-        test_app: FastAPI,
-        async_client_mock: AsyncClient,
-        mock_gpu_repo: AsyncMock,
-        fake_gpus_list: list
+    test_app: FastAPI,
+    async_client_mock: AsyncClient,
+    mock_gpu_repo: AsyncMock,
+    fake_gpus_list: list,
 ):
     """Test fetching all GPUs."""
     mock_gpu_repo.get_gpus.return_value = fake_gpus_list
@@ -132,10 +128,10 @@ async def test_get_all_gpus(
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_gpus_with_limit(
-        test_app: FastAPI,
-        async_client_mock: AsyncClient,
-        mock_gpu_repo: AsyncMock,
-        fake_gpus_list: list
+    test_app: FastAPI,
+    async_client_mock: AsyncClient,
+    mock_gpu_repo: AsyncMock,
+    fake_gpus_list: list,
 ):
     """Test fetching all GPUs with a limit."""
     limit = 2
@@ -146,16 +142,16 @@ async def test_get_gpus_with_limit(
     assert response.status_code == 200
     assert len(response.json()) == limit
     call_args = mock_gpu_repo.get_gpus.call_args[1]
-    assert call_args['limit'] == limit
+    assert call_args["limit"] == limit
 
 
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_gpus_by_brand(
-        test_app: FastAPI,
-        async_client_mock: AsyncClient,
-        mock_gpu_repo: AsyncMock,
-        fake_gpus_list: list
+    test_app: FastAPI,
+    async_client_mock: AsyncClient,
+    mock_gpu_repo: AsyncMock,
+    fake_gpus_list: list,
 ):
     """Test fetching GPUs by brand."""
     brand = "brand4"
@@ -173,10 +169,10 @@ async def test_get_gpus_by_brand(
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_get_gpus_by_model(
-        test_app: FastAPI,
-        async_client_mock: AsyncClient,
-        mock_gpu_repo: AsyncMock,
-        fake_gpus_list: list
+    test_app: FastAPI,
+    async_client_mock: AsyncClient,
+    mock_gpu_repo: AsyncMock,
+    fake_gpus_list: list,
 ):
     """Test fetching GPUs by model."""
     model = "RTXC"
@@ -192,11 +188,7 @@ async def test_get_gpus_by_model(
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-async def test_get_gpus_empty_result(
-        test_app: FastAPI,
-        async_client_mock: AsyncClient,
-        mock_gpu_repo: AsyncMock
-):
+async def test_get_gpus_empty_result(test_app: FastAPI, async_client_mock: AsyncClient, mock_gpu_repo: AsyncMock):
     """Test fetching GPUs with a query that returns no results."""
     mock_gpu_repo.get_gpus.return_value = []
 

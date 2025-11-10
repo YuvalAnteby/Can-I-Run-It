@@ -4,14 +4,14 @@ from typing import AsyncGenerator
 import pytest
 from bson import ObjectId
 from fastapi import FastAPI
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
-from backend.src.app.dependencies import get_cpu_repo, get_gpu_repo, get_games_repo
+from backend.src.app.dependencies import get_cpu_repo, get_games_repo, get_gpu_repo
+from backend.src.routes.admin_hardware import router as admin_hardware_router
 from backend.src.routes.cpus import router as cpus_router
 from backend.src.routes.games import router as games_router
 from backend.src.routes.gpus import router as gpus_router
 from backend.src.routes.requirements import router as requirements_router
-from backend.src.routes.admin_hardware import router as admin_hardware_router
 
 
 @pytest.fixture
@@ -28,12 +28,13 @@ def test_app():
     app.include_router(admin_hardware_router)
     return app
 
+
 @pytest.fixture
 async def async_client_mock(
     test_app: FastAPI,
-    mock_cpu_repo,        # from unit/conftest.py (AsyncMock spec=RepositoryCPU)
-    mock_gpu_repo,        # from unit/conftest.py (AsyncMock spec=RepositoryGPU)
-    mock_game_repo
+    mock_cpu_repo,  # from unit/conftest.py (AsyncMock spec=RepositoryCPU)
+    mock_gpu_repo,  # from unit/conftest.py (AsyncMock spec=RepositoryGPU)
+    mock_game_repo,
 ) -> AsyncGenerator[AsyncClient, None]:
     """
     Async HTTP client for the hardware test app.
@@ -45,7 +46,6 @@ async def async_client_mock(
     test_app.dependency_overrides[get_gpu_repo] = lambda: mock_gpu_repo
     test_app.dependency_overrides[get_games_repo] = lambda: mock_game_repo
 
-
     transport = ASGITransport(app=test_app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         yield client
@@ -54,6 +54,7 @@ async def async_client_mock(
     test_app.dependency_overrides.pop(get_cpu_repo, None)
     test_app.dependency_overrides.pop(get_gpu_repo, None)
     test_app.dependency_overrides.pop(get_games_repo, None)
+
 
 @pytest.fixture
 def fake_game():
@@ -82,7 +83,7 @@ def fake_game():
         "is_ssd_recommended": True,
         "upscale_support": [],
         "api_support": ["DX11"],
-        "created_at": datetime.now(timezone.utc)
+        "created_at": datetime.now(timezone.utc),
     }
 
 
@@ -115,7 +116,7 @@ def fake_games_list(fake_action_games_list):
             "is_ssd_recommended": True,
             "upscale_support": ["Nvidia DLSS 3.7"],
             "api_support": ["DX11", "DX12", "Vulkan"],
-            "created_at": datetime.now(timezone.utc)
+            "created_at": datetime.now(timezone.utc),
         }
     ]
 
@@ -144,7 +145,7 @@ def fake_action_games_list(fake_game):
             "is_ssd_recommended": True,
             "upscale_support": ["Nvidia DLSS 3.7", "AMD FST 3.1"],
             "api_support": ["DX11", "DX12"],
-            "created_at": datetime.now(timezone.utc)
+            "created_at": datetime.now(timezone.utc),
         },
         {
             "_id": ObjectId("507f1f77bcf86cd799439013"),
@@ -167,7 +168,7 @@ def fake_action_games_list(fake_game):
             "is_ssd_recommended": False,
             "upscale_support": ["Nvidia DLSS 3.7", "AMD FST 3.1", "Intel Xess 1.3"],
             "api_support": ["DX12"],
-            "created_at": datetime.now(timezone.utc)
+            "created_at": datetime.now(timezone.utc),
         },
         {
             "_id": ObjectId("507f1f77bcf86cd799439014"),
@@ -190,8 +191,8 @@ def fake_action_games_list(fake_game):
             "is_ssd_recommended": False,
             "upscale_support": ["Intel Xess 1.3"],
             "api_support": ["DX12", "Vulkan"],
-            "created_at": datetime.now(timezone.utc)
-        }
+            "created_at": datetime.now(timezone.utc),
+        },
     ]
 
 
@@ -208,7 +209,7 @@ def fake_cpus_list():
             "brand": "brand1",
             "model": "RYZEN 1234",
             "fullname": "Ryzen 0 1234",
-            "type": "cpu"
+            "type": "cpu",
         },
         {
             "_id": ObjectId("6758bbf1849fa5acb6884202"),
@@ -216,7 +217,7 @@ def fake_cpus_list():
             "brand": "brand1",
             "model": "RYZEN 5678",
             "fullname": "Ryzen 8 5678",
-            "type": "cpu"
+            "type": "cpu",
         },
         {
             "_id": ObjectId("6758bbf1849fa5acb6884203"),
@@ -224,7 +225,7 @@ def fake_cpus_list():
             "brand": "brand2",
             "model": "I11 1234k",
             "fullname": "Core I11 1234k",
-            "type": "cpu"
+            "type": "cpu",
         },
         {
             "_id": ObjectId("6758bbf1849fa5acb6884204"),
@@ -232,7 +233,7 @@ def fake_cpus_list():
             "brand": "brand2",
             "model": "I11 5678k",
             "fullname": "Core I11 5678k",
-            "type": "cpu"
+            "type": "cpu",
         },
         {
             "_id": ObjectId("6758bbf1849fa5acb6884205"),
@@ -240,8 +241,8 @@ def fake_cpus_list():
             "brand": "brand3",
             "model": "RI 22 987",
             "fullname": "brand3 RI 22 987",
-            "type": "cpu"
-        }
+            "type": "cpu",
+        },
     ]
 
 
@@ -258,7 +259,7 @@ def fake_gpus_list():
             "brand": "brand4",
             "model": "RTXC 1234",
             "fullname": "RTXC 1234 (6GB)",
-            "type": "gpu"
+            "type": "gpu",
         },
         {
             "_id": ObjectId("6758bbf1849fa5acb6884207"),
@@ -266,7 +267,7 @@ def fake_gpus_list():
             "brand": "brand4",
             "model": "RTXC 1234",
             "fullname": "RTXC 1234 (12GB)",
-            "type": "gpu"
+            "type": "gpu",
         },
         {
             "_id": ObjectId("6758bbf1849fa5acb6884208"),
@@ -274,7 +275,7 @@ def fake_gpus_list():
             "brand": "brand5",
             "model": "RX 5800",
             "fullname": "RTX 5800",
-            "type": "gpu"
+            "type": "gpu",
         },
         {
             "_id": ObjectId("6758bbf1849fa5acb6884209"),
@@ -282,8 +283,8 @@ def fake_gpus_list():
             "brand": "brand5",
             "model": "RX 5800XT",
             "fullname": "RTX 5800XT",
-            "type": "gpu"
-        }
+            "type": "gpu",
+        },
     ]
 
 

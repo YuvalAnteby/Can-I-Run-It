@@ -1,8 +1,9 @@
-from typing import Dict, Optional, Any
+from typing import Any, Dict, Optional
+
 from bson import ObjectId
 from bson.errors import InvalidId
-
 from pymongo.asynchronous.collection import AsyncCollection
+
 from backend.src.utils.regex_wrapper import hardware_type_regex
 
 
@@ -12,16 +13,16 @@ class RepositoryCPU:
         self.collection = collection
 
     async def get_cpus(
-            self,
-            limit: Optional[int] = None,
-            additional_query: Optional[Dict[str, Any]] = None
+        self,
+        limit: Optional[int] = None,
+        additional_query: Optional[Dict[str, Any]] = None,
     ) -> list[Dict[str, Any]]:
         """
-       Fetches CPUs from the MongoDB collection with optional additional query parameters.
-       :param limit: Maximum number of results to return
-       :param additional_query: Additional MongoDB query parameters, if none provided will get all CPUs
-       :Returns: List of CPU documents
-       """
+        Fetches CPUs from the MongoDB collection with optional additional query parameters.
+        :param limit: Maximum number of results to return
+        :param additional_query: Additional MongoDB query parameters, if none provided will get all CPUs
+        :Returns: List of CPU documents
+        """
         base_query = {"type": hardware_type_regex("cpu")}
         if additional_query:
             # Properly combine queries using $and to avoid overwriting

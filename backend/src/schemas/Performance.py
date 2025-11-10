@@ -1,7 +1,9 @@
+from typing import Any, Dict, Optional
+
 from bson import ObjectId
 from fastapi import HTTPException
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
+
 
 # Schema
 class GameSetupRequest(BaseModel):
@@ -19,9 +21,7 @@ class GameSetupRequest(BaseModel):
     id: str
 
     class Config:
-        json_encoders = {
-            ObjectId: str  # This will convert ObjectId to a string automatically
-        }
+        json_encoders = {ObjectId: str}  # This will convert ObjectId to a string automatically
 
 
 def build_setup_response(game_doc: Dict[str, Any], setup: Dict[str, Any]):
@@ -43,7 +43,7 @@ def build_setup_response(game_doc: Dict[str, Any], setup: Dict[str, Any]):
             taken_by=setup.get("taken_by") or "Unknown",
             notes=setup.get("notes") or "",
             verified=setup.get("verified", False),
-            id=str(game_doc["_id"])
+            id=str(game_doc["_id"]),
         )
         return response_model.model_dump()
     except Exception as e:
