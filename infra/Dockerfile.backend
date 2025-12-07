@@ -1,0 +1,32 @@
+# Stage 1 - install dependencies
+FROM node:20-alpine AS dependencies
+LABEL key="dependencies"
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+
+# Stage 2 - build the app for dev mode
+FROM dependencies AS dev
+LABEL key="dev"
+COPY . .
+CMD ["npm", "run", "start:dev"]
+
+# Stage 3 - build the app for production
+FROM dependencies AS build
+LABEL key="build"
+COPY . .
+RUN npm run build
+# Remove dev dependencies
+RUN npm prune --production
+
+# Stage 4 - serve the production build
+FROM node:20-alpine AS prod
+LABEL key="prod"
+WORKDIR /app
+# Copy only the necessary files from the build stage
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/package.json ./package.json
+# Run the production build
+USER node
+CMD ["npm", "run", "start:prod"]

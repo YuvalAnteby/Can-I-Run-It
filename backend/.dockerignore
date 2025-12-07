@@ -1,0 +1,26 @@
+# 1. Dependency Directories
+node_modules/
+
+# 2. Build Artifacts
+dist/
+build/
+
+# 3. Environment & Secrets
+.env
+.env.*
+!.env.example
+
+# 4. Version Control & IDE
+.git/
+.gitignore
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# 5. Testing & Logs
+coverage/
+npm-debug.log
+yarn-error.log
+test/
+*.spec.ts

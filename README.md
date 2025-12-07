@@ -1,11 +1,12 @@
 # 🎮 Can I Run It
+
 <p align="center"> 
-<img src="https://img.shields.io/badge/Python-3.11-blue" alt="Python">
-<img src="https://img.shields.io/badge/FastAPI-%2300C7B7?logo=fastapi&logoColor=white" alt="FastAPI"> 
-<img src="https://img.shields.io/badge/React-18-blue?logo=react" alt="React"> 
-<img src="https://img.shields.io/badge/MUI-5-blue?logo=mui&logoColor=white" alt="Material UI">
-<img src="https://img.shields.io/badge/Axios-HTTP-yellow" alt="Axios">
-<img src="https://img.shields.io/badge/MongoDB-%2347A248?logo=mongodb&logoColor=white" alt="MongoDB">
+<img src="https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
+<img src="https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=white" alt="Python">
+<img src="https://img.shields.io/badge/nestjs-%23E0234E.svg?style=for-the-badge&logo=nestjs&logoColor=white" alt="NestJS">
+<img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi" alt="FastAPI"> 
+<img src="https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB" alt="React">
+<img src="https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
 <br>
 <img src="https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg" alt="License: MPL 2.0"> 
 </p>
@@ -13,7 +14,7 @@
 **Can I Run It** is a full-stack web app that checks whether your PC can run a selected game based on your hardware
 specs and desired settings.
 <br>
-This monorepo contains the backend (built with Python, FastAPI, MongoDB) and the frontend (JavaScript, React + MUI).
+This monorepo contains the backend (NestJS + FastAPI) and the frontend (React (TS) + MUI + CSS).
 
 ---
 
@@ -30,39 +31,39 @@ This monorepo contains the backend (built with Python, FastAPI, MongoDB) and the
 ## 📚 Table of Contents
 
 - [Tech Stack](#-tech-stack)
-- [Features](#-features)
-    - [Implemented](#-implemented)
-    - [Upcoming](#-upcoming)
 - [Running Locally](#-running-locally)
-- [Contributing](#-contributing)
 - [License](#-license)
 - [Related](#-related)
-
+<!-- - [Features](#-features)
+    - [Implemented](#-implemented)
+    - [Upcoming](#-upcoming)
+-->
 ---
 
 ## ⚙️ Tech Stack
-#### Frontend:
-- **Language:** JavaScript
-- **Frameworks:** React
-- **Routing & API calls:** React Router, Axios 
-- **Styling:** Material UI (MUI)
 
 #### Backend:
-- **Language:** Python 3.11+
-- **Frameworks:** FastAPI
-- **Database:** MongoDB (via Motor - async MongoDB driver)
-- **Schema Validation:** Pydantic
-- **Testing:** Pytest, AsyncMock
+- **Languages:** TypeScript, Python 3.11+
+- **Frameworks:** NestJS, FastAPI
+- **Database:** Postgres (Via TypeORM)
+- **Testing:** Jest
 - **Containerization:** Docker & Docker Compose
 - **CI/CD:** GitHub Actions 
 
+#### Frontend:
+- **Language:** TypeScript
+- **Frameworks:** React
+- **Routing & API calls:** React Router, Axios 
+- **Styling:** Material UI (MUI), CSS
+
 ---
 
+<!--
 ## 🌟 Features
 
 ### ✅ Implemented
 
-- Core Functionality:
+ - Core Functionality:
   - Hardware selectors (CPU, GPU, RAM)
   - Game cards with interactive details page 
   - Compatibility checker based on MongoDB performance data
@@ -85,14 +86,14 @@ This monorepo contains the backend (built with Python, FastAPI, MongoDB) and the
 - Basic ML model for hardware upgrade recommendations, based on recorded data
 
 --- 
+-->
 
 ## 🐳 Running Locally
 
 ### Prerequisites
-> ⚠️ Backend requires the seeded MongoDB to work fully
-- Docker & Docker Compose
-- Node.js
-- Python 3.11+
+> ⚠️ Backend requires the seeded Postgres DB to work fully or CSV file to seed locally
+- Docker & Docker Compose [Install Docker](https://www.docker.com/products/docker-desktop/)
+- NodeJS & npm
 
 ### Clone the repo
 ```bash
@@ -100,27 +101,32 @@ git clone https://github.com/YuvalAnteby/Can-I-Run-It.git
 cd Can-I-Run-It
 ```
 ### Run in development mode
-Runs the backend, MongoDB and React apps, allows live reloading. remove `-d` to see logs live.
+Runs the backend, Postgres and React apps, allows live reloading. remove `-d` to see logs live.
+
 ```bash
-docker compose -f infra/docker-compose.dev.yml up -d --build
+npm run docker:dev
 ```
-<!---
+<!--
 ### Run in production mode
 Runs the backend, MongoDB and React apps as static files.
 ```bash
-docker compose -f infra/docker-compose.dev.yml up -d
+npm run docker:prod
 ```
---->
+-->
+# Stop everything
+```bash
+npm run docker:down
+```
 
 ### Access the apps (default ports)
 - Frontend: http://localhost:3000
 - Backend:  http://localhost:4000
-- API docs:  http://localhost:4000/docs
+<!-- - API docs:  http://localhost:4000/docs -->
 - For more info see [backend/README.md](https://github.com/YuvalAnteby/Can-I-Run-It/blob/main/backend/README.md) 
 and [frontend/README.md](https://github.com/YuvalAnteby/Can-I-Run-It/blob/main/frontend/README.md)
 
 ---
-
+<!--
 ## 🖼️ Screenshots
 <p float="left">
 <img src="screenshots/home%20page%20desktop.png" alt="main game selection">
@@ -134,10 +140,7 @@ and [frontend/README.md](https://github.com/YuvalAnteby/Can-I-Run-It/blob/main/f
 > Want to see more? [Click here for all screenshots](./screenshots)
 
 ---
-
-## 🤝 Contributing
-If you'd like to contribute, feel free to fork the project and open a pull request.<br/>
-Feedback and feature suggestions are always welcome!
+-->
 
 ---
 
