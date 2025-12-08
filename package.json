@@ -3,6 +3,8 @@
   "docker:dev": "docker compose -f infra/docker-compose.yml up -d --build",
   "docker:prod": "docker compose -f infra/docker-compose.prod.yml up -d --build",
   "docker:down": "docker compose -f infra/docker-compose.yml down",
-  "docker:logs": "docker compose -f infra/docker-compose.yml logs -f"
+  "docker:logs": "docker compose -f infra/docker-compose.yml logs -f",
+  "format": "cd backend && npm run format && cd ../frontend && npm run format",
+  "docker:test:backend": "docker compose -f infra/docker-compose.tests.yml up --build --exit-code-from backend --abort-on-container-exit"
 }
 }

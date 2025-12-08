@@ -22,5 +22,3 @@ build/
 coverage/
 npm-debug.log
 yarn-error.log
-test/
-*.spec.ts

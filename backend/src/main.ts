@@ -14,6 +14,15 @@ async function bootstrap() {
     defaultVersion: '1',
   });
 
-  await app.listen(process.env.PORT ?? 4000);
+  await app
+    .listen(process.env.PORT ?? 4000)
+    .then(() => {
+      console.log(`NestJS is running on port ${process.env.PORT ?? 4000}`);
+    })
+    .catch((err) => {
+      console.error('Error starting the NestJS:', err);
+      process.exit(1);
+    });
 }
-bootstrap();
+
+void bootstrap();
