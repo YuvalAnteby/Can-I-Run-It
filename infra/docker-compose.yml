@@ -63,6 +63,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-myciridb}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
     networks:
       - ciri-net
     healthcheck:
