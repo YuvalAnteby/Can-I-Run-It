@@ -15,7 +15,7 @@ const AppDataSource = new DataSource({
     username: process.env.POSTGRES_USER || 'username',
     password: process.env.POSTGRES_PASSWORD || 'changeme',
     database: process.env.POSTGRES_DB || 'myciridb',
-    entities: [Gpu, Cpu],
+    entities: [Gpu], // TODO CPUs
     synchronize: false,
 });
 

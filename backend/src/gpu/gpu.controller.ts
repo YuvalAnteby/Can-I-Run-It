@@ -1,42 +1,45 @@
-import {
-    Controller,
-    Get,
-    Post,
-    Body,
-    Patch,
-    Param,
-    Delete,
-} from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { GpuService } from './gpu.service';
-import { CreateGpuDto } from './dto/create-gpu.dto';
-import { UpdateGpuDto } from './dto/update-gpu.dto';
+import { GpuSearchDto } from './dto/search-gpu-dto';
+import { GpusFilterDto } from './dto/filter-gpu-dto';
+import { ClientGpuDto } from './dto/client-gpu-dto';
+import { PaginatedResult } from 'src/common/dto/paginated-result.dto';
 
-@Controller('gpu')
+@Controller('gpus')
 export class GpuController {
     constructor(private readonly gpuService: GpuService) {}
 
-    @Post()
-    create(@Body() createGpuDto: CreateGpuDto) {
-        return this.gpuService.create(createGpuDto);
+    /**
+     * Search for GPUs by name
+     * @param searchDTO - The search parameters
+     * @returns A list of GPUs matching the search query
+     */
+    @Get('search')
+    async searchByName(
+        @Query() searchDTO: GpuSearchDto,
+    ): Promise<ClientGpuDto[]> {
+        return await this.gpuService.searchByName(searchDTO);
     }
 
+    /**
+     * Get a GPU by its slug
+     * @param slug - The slug of the GPU
+     * @returns The GPU with the given slug
+     */
+    @Get(':slug')
+    async findOne(@Param('slug') slug: string): Promise<ClientGpuDto> {
+        return await this.gpuService.findOne(slug);
+    }
+
+    /**
+     * Get a paginated list of GPUs
+     * @param filterDTO - The filter and pagination parameters
+     * @returns A paginated list of GPUs
+     */
     @Get()
-    findAll() {
-        return this.gpuService.findAll();
-    }
-
-    @Get(':id')
-    findOne(@Param('id') id: string) {
-        return this.gpuService.findOne(+id);
-    }
-
-    @Patch(':id')
-    update(@Param('id') id: string, @Body() updateGpuDto: UpdateGpuDto) {
-        return this.gpuService.update(+id, updateGpuDto);
-    }
-
-    @Delete(':id')
-    remove(@Param('id') id: string) {
-        return this.gpuService.remove(+id);
+    async findAll(
+        @Query() filterDTO: GpusFilterDto,
+    ): Promise<PaginatedResult<ClientGpuDto>> {
+        return await this.gpuService.findAll(filterDTO);
     }
 }
