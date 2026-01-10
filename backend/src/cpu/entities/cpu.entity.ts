@@ -7,11 +7,9 @@ import {
     Index,
 } from 'typeorm';
 
-// Matching your Postgres ENUM exactly
-export enum HardwareBrand {
-    NVIDIA = 'Nvidia',
-    AMD = 'AMD',
-    INTEL = 'Intel',
+export enum CpuBrand {
+    AMD = 'amd',
+    INTEL = 'intel',
 }
 
 @Entity('cpus')
@@ -27,9 +25,9 @@ export class Cpu {
 
     @Column({
         type: 'enum',
-        enum: HardwareBrand,
+        enum: CpuBrand,
     })
-    manufacturer: HardwareBrand;
+    manufacturer: CpuBrand;
 
     // -- Specs --
     @Column('int')

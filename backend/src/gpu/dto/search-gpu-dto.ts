@@ -14,7 +14,7 @@ export class GpuSearchDto {
     @IsString()
     @IsNotEmpty()
     @MinLength(2, { message: 'Search term must be at least 2 characters long' })
-    @Transform(({ value }) => {
+    @Transform(({ value }: { value: string }) => {
         // 1. Trim whitespaces
         // 2. Remove all '%' characters
         // 3. Remove all '_' characters ('_' is a wildcard in SQL)

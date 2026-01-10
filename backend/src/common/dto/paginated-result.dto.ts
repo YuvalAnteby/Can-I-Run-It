@@ -1,9 +1,9 @@
-import { ApiProperty } from "@nestjs/swagger";
+import { ApiProperty } from '@nestjs/swagger';
 
 export class PaginationMeta {
     @ApiProperty()
     total: number;
-    
+
     @ApiProperty()
     page: number;
 
