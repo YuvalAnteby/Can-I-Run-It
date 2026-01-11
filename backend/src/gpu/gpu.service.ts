@@ -64,6 +64,7 @@ export class GpuService {
             slug: gpu.slug,
             name: gpu.name,
             manufacturer: gpu.manufacturer,
+            vram_gb: gpu.vram_gb,
         };
     }
 }
