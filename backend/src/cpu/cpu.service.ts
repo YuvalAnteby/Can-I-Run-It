@@ -1,26 +1,70 @@
-import { Injectable } from '@nestjs/common';
-import { CreateCpuDto } from './dto/create-cpu.dto';
-import { UpdateCpuDto } from './dto/update-cpu.dto';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { ICpuRepositoryToken } from './icpu.repository';
+import type { ICpuRepository } from './icpu.repository';
+import { Cpu } from './entities/cpu.entity';
+import { ClientCpuDto } from './dto/client-gpu-dto';
+import { CpuSearchDto } from './dto/search-cpu-dto';
+import { CpuFilterDto } from './dto/filter-cpu-dto';
+import { PaginatedResult } from 'src/common/dto/paginated-result.dto';
 
 @Injectable()
 export class CpuService {
-    create(createCpuDto: CreateCpuDto) {
-        return 'This action adds a new cpu';
+    constructor(
+        @Inject(ICpuRepositoryToken)
+        private readonly cpuRepository: ICpuRepository,
+    ) {}
+
+    /**
+     * Get a paginated list of CPUs
+     * @param filterDTO - The filter and pagination parameters
+     * @returns A paginated list of CPUs
+     */
+    async findAll(
+        filterDTO: CpuFilterDto,
+    ): Promise<PaginatedResult<ClientCpuDto>> {
+        const { page, limit } = filterDTO;
+
+        const [results, total] = await this.cpuRepository.findAll(filterDTO);
+
+        return {
+            data: results.map((gpu) => this.toClientCpuDto(gpu)),
+            meta: { total, page: page, lastPage: Math.ceil(total / limit) },
+        };
     }
 
-    findAll() {
-        return `This action returns all cpu`;
+    /**
+     * Search for CPUs by name
+     * @param searchDTO - The search parameters
+     * @returns A list of CPUs matching the search query
+     */
+    async searchByName(searchDTO: CpuSearchDto): Promise<ClientCpuDto[]> {
+        const { q } = searchDTO;
+        const res: Cpu[] = await this.cpuRepository.searchByName(q);
+
+        return res.map((gpu) => this.toClientCpuDto(gpu));
     }
 
-    findOne(id: number) {
-        return `This action returns a #${id} cpu`;
+    /**
+     * Get a CPU by its slug
+     * @param slug - The slug of the CPU
+     * @returns The CPU with the given slug
+     */
+    async findOne(slug: string): Promise<ClientCpuDto> {
+        const res: Cpu | null = await this.cpuRepository.findBySlug(slug);
+
+        if (!res)
+            throw new NotFoundException(`CPU with slug "${slug}" not found`);
+
+        return this.toClientCpuDto(res);
     }
 
-    update(id: number, updateCpuDto: UpdateCpuDto) {
-        return `This action updates a #${id} cpu`;
-    }
-
-    remove(id: number) {
-        return `This action removes a #${id} cpu`;
+    // Helper method to convert Gpu entity to ClientGpuDto
+    private toClientCpuDto(cpu: Cpu): ClientCpuDto {
+        return {
+            id: cpu.id,
+            slug: cpu.slug,
+            name: cpu.name,
+            manufacturer: cpu.manufacturer,
+        };
     }
 }

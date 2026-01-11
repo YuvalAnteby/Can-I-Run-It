@@ -1,42 +1,68 @@
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import {
-    Controller,
-    Get,
-    Post,
-    Body,
-    Patch,
-    Param,
-    Delete,
-} from '@nestjs/common';
+    ApiOkResponse,
+    ApiOperation,
+    ApiParam,
+    ApiTags,
+} from '@nestjs/swagger';
+import { PaginatedResult } from 'src/common/dto/paginated-result.dto';
+import { CpuSearchDto } from './dto/search-cpu-dto';
+import { CpuFilterDto } from './dto/filter-cpu-dto';
+import { ClientCpuDto } from './dto/client-cpu-dto';
 import { CpuService } from './cpu.service';
-import { CreateCpuDto } from './dto/create-cpu.dto';
-import { UpdateCpuDto } from './dto/update-cpu.dto';
 
-@Controller('cpu')
+@ApiTags('gpus')
+@Controller('cpus')
 export class CpuController {
     constructor(private readonly cpuService: CpuService) {}
 
-    @Post()
-    create(@Body() createCpuDto: CreateCpuDto) {
-        return this.cpuService.create(createCpuDto);
+    /**
+     * Search for GPUs by name
+     * @param searchDTO - The search parameters
+     * @returns A list of GPUs matching the search query
+     */
+    @Get('search')
+    @ApiOperation({ summary: 'Search for CPUs by name' })
+    @ApiOkResponse({
+        description: 'A list of CPUs matching the search query',
+        type: [ClientCpuDto],
+    })
+    async searchByName(
+        @Query() searchDTO: CpuSearchDto,
+    ): Promise<ClientCpuDto[]> {
+        return await this.cpuService.searchByName(searchDTO);
     }
 
+    /**
+     * Get a CPU by its slug
+     * @param slug - The slug of the CPU
+     * @returns The CPU with the given slug
+     */
+    @Get(':slug')
+    @ApiOperation({ summary: 'Get a CPU by its slug' })
+    @ApiParam({ name: 'slug', description: 'The slug of the CPU' })
+    @ApiOkResponse({
+        description: 'The CPU with the given slug',
+        type: ClientCpuDto,
+    })
+    async findOne(@Param('slug') slug: string): Promise<ClientCpuDto> {
+        return await this.cpuService.findOne(slug);
+    }
+
+    /**
+     * Get a paginated list of CPUs
+     * @param filterDTO - The filter and pagination parameters
+     * @returns A paginated list of CPUs
+     */
     @Get()
-    findAll() {
-        return this.cpuService.findAll();
-    }
-
-    @Get(':id')
-    findOne(@Param('id') id: string) {
-        return this.cpuService.findOne(+id);
-    }
-
-    @Patch(':id')
-    update(@Param('id') id: string, @Body() updateCpuDto: UpdateCpuDto) {
-        return this.cpuService.update(+id, updateCpuDto);
-    }
-
-    @Delete(':id')
-    remove(@Param('id') id: string) {
-        return this.cpuService.remove(+id);
+    @ApiOperation({ summary: 'Get a paginated list of CPUs' })
+    @ApiOkResponse({
+        description: 'A paginated list of CPUs',
+        type: PaginatedResult<ClientCpuDto>,
+    })
+    async findAll(
+        @Query() filterDTO: CpuFilterDto,
+    ): Promise<PaginatedResult<ClientCpuDto>> {
+        return await this.cpuService.findAll(filterDTO);
     }
 }
