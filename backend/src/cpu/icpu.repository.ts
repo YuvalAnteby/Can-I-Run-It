@@ -2,8 +2,23 @@ import { Cpu } from './entities/cpu.entity';
 import { CpuFilterDto } from './dto/filter-cpu-dto';
 
 export interface ICpuRepository {
+    /**
+     * Find all CPUs with given filters.
+     * If no filters were given will fetch all CPUs with pagination.
+     * @param filter filter and pagination parameters
+     */
     findAll(filter: CpuFilterDto): Promise<[Cpu[], number]>;
+
+    /**
+     * Finds a CPU by its slug attribute.
+     * @param slug slug value to search
+     */
     findBySlug(slug: string): Promise<Cpu | null>;
+
+    /**
+     * Finds CPUs by their name.
+     * @param q search query to search by
+     */
     searchByName(q: string): Promise<Cpu[]>;
 }
 
