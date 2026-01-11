@@ -3,6 +3,7 @@ import { Repository, DataSource } from 'typeorm';
 import { Gpu } from './entities/gpu.entity';
 import { IGpuRepository } from './igpu.repository';
 import { GpusFilterDto } from './dto/filter-gpu-dto';
+import { PaginatedResult } from 'src/common/dto/paginated-result.dto';
 
 @Injectable()
 export class TypeOrmGpuRepository implements IGpuRepository {
@@ -10,12 +11,12 @@ export class TypeOrmGpuRepository implements IGpuRepository {
 
     constructor(
         @Inject('DATA_SOURCE')
-        private dataSource: DataSource
+        private dataSource: DataSource,
     ) {
         this.repo = this.dataSource.getRepository(Gpu);
     }
 
-    async findAll(filterDTO: GpusFilterDto): Promise<[Gpu[], number]> {
+    async findAll(filterDTO: GpusFilterDto): Promise<PaginatedResult<Gpu>> {
         // Destruct filterDTO with default values
         const { page, limit, manufacturer, minVram } = filterDTO;
         const skip = (page - 1) * limit;
@@ -38,24 +39,23 @@ export class TypeOrmGpuRepository implements IGpuRepository {
 
     async searchByName(q: string): Promise<Gpu[]> {
         const SIMILARITY_THRESHOLD = 0.3;
-        return await
-            this.repo
-                .createQueryBuilder('gpu')
-                .select([
-                    'gpu.id',
-                    'gpu.slug',
-                    'gpu.name',
-                    'gpu.manufacturer',
-                    'gpu.vram_gb',
-                ])
-                // WORD_SIMILARITY checks if 'rxt' is similar to any word INSIDE 'NVIDIA GeForce RTX...'
-                // We set a threshold of 0.3 to catch typos (adjust 0.1-1.0 as needed)
-                .where('word_similarity(:query, gpu.name) > threshold', { 
-                    query: q,
-                    threshold: SIMILARITY_THRESHOLD,
-                })
-                // Sort by best match first
-                .orderBy('word_similarity(:query, gpu.name)', 'DESC')
-                .getMany();
+        return await this.repo
+            .createQueryBuilder('gpu')
+            .select([
+                'gpu.id',
+                'gpu.slug',
+                'gpu.name',
+                'gpu.manufacturer',
+                'gpu.vram_gb',
+            ])
+            // WORD_SIMILARITY checks if 'rxt' is similar to any word INSIDE 'NVIDIA GeForce RTX...'
+            // We set a threshold of 0.3 to catch typos (adjust 0.1-1.0 as needed)
+            .where('word_similarity(:query, gpu.name) > threshold', {
+                query: q,
+                threshold: SIMILARITY_THRESHOLD,
+            })
+            // Sort by best match first
+            .orderBy('word_similarity(:query, gpu.name)', 'DESC')
+            .getMany();
     }
 }
