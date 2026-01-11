@@ -2,7 +2,7 @@ import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ICpuRepositoryToken } from './icpu.repository';
 import type { ICpuRepository } from './icpu.repository';
 import { Cpu } from './entities/cpu.entity';
-import { ClientCpuDto } from './dto/client-gpu-dto';
+import { ClientCpuDto } from './dto/client-cpu-dto';
 import { CpuSearchDto } from './dto/search-cpu-dto';
 import { CpuFilterDto } from './dto/filter-cpu-dto';
 import { PaginatedResult } from 'src/common/dto/paginated-result.dto';
