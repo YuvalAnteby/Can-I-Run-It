@@ -3,7 +3,6 @@ import { Repository, DataSource } from 'typeorm';
 import { Gpu } from './entities/gpu.entity';
 import { IGpuRepository } from './igpu.repository';
 import { GpusFilterDto } from './dto/filter-gpu-dto';
-import { PaginatedResult } from 'src/common/dto/paginated-result.dto';
 
 @Injectable()
 export class TypeOrmGpuRepository implements IGpuRepository {
@@ -16,7 +15,7 @@ export class TypeOrmGpuRepository implements IGpuRepository {
         this.repo = this.dataSource.getRepository(Gpu);
     }
 
-    async findAll(filterDTO: GpusFilterDto): Promise<PaginatedResult<Gpu>> {
+    async findAll(filterDTO: GpusFilterDto): Promise<[Gpu[], number]> {
         // Destruct filterDTO with default values
         const { page, limit, manufacturer, minVram } = filterDTO;
         const skip = (page - 1) * limit;
