@@ -5,11 +5,12 @@ import {
     ApiParam,
     ApiTags,
 } from '@nestjs/swagger';
-import { GpuService } from './gpu.service';
-import { GpuSearchDto } from './dto/search-gpu-dto';
-import { GpusFilterDto } from './dto/filter-gpu-dto';
-import { ClientGpuDto } from './dto/client-gpu-dto';
 import { PaginatedResult } from 'src/common/dto/paginated-result.dto';
+
+import { ClientGpuDto } from './dto/client-gpu-dto';
+import { GpusFilterDto } from './dto/filter-gpu-dto';
+import { GpuSearchDto } from './dto/search-gpu-dto';
+import { GpuService } from './gpu.service';
 
 @ApiTags('gpus')
 @Controller('gpus')

@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { CpuController } from './cpu.controller';
 import { CpuService } from './cpu.service';
 

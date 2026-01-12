@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
-import { CpuService } from './cpu.service';
-import { CpuController } from './cpu.controller';
 import { DatabaseModule } from 'src/database/database.module';
-import { ICpuRepositoryToken } from './icpu.repository';
 import { TypeOrmGpuRepository } from 'src/gpu/gpu.typeorm.repository';
+
+import { CpuController } from './cpu.controller';
+import { CpuService } from './cpu.service';
+import { ICpuRepositoryToken } from './icpu.repository';
 
 @Module({
     imports: [DatabaseModule],

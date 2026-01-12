@@ -1,8 +1,9 @@
-import { Test, TestingModule } from '@nestjs/testing';
 import { INestApplication } from '@nestjs/common';
-import request from 'supertest';
-import { AppModule } from '../src/app.module';
+import { Test, TestingModule } from '@nestjs/testing';
 import { Server } from 'net';
+import request from 'supertest';
+
+import { AppModule } from '../src/app.module';
 
 interface HealthResponse {
     status: string;

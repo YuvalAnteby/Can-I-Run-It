@@ -1,8 +1,9 @@
-import { Injectable, Inject } from '@nestjs/common';
-import { Repository, DataSource } from 'typeorm';
-import { ICpuRepository } from './icpu.repository';
-import { Cpu } from './entities/cpu.entity';
+import { Inject, Injectable } from '@nestjs/common';
+import { DataSource, Repository } from 'typeorm';
+
 import { CpuFilterDto } from './dto/filter-cpu-dto';
+import { Cpu } from './entities/cpu.entity';
+import { ICpuRepository } from './icpu.repository';
 
 @Injectable()
 export class TypeOrmCpuRepository implements ICpuRepository {

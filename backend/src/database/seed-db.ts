@@ -1,9 +1,9 @@
-import { DataSource } from 'typeorm';
+import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as dotenv from 'dotenv';
+import { DataSource } from 'typeorm';
+
 import { Gpu } from '../gpu/entities/gpu.entity';
-import { Cpu } from 'src/cpu/entities/cpu.entity';
 
 dotenv.config();
 

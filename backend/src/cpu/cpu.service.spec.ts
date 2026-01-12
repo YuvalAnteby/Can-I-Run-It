@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+
 import { CpuService } from './cpu.service';
 
 describe('CpuService', () => {

@@ -1,8 +1,8 @@
 import { Controller, Get, Inject, VERSION_NEUTRAL } from '@nestjs/common';
 import {
+    HealthCheck,
     HealthCheckService,
     TypeOrmHealthIndicator,
-    HealthCheck,
 } from '@nestjs/terminus';
 import { DataSource } from 'typeorm';
 

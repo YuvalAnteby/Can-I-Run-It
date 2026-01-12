@@ -1,6 +1,6 @@
-import { IsString, IsNotEmpty, MinLength } from 'class-validator';
-import { Transform } from 'class-transformer';
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import { IsNotEmpty, IsString, MinLength } from 'class-validator';
 
 /**
  * DTO for searching GPUs based on a query string.

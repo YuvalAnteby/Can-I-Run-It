@@ -1,11 +1,12 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { GpuSearchDto } from './dto/search-gpu-dto';
-import { GpusFilterDto } from './dto/filter-gpu-dto';
-import { Gpu } from './entities/gpu.entity';
-import { ClientGpuDto } from './dto/client-gpu-dto';
+
 import { PaginatedResult } from '../common/dto/paginated-result.dto';
-import { IGpuRepositoryToken } from './igpu.repository';
+import { ClientGpuDto } from './dto/client-gpu-dto';
+import { GpusFilterDto } from './dto/filter-gpu-dto';
+import { GpuSearchDto } from './dto/search-gpu-dto';
+import { Gpu } from './entities/gpu.entity';
 import type { IGpuRepository } from './igpu.repository';
+import { IGpuRepositoryToken } from './igpu.repository';
 
 @Injectable()
 export class GpuService {

@@ -1,5 +1,5 @@
-import { Gpu } from './entities/gpu.entity';
 import { GpusFilterDto } from './dto/filter-gpu-dto';
+import { Gpu } from './entities/gpu.entity';
 
 export interface IGpuRepository {
     /**

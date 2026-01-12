@@ -1,5 +1,5 @@
-import { Cpu } from './entities/cpu.entity';
 import { CpuFilterDto } from './dto/filter-cpu-dto';
+import { Cpu } from './entities/cpu.entity';
 
 export interface ICpuRepository {
     /**

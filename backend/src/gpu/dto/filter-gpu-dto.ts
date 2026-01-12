@@ -1,7 +1,8 @@
-import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
-import { GpuBrand } from '../entities/gpu.entity';
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform, Type } from 'class-transformer';
+import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
+
+import { GpuBrand } from '../entities/gpu.entity';
 
 /**
  * DTO for filtering and paginating GPU results.
@@ -14,7 +15,7 @@ export class GpusFilterDto {
     })
     @IsOptional()
     @IsEnum(GpuBrand, { message: 'Manufacturer must be nvidia, amd, or intel' })
-    @Transform(({ value }) => value?.toLowerCase())
+    @Transform(({ value }: { value: string }) => value?.toLowerCase())
     manufacturer?: GpuBrand;
 
     @ApiProperty({

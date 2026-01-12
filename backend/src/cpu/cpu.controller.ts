@@ -6,10 +6,11 @@ import {
     ApiTags,
 } from '@nestjs/swagger';
 import { PaginatedResult } from 'src/common/dto/paginated-result.dto';
-import { CpuSearchDto } from './dto/search-cpu-dto';
-import { CpuFilterDto } from './dto/filter-cpu-dto';
-import { ClientCpuDto } from './dto/client-cpu-dto';
+
 import { CpuService } from './cpu.service';
+import { ClientCpuDto } from './dto/client-cpu-dto';
+import { CpuFilterDto } from './dto/filter-cpu-dto';
+import { CpuSearchDto } from './dto/search-cpu-dto';
 
 @ApiTags('gpus')
 @Controller('cpus')
