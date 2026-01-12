@@ -7,9 +7,9 @@ import { AppModule } from '../src/app.module';
 
 interface HealthResponse {
     status: string;
-    info: Record<string, any>;
-    error: Record<string, any>;
-    details: Record<string, any>;
+    info: Record<string, unknown>;
+    error: Record<string, unknown>;
+    details: Record<string, unknown>;
 }
 
 describe('HealthController (e2e)', () => {

@@ -1,6 +1,7 @@
 import { Controller, Get, Inject, VERSION_NEUTRAL } from '@nestjs/common';
 import {
     HealthCheck,
+    HealthCheckResult,
     HealthCheckService,
     TypeOrmHealthIndicator,
 } from '@nestjs/terminus';
@@ -17,7 +18,7 @@ export class HealthController {
 
     @Get('/postgres')
     @HealthCheck()
-    check() {
+    check(): Promise<HealthCheckResult> {
         return this.health.check([
             () =>
                 this.db.pingCheck('database', { connection: this.dataSource }),

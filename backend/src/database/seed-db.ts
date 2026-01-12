@@ -19,6 +19,9 @@ const AppDataSource = new DataSource({
     synchronize: false,
 });
 
+// Define a type for the incoming JSON data to satisfy ESLint
+type SeedGpu = Partial<Gpu>;
+
 async function seed() {
     await AppDataSource.initialize();
     console.log('Database connected for seeding...');
@@ -27,7 +30,9 @@ async function seed() {
 
     // Read the JSON file
     const gpuDataPath = path.join(__dirname, 'seeds', 'gpus.json');
-    const gpuData = JSON.parse(fs.readFileSync(gpuDataPath, 'utf8'));
+    const gpuData = JSON.parse(
+        fs.readFileSync(gpuDataPath, 'utf8'),
+    ) as SeedGpu[];
 
     console.log(`Found ${gpuData.length} GPUs to seed.`);
 
