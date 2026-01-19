@@ -1,0 +1,167 @@
+/* --- Variables specific to this component --- */
+:root {
+    --card-bg: #161b22;
+    --card-border: #1f2937;
+    --card-border-hover: rgba(59, 130, 246, 0.5); /* Blue-500 with opacity */
+    --badge-bg: rgba(96, 165, 250, 0.1); /* Blue-400 with opacity */
+    --badge-bg-hover: rgba(96, 165, 250, 0.2);
+    --badge-text: #60a5fa; /* Blue-400 */
+}
+
+/* --- Layout --- */
+.games-grid-section {
+    padding-top: 3rem;   /* py-12 */
+    padding-bottom: 3rem;
+}
+
+.games-grid-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem; /* mb-6 */
+    padding-left: 0.5rem;  /* px-2 */
+    padding-right: 0.5rem;
+}
+
+.games-grid-title {
+    font-size: 1.5rem; /* text-2xl */
+    font-weight: 700;  /* font-bold */
+    color: white;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;       /* gap-2 */
+    margin: 0;
+}
+
+.icon-highlight {
+    color: var(--primary); /* Replaced green-500 with primary (blue) */
+}
+
+.view-all-link {
+    font-size: 0.875rem; /* text-sm */
+    color: var(--primary); /* Replaced green-500 */
+    text-decoration: none;
+    transition: text-decoration 0.2s;
+}
+
+.view-all-link:hover {
+    text-decoration: underline;
+}
+
+/* --- Grid Layout --- */
+.games-grid-list {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1.5rem; /* gap-6 */
+}
+
+@media (min-width: 640px) { /* sm */
+    .games-grid-list {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 1024px) { /* lg */
+    .games-grid-list {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+/* --- Game Card --- */
+.game-card {
+    background-color: var(--card-bg);
+    border-radius: 0.75rem; /* rounded-xl */
+    overflow: hidden;
+    border: 1px solid var(--card-border);
+    transition: all 0.2s ease-in-out;
+    cursor: pointer;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05); /* shadow-lg */
+    position: relative; /* Context for group hover effects */
+}
+
+.game-card:hover {
+    border-color: var(--card-border-hover); /* Replaced green-500/50 */
+    transform: translateY(-0.25rem); /* -translate-y-1 */
+}
+
+/* Image Wrapper */
+.game-image-wrapper {
+    height: 10rem; /* h-40 */
+    background-color: #1f2937; /* bg-gray-800 */
+    position: relative;
+    overflow: hidden;
+}
+
+/* Placeholder Art / Image */
+.game-placeholder-art {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #4b5563; /* text-gray-600 */
+    font-weight: 700;
+    background: linear-gradient(to bottom right, #1f2937, #111827); /* from-gray-800 to-gray-900 */
+    transition: transform 500ms;
+}
+
+.game-card:hover .game-placeholder-art {
+    transform: scale(1.05);
+}
+
+/* Req Badge (Top Right) */
+.game-req-badge {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(12px); /* backdrop-blur-md */
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem; /* text-xs */
+    font-weight: 700;
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Content Area */
+.game-card-content {
+    padding: 1rem; /* p-4 */
+}
+
+.game-title {
+    color: white;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 0.25rem;
+    margin-top: 0;
+    font-size: 1.17em; /* Approx h3 */
+}
+
+.game-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.75rem; /* mt-3 */
+}
+
+.release-date {
+    font-size: 0.75rem; /* text-xs */
+    color: #6b7280; /* text-gray-500 */
+}
+
+/* Can I Run It? Badge */
+.run-it-badge {
+    font-size: 0.75rem; /* text-xs */
+    color: var(--badge-text); /* Replaced green-400 */
+    background-color: var(--badge-bg); /* Replaced green-400/10 */
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    transition: background-color 0.2s;
+}
+
+.run-it-badge:hover {
+    background-color: var(--badge-bg-hover); /* Replaced green-400/20 */
+}

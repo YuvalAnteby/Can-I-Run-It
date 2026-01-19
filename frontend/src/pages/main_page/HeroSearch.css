@@ -1,0 +1,212 @@
+/* --- Variables specific to this component --- */
+:root {
+  --hero-bg-top: #1c232b;
+  --hero-bg-bottom: #0f1115;
+  --input-bg: #161b22;
+  --input-border: #30363d;
+  --glow-primary: rgba(59, 130, 246, 0.15);
+}
+
+/* --- Layout & Background --- */
+.hero-section {
+  position: relative;
+  background-color: var(--bg-dark);
+  overflow: hidden;
+  padding: 80px 20px 100px 20px; /* Top/Side/Bottom padding */
+  text-align: center;
+}
+
+/* The subtle radial gradient background */
+.hero-background {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(
+    circle at top,
+    var(--hero-bg-top) 0%,
+    var(--hero-bg-bottom) 70%
+  );
+  z-index: 0;
+}
+
+.hero-content {
+  position: relative;
+  z-index: 1;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* --- Status Badge (The pill at the top) --- */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  margin-bottom: 24px;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 50px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #60a5fa; /* Light blue */
+}
+
+/* The pulsing dot animation */
+.status-dot-wrapper {
+  position: relative;
+  display: flex;
+  height: 8px;
+  width: 8px;
+}
+
+.status-dot-ping {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  background-color: #60a5fa;
+  opacity: 0.75;
+  animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+.status-dot-solid {
+  position: relative;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background-color: var(--primary);
+}
+
+@keyframes ping {
+  75%,
+  100% {
+    transform: scale(2);
+    opacity: 0;
+  }
+}
+
+/* --- Typography --- */
+.hero-title {
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: var(--text-main);
+  margin: 0 0 20px 0;
+  line-height: 1.1;
+  letter-spacing: -1px;
+}
+
+.hero-subtitle {
+  font-size: 1.25rem;
+  color: var(--text-muted);
+  margin: 0 auto 40px auto;
+  max-width: 650px;
+  line-height: 1.6;
+}
+
+/* Text Gradients */
+.text-gradient-red {
+  background: linear-gradient(to right, #ef4444, #f97316);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.text-gradient-blue {
+  background: linear-gradient(to right, #60a5fa, #2563eb);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* --- Search Bar Component --- */
+.search-wrapper {
+  position: relative;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.search-icon {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.search-input {
+  width: 100%;
+  padding: 20px 120px 20px 50px; /* Right padding makes room for the button */
+  background-color: var(--input-bg);
+  border: 2px solid var(--input-border);
+  border-radius: 12px;
+  color: var(--text-main);
+  font-size: 1.1rem;
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box; /* Important for padding */
+}
+
+/* Focus State */
+.search-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 4px var(--glow-primary);
+}
+
+/* Change icon color when input is focused */
+.search-input:focus + .search-btn + .search-icon,
+.search-wrapper:focus-within .search-icon {
+  color: var(--primary);
+}
+
+.search-btn {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  bottom: 10px;
+  padding: 0 24px;
+  background-color: #2563eb; /* Blue 600 */
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.search-btn:hover {
+  background-color: var(--primary);
+}
+
+/* --- Guest Features (Icons below search) --- */
+.guest-features {
+  margin-top: 32px;
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* --- Responsive Adjustments --- */
+@media (max-width: 768px) {
+  .hero-title {
+    font-size: 2.5rem;
+  }
+
+  .search-input {
+    padding: 16px 16px 16px 45px; /* Adjust padding for mobile */
+    font-size: 1rem;
+  }
+
+  .search-btn {
+    position: static; /* Stack button on mobile if desired, or keep absolute but smaller */
+    display: none; /* Often on mobile users just hit 'Enter' */
+  }
+}

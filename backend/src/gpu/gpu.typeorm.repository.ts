@@ -50,7 +50,7 @@ export class TypeOrmGpuRepository implements IGpuRepository {
             ])
             // WORD_SIMILARITY checks if 'rxt' is similar to any word INSIDE 'NVIDIA GeForce RTX...'
             // We set a threshold of 0.3 to catch typos (adjust 0.1-1.0 as needed)
-            .where('word_similarity(:query, gpu.name) > threshold', {
+            .where('word_similarity(:query, gpu.name) > :threshold', {
                 query: q,
                 threshold: SIMILARITY_THRESHOLD,
             })

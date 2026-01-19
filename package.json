@@ -16,11 +16,11 @@
   "lint-staged": {
     "backend/**/*.{js,ts}": [
       "npm --prefix backend run lint --",
-      "prettier --write --project backend"
+      "npx prettier --write"
     ],
     "frontend/**/*.{js,ts,jsx,tsx}": [
       "npm --prefix frontend run lint --",
-      "prettier --write --project frontend"
+      "npx prettier --write"
     ]
   }
 }
