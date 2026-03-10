@@ -210,3 +210,4 @@ __marimo__/
 **/*-test-results/
 
 /node_modules
+**/.DS_Store

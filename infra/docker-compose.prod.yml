@@ -1,6 +1,5 @@
 name: can-i-run-it-prod
 services:
-
   # NestJS backend (Production)
   backend:
     container_name: ciri-backend-prod
@@ -9,9 +8,9 @@ services:
       dockerfile: ../infra/Dockerfile.backend
       target: prod
     environment:
-        - ENV=production
-        # Internal Docker networking uses service names, so this is fine
-        - REACT_URL=http://ciri-frontend-prod
+      - ENV=production
+      # Internal Docker networking uses service names, so this is fine
+      - REACT_URL=http://ciri-frontend-prod
     env_file:
       - .env
     ports:
@@ -36,9 +35,9 @@ services:
     networks:
       - ciri-net-prod
     environment:
-      # This variable must be baked in at build time for React, 
+      # This variable must be baked in at build time for Vite,
       # but we leave it here for clarity or runtime config injection if you add it later.
-      - REACT_APP_BASE_URL=http://localhost:${BACKEND_PORT}/api
+      - VITE_API_URL=http://localhost:${BACKEND_PORT}/api
 
   # Postgres (Same as dev, but separate container/volume name to avoid conflicts)
   postgres:
