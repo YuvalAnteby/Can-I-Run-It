@@ -1,12 +1,8 @@
-import { MainLayout } from './layout/MainLayout';
-import { MainPage } from './pages/main_page/MainPage';
+import React from 'react';
+import { AppRouter } from './router';
 
-function App() {
-  return (
-    <MainLayout>
-      <MainPage />
-    </MainLayout>
-  );
+function App(): React.ReactElement {
+  return <AppRouter />;
 }
 
 export default App;

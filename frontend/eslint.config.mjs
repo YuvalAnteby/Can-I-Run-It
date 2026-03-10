@@ -6,7 +6,7 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs', 'dist/**', 'vite.config.ts'],
+    ignores: ['eslint.config.mjs', 'dist/**', 'vite.config.ts', 'public/mockServiceWorker.js'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,

@@ -1,20 +1,15 @@
+import React from 'react';
+import type { ReactElement } from 'react';
 import { Gamepad2 } from 'lucide-react';
 import './GamesGrid.css';
+import type { ClientGameDto } from '../../@types/game.types';
 
-interface Game {
-  id: number;
+interface GamesGridProps {
   title: string;
-  req: string;
-  image: string;
+  games: ClientGameDto[];
 }
 
-export const GamesGrid = ({
-  title,
-  games,
-}: {
-  title: string;
-  games: Game[];
-}) => {
+export const GamesGrid = ({ title, games }: GamesGridProps): ReactElement => {
   return (
     <section className="games-grid-section">
       <div className="games-grid-header">
@@ -30,14 +25,16 @@ export const GamesGrid = ({
       <div className="games-grid-list">
         {games.map((game) => (
           <div key={game.id} className="game-card">
-            {/* Image Placeholder */}
+            {/* Image Placeholder - future: use game.coverImageUrl or slug-based asset */}
             <div className="game-image-wrapper">
-              <div className="game-placeholder-art">{game.title} Art</div>
-              <div className="game-req-badge">{game.req} Reqs</div>
+              <div className="game-placeholder-art">{game.name} Art</div>
+              <div className="game-req-badge">
+                {game.requirementTier ?? 'Unknown'} Reqs
+              </div>
             </div>
 
             <div className="game-card-content">
-              <h3 className="game-title">{game.title}</h3>
+              <h3 className="game-title">{game.name}</h3>
               <div className="game-meta">
                 <span className="release-date">Released: 2025</span>
                 <span className="run-it-badge">Can I Run It?</span>

@@ -1,4 +1,4 @@
-import React from 'react';
+import type { ReactElement } from 'react';
 import { Search, Monitor, Gauge } from 'lucide-react';
 import './HeroSearch.css'; // Importing the CSS file
 
@@ -19,7 +19,7 @@ interface HeroProps {
   user: UserProfile;
 }
 
-export const HeroSearch: React.FC<HeroProps> = ({ userState, user }) => {
+export const HeroSearch = ({ userState, user }: HeroProps): ReactElement => {
   return (
     <div className="hero-section">
       <div className="hero-background"></div>

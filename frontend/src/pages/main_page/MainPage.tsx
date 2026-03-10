@@ -1,17 +1,20 @@
+import type { ReactElement } from 'react';
 import { GamesGrid } from '../../components/games_grid/GamesGrid';
 import { HeroSearch } from './HeroSearch';
+import { PLACEHOLDER_GAMES } from '../../data/placeholderGames';
 
-export const MainPage = () => {
+interface UserProfile {
+  username: string;
+  avatar: string;
+  specs: {
+    gpu: string;
+    cpu: string;
+    ram: string;
+  } | null;
+}
+
+export default function MainPage(): ReactElement {
   /* --- MOCK DATA --- */
-  interface UserProfile {
-    username: string;
-    avatar: string;
-    specs: {
-      gpu: string;
-      cpu: string;
-      ram: string;
-    } | null;
-  }
   const MOCK_USER: UserProfile = {
     username: 'ShadowCoder',
     avatar: 'https://i.pravatar.cc/150?img=11',
@@ -22,27 +25,7 @@ export const MainPage = () => {
     },
   };
 
-  const NEW_GAMES = [
-    {
-      id: 1,
-      title: 'Grand Theft Auto VI',
-      req: 'Extreme',
-      image: '/api/placeholder/400/225',
-    },
-    {
-      id: 2,
-      title: 'Starfield: Shattered Space',
-      req: 'High',
-      image: '/api/placeholder/400/225',
-    },
-    { id: 3, title: 'Hades II', req: 'Low', image: '/api/placeholder/400/225' },
-    {
-      id: 4,
-      title: 'Monster Hunter Wilds',
-      req: 'High',
-      image: '/api/placeholder/400/225',
-    },
-  ];
+  const NEW_GAMES = PLACEHOLDER_GAMES.slice(0, 4);
 
   return (
     <div>
@@ -50,4 +33,4 @@ export const MainPage = () => {
       <GamesGrid title="New Games" games={NEW_GAMES} />
     </div>
   );
-};
+}
