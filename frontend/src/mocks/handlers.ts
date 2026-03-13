@@ -57,6 +57,28 @@ export const handlers = [
     return HttpResponse.json(results);
   }),
 
+  http.get(`${BASE}/v2/games`, ({ request }) => {
+    const url = new URL(request.url);
+    const search = url.searchParams.get('search') ?? '';
+    const limit = parseInt(url.searchParams.get('limit') ?? '10', 10);
+    const page = parseInt(url.searchParams.get('page') ?? '1', 10);
+
+    const filtered = MOCK_GAMES.filter((g) =>
+      g.name.toLowerCase().includes(search.toLowerCase()),
+    );
+
+    const data = filtered.slice((page - 1) * limit, page * limit);
+
+    return HttpResponse.json({
+      data,
+      meta: {
+        total: filtered.length,
+        page,
+        lastPage: Math.ceil(filtered.length / limit),
+      },
+    });
+  }),
+
   /* ── CPU search ──────────────────────────────────────────────── */
   http.get(`${BASE}/v1/cpus/search`, ({ request }) => {
     const q = new URL(request.url).searchParams.get('q') ?? '';

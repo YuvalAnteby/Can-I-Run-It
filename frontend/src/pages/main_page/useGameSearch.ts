@@ -1,13 +1,18 @@
 import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import type { ClientGameDto } from '../../@types/game.types';
+import type {
+  ClientGameDto,
+  PaginatedGamesResult,
+} from '../../@types/game.types';
 import { nestClient } from '../../api/nestClient';
 
 const fetchGameSearch = (q: string): Promise<ClientGameDto[]> =>
   nestClient
-    .get<ClientGameDto[]>('/v1/games/mock/search', { params: { q } })
-    .then((r) => r.data);
+    .get<PaginatedGamesResult>('/v2/games', {
+      params: { search: q, limit: 8 },
+    })
+    .then((r) => r.data.data);
 
 interface UseGameSearchResult {
   results: ClientGameDto[];
@@ -19,7 +24,7 @@ interface UseGameSearchResult {
  * Debounced game search hook.
  *
  * Accepts a raw query string, debounces it by 300 ms, then queries
- * the mock game search function on the backend.
+ * the v2 games search function on the backend.
  */
 export function useGameSearch(rawQuery: string): UseGameSearchResult {
   const [debouncedQuery, setDebouncedQuery] = useState<string>(rawQuery);

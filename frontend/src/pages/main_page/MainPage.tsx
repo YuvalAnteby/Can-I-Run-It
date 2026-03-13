@@ -3,10 +3,10 @@ import type { ReactElement } from 'react';
 import { GamesCarousel } from '../../components/GamesCarousel/GamesCarousel';
 import { HowItWorks } from '../../components/HowItWorks/HowItWorks';
 import { HeroSearch } from './HeroSearch';
-import { useMockGames } from './useMockGames';
+import { useGames } from './useGames';
 
 export default function MainPage(): ReactElement {
-  const { games, isLoading, isError } = useMockGames();
+  const { games, isLoading, isError } = useGames(20);
 
   // Split games into two display groups:
   //   - "Trending" — first 6
