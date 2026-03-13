@@ -2,13 +2,25 @@ import { Test, TestingModule } from '@nestjs/testing';
 
 import { MOCK_GAMES } from './games.constants';
 import { GamesService } from './games.service';
+import { IGamesRepositoryToken } from './igames.repository';
 
 describe('GamesService', () => {
     let service: GamesService;
 
+    const mockGamesRepository = {
+        findAll: jest.fn(),
+        findBySlug: jest.fn(),
+    };
+
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            providers: [GamesService],
+            providers: [
+                GamesService,
+                {
+                    provide: IGamesRepositoryToken,
+                    useValue: mockGamesRepository,
+                },
+            ],
         }).compile();
 
         service = module.get<GamesService>(GamesService);
