@@ -30,10 +30,4 @@ export class ClientGameDto {
 
     @ApiProperty()
     supportsFsr: boolean;
-
-    @ApiProperty({
-        nullable: true,
-        description: 'Informal tier used for display only',
-    })
-    requirementTier: 'Low' | 'Medium' | 'High' | 'Extreme' | null;
 }

@@ -21,8 +21,6 @@ export interface ClientGameDto {
   supportsRayTracing: boolean;
   supportsDlss: boolean;
   supportsFsr: boolean;
-  /** Informal tier used for display only until real performance records exist. */
-  requirementTier: 'Low' | 'Medium' | 'High' | 'Extreme' | null;
 }
 
 export interface PaginationMeta {

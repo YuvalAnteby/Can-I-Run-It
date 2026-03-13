@@ -16,7 +16,6 @@ const mockGame: ClientGameDto = {
   supportsRayTracing: false,
   supportsDlss: false,
   supportsFsr: false,
-  requirementTier: 'High',
 };
 
 describe('GameCard', () => {
@@ -25,11 +24,6 @@ describe('GameCard', () => {
     expect(
       screen.getByRole('heading', { name: 'Test Game' }),
     ).toBeInTheDocument();
-  });
-
-  it('renders the requirement tier badge', () => {
-    render(<GameCard game={mockGame} />);
-    expect(screen.getByText('High')).toBeInTheDocument();
   });
 
   it('renders "Can I Run It?" label', () => {

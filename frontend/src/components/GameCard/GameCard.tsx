@@ -8,15 +8,8 @@ export interface GameCardProps {
   onClick?: (game: ClientGameDto) => void;
 }
 
-const badgeTierClasses: Record<string, string> = {
-  low: 'bg-green-500/75 text-white',
-  medium: 'bg-yellow-500/75 text-gray-900',
-  high: 'bg-orange-500/75 text-white',
-  extreme: 'bg-red-500/75 text-white',
-};
-
 export const GameCard = ({ game, onClick }: GameCardProps): ReactElement => {
-  const { name, requirementTier, coverImageUrl } = game;
+  const { name, coverImageUrl } = game;
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
     if (e.key === 'Enter' || e.key === ' ') {
@@ -34,7 +27,7 @@ export const GameCard = ({ game, onClick }: GameCardProps): ReactElement => {
       aria-label={`Check if you can run ${name}`}
     >
       {/* Cover image or gradient placeholder */}
-      <div className="h-40 bg-gray-800 relative overflow-hidden">
+      <div className="aspect-[3/4] bg-gray-800 relative overflow-hidden">
         {coverImageUrl ? (
           <img
             src={coverImageUrl}
@@ -48,15 +41,6 @@ export const GameCard = ({ game, onClick }: GameCardProps): ReactElement => {
           >
             {name}
           </div>
-        )}
-
-        {requirementTier && (
-          <span
-            className={`absolute top-2 right-2 backdrop-blur-[12px] px-[0.45rem] py-[0.2rem] rounded text-[0.7rem] font-bold border border-white/15 uppercase tracking-[0.04em] ${badgeTierClasses[requirementTier.toLowerCase()]}`}
-            aria-label={`Requirement tier: ${requirementTier}`}
-          >
-            {requirementTier}
-          </span>
         )}
       </div>
 

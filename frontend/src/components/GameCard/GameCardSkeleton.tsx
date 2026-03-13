@@ -7,7 +7,7 @@ export const GameCardSkeleton = (): ReactElement => {
       aria-hidden="true"
     >
       {/* Cover image placeholder */}
-      <div className="h-40 bg-gray-700/50" />
+      <div className="aspect-[3/4] bg-gray-700/50" />
 
       {/* Card body placeholder */}
       <div className="px-4 py-3 flex flex-col gap-3">

@@ -60,13 +60,6 @@ export const HeroSearch = (): ReactElement => {
     dispatch({ type: 'SELECT_GAME', payload: game.name });
   };
 
-  const dropdownTierClasses: Record<string, string> = {
-    low: 'bg-green-500/15 text-green-400',
-    medium: 'bg-yellow-500/15 text-yellow-400',
-    high: 'bg-orange-500/15 text-orange-400',
-    extreme: 'bg-red-500/15 text-red-400',
-  };
-
   return (
     <div className="relative bg-[#0f1115] overflow-hidden pt-[80px] pb-[100px] px-5 text-center">
       <div className="absolute inset-0 [background:radial-gradient(circle_at_top,#1c232b_0%,#0f1115_70%)] z-0"></div>
@@ -172,13 +165,6 @@ export const HeroSearch = (): ReactElement => {
                       <span className="text-[0.9375rem] text-gray-200 whitespace-nowrap overflow-hidden text-ellipsis">
                         {game.name}
                       </span>
-                      {game.requirementTier && (
-                        <span
-                          className={`shrink-0 text-[0.7rem] font-bold px-[0.45rem] py-[0.1rem] rounded uppercase tracking-[0.04em] ${dropdownTierClasses[game.requirementTier.toLowerCase()]}`}
-                        >
-                          {game.requirementTier}
-                        </span>
-                      )}
                     </button>
                   </li>
                 ))}

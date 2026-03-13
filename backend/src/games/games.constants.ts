@@ -12,7 +12,6 @@ export const MOCK_GAMES: ClientGameDto[] = [
         supportsRayTracing: true,
         supportsDlss: true,
         supportsFsr: true,
-        requirementTier: 'Extreme',
     },
     {
         id: 2,
@@ -25,7 +24,6 @@ export const MOCK_GAMES: ClientGameDto[] = [
         supportsRayTracing: false,
         supportsDlss: true,
         supportsFsr: true,
-        requirementTier: 'High',
     },
     {
         id: 3,
@@ -38,7 +36,6 @@ export const MOCK_GAMES: ClientGameDto[] = [
         supportsRayTracing: false,
         supportsDlss: true,
         supportsFsr: true,
-        requirementTier: 'High',
     },
     {
         id: 4,
@@ -51,7 +48,6 @@ export const MOCK_GAMES: ClientGameDto[] = [
         supportsRayTracing: false,
         supportsDlss: false,
         supportsFsr: false,
-        requirementTier: 'Medium',
     },
     {
         id: 5,
@@ -64,7 +60,6 @@ export const MOCK_GAMES: ClientGameDto[] = [
         supportsRayTracing: false,
         supportsDlss: true,
         supportsFsr: true,
-        requirementTier: 'High',
     },
     {
         id: 6,
@@ -77,7 +72,6 @@ export const MOCK_GAMES: ClientGameDto[] = [
         supportsRayTracing: true,
         supportsDlss: true,
         supportsFsr: true,
-        requirementTier: 'Extreme',
     },
     {
         id: 7,
@@ -90,7 +84,6 @@ export const MOCK_GAMES: ClientGameDto[] = [
         supportsRayTracing: true,
         supportsDlss: true,
         supportsFsr: true,
-        requirementTier: 'Extreme',
     },
     {
         id: 8,
@@ -103,7 +96,6 @@ export const MOCK_GAMES: ClientGameDto[] = [
         supportsRayTracing: false,
         supportsDlss: true,
         supportsFsr: true,
-        requirementTier: 'High',
     },
     {
         id: 9,
@@ -116,7 +108,6 @@ export const MOCK_GAMES: ClientGameDto[] = [
         supportsRayTracing: false,
         supportsDlss: true,
         supportsFsr: true,
-        requirementTier: 'High',
     },
     {
         id: 10,
@@ -129,6 +120,5 @@ export const MOCK_GAMES: ClientGameDto[] = [
         supportsRayTracing: true,
         supportsDlss: true,
         supportsFsr: true,
-        requirementTier: 'Extreme',
     },
 ];

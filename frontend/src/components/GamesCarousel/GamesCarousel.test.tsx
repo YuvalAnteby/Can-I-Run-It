@@ -15,7 +15,6 @@ const makeGame = (id: number, name: string): ClientGameDto => ({
   supportsRayTracing: false,
   supportsDlss: false,
   supportsFsr: false,
-  requirementTier: null,
 });
 
 describe('GamesCarousel', () => {

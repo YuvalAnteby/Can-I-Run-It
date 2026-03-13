@@ -19,7 +19,6 @@ const MOCK_GAMES: ClientGameDto[] = [
     supportsRayTracing: true,
     supportsDlss: true,
     supportsFsr: true,
-    requirementTier: 'Extreme',
   },
   {
     id: 6,
@@ -32,7 +31,6 @@ const MOCK_GAMES: ClientGameDto[] = [
     supportsRayTracing: true,
     supportsDlss: true,
     supportsFsr: true,
-    requirementTier: 'Extreme',
   },
 ];
 
