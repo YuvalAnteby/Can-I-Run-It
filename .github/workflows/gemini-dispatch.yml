@@ -10,6 +10,8 @@ on:
   pull_request:
     types:
       - "opened"
+      - "reopened"
+      - "synchronize"
   issues:
     types:
       - "opened"
@@ -55,7 +57,7 @@ jobs:
         contains(fromJSON('["opened", "reopened"]'), github.event.action)
       ) || (
         github.event.sender.type == 'User' &&
-        startsWith(github.event.comment.body || github.event.review.body || github.event.issue.body, '@gemini-cli') &&
+        startsWith(github.event.comment.body || github.event.review.body || github.event.issue.body || '', '@gemini-cli') &&
         contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association || github.event.review.author_association || github.event.issue.author_association)
       )
     runs-on: "ubuntu-latest"
@@ -86,14 +88,14 @@ jobs:
         uses: "actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea" # ratchet:actions/github-script@v7
         env:
           EVENT_TYPE: "${{ github.event_name }}.${{ github.event.action }}"
-          REQUEST: "${{ github.event.comment.body || github.event.review.body || github.event.issue.body }}"
+          REQUEST: "${{ github.event.comment.body || github.event.review.body || github.event.issue.body || '' }}"
         with:
           script: |
             const eventType = process.env.EVENT_TYPE;
-            const request = process.env.REQUEST;
+            const request = process.env.REQUEST || '';
             core.setOutput('request', request);
 
-            if (eventType === 'pull_request.opened') {
+            if (['pull_request.opened', 'pull_request.reopened', 'pull_request.synchronize'].includes(eventType)) {
               core.setOutput('command', 'review');
             } else if (['issues.opened', 'issues.reopened'].includes(eventType)) {
               core.setOutput('command', 'triage');
