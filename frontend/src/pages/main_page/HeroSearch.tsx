@@ -72,11 +72,6 @@ export const HeroSearch = (): ReactElement => {
       <div className="absolute inset-0 [background:radial-gradient(circle_at_top,#1c232b_0%,#0f1115_70%)] z-0"></div>
 
       <div className="relative z-10 max-w-[900px] mx-auto">
-        {/* Status Badge — static until auth module is added */}
-        <div className="inline-flex items-center gap-2 px-3 py-1.5 mb-6 bg-blue-500/10 border border-blue-500/20 rounded-[50px] text-[0.8rem] font-medium text-blue-400">
-          <span>Database Updated: Jan 2026</span>
-        </div>
-
         {/* Main Heading */}
         <h1 className="text-[2.5rem] md:text-[3.5rem] font-extrabold text-white/[0.87] m-0 mb-5 leading-[1.1] tracking-[-1px]">
           Will your PC{' '}
