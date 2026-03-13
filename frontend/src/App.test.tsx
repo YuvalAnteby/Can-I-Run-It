@@ -34,32 +34,32 @@ describe('App — landing page integration', () => {
     expect(screen.getByRole('heading', { level: 1 })).toBeInTheDocument();
   });
 
-  it('renders the "Trending Games" carousel section', () => {
+  it('renders the "Trending Games" carousel section', async () => {
     renderApp();
     expect(
-      screen.getByRole('heading', { name: /trending games/i }),
+      await screen.findByRole('heading', { name: /trending games/i }),
     ).toBeInTheDocument();
   });
 
-  it('renders the "How It Works" section', () => {
+  it('renders the "How It Works" section', async () => {
     renderApp();
     expect(
-      screen.getByRole('heading', { name: /how it works/i }),
+      await screen.findByRole('heading', { name: /how it works/i }),
     ).toBeInTheDocument();
   });
 
-  it('renders the "Recently Added" carousel section', () => {
+  it('renders the "Recently Added" carousel section', async () => {
     renderApp();
     expect(
-      screen.getByRole('heading', { name: /recently added/i }),
+      await screen.findByRole('heading', { name: /recently added/i }),
     ).toBeInTheDocument();
   });
 
-  it('renders game cards from placeholder data', () => {
+  it('renders game cards from mock data', async () => {
     renderApp();
-    // PLACEHOLDER_GAMES[0] is Grand Theft Auto VI — should appear in Trending carousel
+    // Should appear in Trending carousel
     expect(
-      screen.getByRole('heading', { name: /Grand Theft Auto VI/i }),
+      await screen.findByRole('heading', { name: /Cyberpunk 2077/i }),
     ).toBeInTheDocument();
   });
 });

@@ -2,28 +2,12 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import type { ClientGameDto } from '../../@types/game.types';
-import { PLACEHOLDER_GAMES } from '../../data/placeholderGames';
+import { nestClient } from '../../api/nestClient';
 
-/**
- * TODO: Once the NestJS games module exists, delete `searchPlaceholderGames`
- * and replace it with a real API call:
- *
- *   import { nestClient } from '../../api/nestClient';
- *
- *   const fetchGameSearch = (q: string): Promise<ClientGameDto[]> =>
- *     nestClient
- *       .get<ClientGameDto[]>('/games/search', { params: { q } })
- *       .then((r) => r.data);
- *
- * Then swap `queryFn: () => searchPlaceholderGames(trimmed)` below for
- * `queryFn: () => fetchGameSearch(trimmed)`.
- */
-const searchPlaceholderGames = (q: string): Promise<ClientGameDto[]> =>
-  Promise.resolve(
-    PLACEHOLDER_GAMES.filter((g) =>
-      g.name.toLowerCase().includes(q.toLowerCase()),
-    ),
-  );
+const fetchGameSearch = (q: string): Promise<ClientGameDto[]> =>
+  nestClient
+    .get<ClientGameDto[]>('/v1/games/mock/search', { params: { q } })
+    .then((r) => r.data);
 
 interface UseGameSearchResult {
   results: ClientGameDto[];
@@ -35,8 +19,7 @@ interface UseGameSearchResult {
  * Debounced game search hook.
  *
  * Accepts a raw query string, debounces it by 300 ms, then queries
- * the game search function. Currently backed by placeholder data —
- * see the TODO above for how to swap in the real endpoint.
+ * the mock game search function on the backend.
  */
 export function useGameSearch(rawQuery: string): UseGameSearchResult {
   const [debouncedQuery, setDebouncedQuery] = useState<string>(rawQuery);
@@ -50,7 +33,7 @@ export function useGameSearch(rawQuery: string): UseGameSearchResult {
 
   const { data, isLoading, isError } = useQuery<ClientGameDto[]>({
     queryKey: ['games', 'search', trimmed] as const,
-    queryFn: () => searchPlaceholderGames(trimmed),
+    queryFn: () => fetchGameSearch(trimmed),
     enabled: trimmed.length > 0,
     staleTime: 30_000,
   });

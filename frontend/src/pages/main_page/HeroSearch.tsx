@@ -138,9 +138,17 @@ export const HeroSearch = (): ReactElement => {
               aria-label="Search results"
             >
               {isLoading && (
-                <li className="px-4 py-3 text-sm text-gray-400 text-left">
-                  Searching...
-                </li>
+                <div className="flex flex-col gap-1 px-1.5 py-1">
+                  {[1, 2, 3].map((i) => (
+                    <li
+                      key={i}
+                      className="h-[40px] w-full bg-white/5 rounded-md animate-pulse flex items-center px-3 gap-3"
+                    >
+                      <div className="h-3 w-2/3 bg-white/10 rounded" />
+                      <div className="h-3 w-12 bg-white/10 rounded ml-auto" />
+                    </li>
+                  ))}
+                </div>
               )}
 
               {isError && (

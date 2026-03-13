@@ -2,43 +2,51 @@ import type { ReactElement } from 'react';
 
 import { GamesCarousel } from '../../components/GamesCarousel/GamesCarousel';
 import { HowItWorks } from '../../components/HowItWorks/HowItWorks';
-import { PLACEHOLDER_GAMES } from '../../data/placeholderGames';
 import { HeroSearch } from './HeroSearch';
-
-/**
- * Splits placeholder games into two display groups:
- *   - "Trending" — first 6 (highest-requirement titles near the top)
- *   - "Recently Added" — remaining entries
- *
- * TODO: Replace both slices with real paginated API calls once the NestJS
- * games module is available. Wiring point: replace PLACEHOLDER_GAMES usage
- * with the values returned by dedicated React Query hooks.
- */
-const TRENDING_GAMES = PLACEHOLDER_GAMES.slice(0, 6);
-const RECENTLY_ADDED_GAMES = PLACEHOLDER_GAMES.slice(6);
+import { useMockGames } from './useMockGames';
 
 export default function MainPage(): ReactElement {
+  const { games, isLoading, isError } = useMockGames();
+
+  // Split games into two display groups:
+  //   - "Trending" — first 6
+  //   - "Recently Added" — remaining entries
+  const trendingGames = games.slice(0, 6);
+  const recentlyAddedGames = games.slice(6);
+
   return (
     <main>
       {/* 1 — Hero + game search */}
       <HeroSearch />
 
-      {/* 2 — Trending games carousel */}
-      <GamesCarousel
-        id="trending-games"
-        title="Trending Games"
-        games={TRENDING_GAMES}
-      />
+      {/* Error state handling */}
+      {isError && (
+        <div className="py-12 text-center text-red-400">
+          Failed to load games.
+        </div>
+      )}
 
-      {/* 3 — How the app works (purely presentational) */}
-      <HowItWorks />
+      {/* Carousels and content */}
+      <div className={isError ? 'opacity-50 pointer-events-none' : ''}>
+        {/* 2 — Trending games carousel */}
+        <GamesCarousel
+          id="trending-games"
+          title="Trending Games"
+          games={trendingGames}
+          isLoading={isLoading}
+        />
 
-      {/* 4 — Recently added carousel */}
-      <GamesCarousel
-        id="recently-added"
-        title="Recently Added"
-        games={RECENTLY_ADDED_GAMES}
-      />
+        {/* 3 — How the app works (purely presentational) */}
+        <HowItWorks />
+
+        {/* 4 — Recently added carousel */}
+        <GamesCarousel
+          id="recently-added"
+          title="Recently Added"
+          games={recentlyAddedGames}
+          isLoading={isLoading}
+        />
+      </div>
     </main>
   );
 }

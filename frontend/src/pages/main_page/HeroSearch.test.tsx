@@ -59,7 +59,7 @@ describe('HeroSearch', () => {
   it('opens the dropdown immediately on typing', () => {
     render(<HeroSearch />, { wrapper: makeWrapper() });
     const input = screen.getByRole('textbox', { name: /search for a game/i });
-    userEvent.type(input, 'Hades');
+    userEvent.type(input, 'Cyberpunk');
     // dropdownOpen is set to true synchronously via the reducer on SET_QUERY
     expect(screen.getByRole('listbox')).toBeInTheDocument();
   });
@@ -67,11 +67,11 @@ describe('HeroSearch', () => {
   it('shows matching results in the dropdown after the debounce settles', async () => {
     render(<HeroSearch />, { wrapper: makeWrapper() });
     const input = screen.getByRole('textbox', { name: /search for a game/i });
-    userEvent.type(input, 'Hades');
+    userEvent.type(input, 'Cyberpunk');
 
     // findByText polls for up to 1 000 ms — enough to cover the 300 ms debounce
     // + React Query promise resolution.
-    expect(await screen.findByText('Hades II')).toBeInTheDocument();
+    expect(await screen.findByText('Cyberpunk 2077')).toBeInTheDocument();
   });
 
   it('shows "No games found" message for an unmatched query', () => {
@@ -89,15 +89,15 @@ describe('HeroSearch', () => {
   it('fills the input and closes the dropdown when a result is selected', async () => {
     render(<HeroSearch />, { wrapper: makeWrapper() });
     const input = screen.getByRole('textbox', { name: /search for a game/i });
-    userEvent.type(input, 'Hades');
+    userEvent.type(input, 'Cyberpunk');
 
-    // Wait for the debounce + React Query to surface "Hades II"
-    await screen.findByText('Hades II');
+    // Wait for the debounce + React Query to surface "Cyberpunk 2077"
+    await screen.findByText('Cyberpunk 2077');
 
-    userEvent.click(screen.getByText('Hades II'));
+    userEvent.click(screen.getByText('Cyberpunk 2077'));
 
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
-    expect(input).toHaveValue('Hades II');
+    expect(input).toHaveValue('Cyberpunk 2077');
   });
 
   // ── Check button ─────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ describe('HeroSearch', () => {
   it('closes the dropdown when the Check button is clicked', () => {
     render(<HeroSearch />, { wrapper: makeWrapper() });
     const input = screen.getByRole('textbox', { name: /search for a game/i });
-    userEvent.type(input, 'Hades');
+    userEvent.type(input, 'Cyberpunk');
 
     // Dropdown is open synchronously after typing
     expect(screen.getByRole('listbox')).toBeInTheDocument();

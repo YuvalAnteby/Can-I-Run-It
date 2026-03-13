@@ -3,18 +3,22 @@ import type { ReactElement } from 'react';
 
 import type { ClientGameDto } from '../../@types/game.types';
 import { GameCard } from '../GameCard/GameCard';
+import { GameCardSkeleton } from '../GameCard/GameCardSkeleton';
 
 export interface GamesCarouselProps {
   title: string;
   games: ClientGameDto[];
   /** Stable identifier for aria-labelledby */
   id?: string;
+  /** Whether the carousel is currently fetching data */
+  isLoading?: boolean;
 }
 
 export const GamesCarousel = ({
   title,
   games,
   id,
+  isLoading = false,
 }: GamesCarouselProps): ReactElement => {
   const headingId =
     id ?? `carousel-${title.toLowerCase().replace(/\s+/g, '-')}`;
@@ -30,37 +34,50 @@ export const GamesCarousel = ({
           {title}
         </h2>
         {/* TODO: link to a /games browse page once it exists */}
-        <span
-          className="text-sm text-blue-500 cursor-default"
-          aria-hidden="true"
-        >
-          View All
-        </span>
+        {!isLoading && games.length > 0 && (
+          <span
+            className="text-sm text-blue-500 cursor-default"
+            aria-hidden="true"
+          >
+            View All
+          </span>
+        )}
       </div>
 
-      {games.length === 0 ? (
-        <p className="text-gray-500 text-sm py-4">
-          No games to show right now.
-        </p>
-      ) : (
-        <div
-          className="carousel-track flex gap-4 overflow-x-auto snap-x snap-mandatory pb-3 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.15)_transparent]"
-          role="list"
-        >
-          {games.map((game) => (
-            <div
-              key={game.id}
-              className="snap-start shrink-0 w-[200px]"
-              role="listitem"
-            >
-              <GameCard
-                game={game}
-                // TODO: add onClick navigation to /games/:slug once game detail page exists
-              />
-            </div>
-          ))}
-        </div>
-      )}
+      <div
+        className="carousel-track flex gap-4 overflow-x-auto snap-x snap-mandatory pb-3 [scrollbar-width:thin] [scrollbar-color:rgba(255,255,255,0.15)_transparent]"
+        role="list"
+      >
+        {isLoading
+          ? // Render 6 skeletons while loading
+            Array.from({ length: 6 }).map((_, idx) => (
+              <div
+                key={`skeleton-${idx}`}
+                className="snap-start shrink-0 w-[200px]"
+                role="listitem"
+              >
+                <GameCardSkeleton />
+              </div>
+            ))
+          : games.map((game) => (
+              <div
+                key={game.id}
+                className="snap-start shrink-0 w-[200px]"
+                role="listitem"
+              >
+                <GameCard
+                  game={game}
+                  // TODO: add onClick navigation to /games/:slug once game detail page exists
+                />
+              </div>
+            ))}
+
+        {!isLoading && games.length === 0 && (
+          <p className="text-gray-500 text-sm py-4">
+            No games to show right now.
+          </p>
+        )}
+      </div>
     </section>
   );
 };

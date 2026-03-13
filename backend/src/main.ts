@@ -10,6 +10,9 @@ async function bootstrap() {
     // Global Prefix
     app.setGlobalPrefix('api');
 
+    // CORS Policy
+    app.enableCors();
+
     // Enable endpoint versioning
     app.enableVersioning({
         type: VersioningType.URI,
