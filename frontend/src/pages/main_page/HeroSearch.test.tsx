@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { HeroSearch } from './HeroSearch';
@@ -13,7 +14,9 @@ import { HeroSearch } from './HeroSearch';
 function makeWrapper(): ({ children }: { children: ReactNode }) => ReactNode {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return ({ children }) => (
-    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+    <QueryClientProvider client={qc}>
+      <MemoryRouter>{children}</MemoryRouter>
+    </QueryClientProvider>
   );
 }
 

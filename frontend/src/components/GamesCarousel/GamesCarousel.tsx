@@ -1,5 +1,6 @@
 import { Gamepad2 } from 'lucide-react';
 import type { ReactElement } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import type { ClientGameDto } from '../../@types/game.types';
 import { GameCard } from '../GameCard/GameCard';
@@ -20,6 +21,7 @@ export const GamesCarousel = ({
   id,
   isLoading = false,
 }: GamesCarouselProps): ReactElement => {
+  const navigate = useNavigate();
   const headingId =
     id ?? `carousel-${title.toLowerCase().replace(/\s+/g, '-')}`;
 
@@ -67,7 +69,9 @@ export const GamesCarousel = ({
               >
                 <GameCard
                   game={game}
-                  // TODO: add onClick navigation to /games/:slug once game detail page exists
+                  onClick={() => {
+                    void navigate(`/games/${game.slug}`);
+                  }}
                 />
               </div>
             ))}

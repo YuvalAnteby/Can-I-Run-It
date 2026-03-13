@@ -7,6 +7,7 @@ import {
 
 import { MainLayout } from './layout/MainLayout';
 import MainPage from './pages/main_page/MainPage';
+import GameDetailPage from './pages/game_detail/GameDetailPage';
 
 const router = createBrowserRouter([
   {
@@ -14,6 +15,7 @@ const router = createBrowserRouter([
     element: <MainLayout />,
     children: [
       { index: true, element: <MainPage /> },
+      { path: 'games/:slug', element: <GameDetailPage /> },
       // TODO: Add route for /games once the Games browse page is created
       // TODO: Add route for /hardware-rank once the Hardware Rank page is created
       // TODO: Add route for /about once the About page is created

@@ -1,6 +1,7 @@
 import { Gauge, Monitor, Search } from 'lucide-react';
 import { useEffect, useReducer, useRef } from 'react';
 import type { ReactElement } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import type { ClientGameDto } from '../../@types/game.types';
 import { useGameSearch } from './useGameSearch';
@@ -33,6 +34,7 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
 }
 
 export const HeroSearch = (): ReactElement => {
+  const navigate = useNavigate();
   const [{ query, dropdownOpen }, dispatch] = useReducer(searchReducer, {
     query: '',
     dropdownOpen: false,
@@ -56,8 +58,8 @@ export const HeroSearch = (): ReactElement => {
   }, []);
 
   const handleSelect = (game: ClientGameDto): void => {
-    // TODO: Navigate to /games/:slug once the Game detail page is created
     dispatch({ type: 'SELECT_GAME', payload: game.name });
+    void navigate(`/games/${game.slug}`);
   };
 
   return (
