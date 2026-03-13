@@ -12,7 +12,7 @@ import { ClientCpuDto } from './dto/client-cpu-dto';
 import { CpuFilterDto } from './dto/filter-cpu-dto';
 import { CpuSearchDto } from './dto/search-cpu-dto';
 
-@ApiTags('gpus')
+@ApiTags('cpus')
 @Controller('cpus')
 export class CpuController {
     constructor(private readonly cpuService: CpuService) {}
