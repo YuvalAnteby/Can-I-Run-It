@@ -1,8 +1,9 @@
-import React from 'react';
-import type { ReactElement } from 'react';
 import { Gamepad2 } from 'lucide-react';
-import './GamesGrid.css';
+import type { ReactElement } from 'react';
+
 import type { ClientGameDto } from '../../@types/game.types';
+import { GameCard } from '../GameCard/GameCard';
+import './GamesGrid.css';
 
 interface GamesGridProps {
   title: string;
@@ -11,36 +12,24 @@ interface GamesGridProps {
 
 export const GamesGrid = ({ title, games }: GamesGridProps): ReactElement => {
   return (
-    <section className="games-grid-section">
-      <div className="games-grid-header">
-        <h2 className="games-grid-title">
-          <Gamepad2 className="icon-highlight" />
+    <section className="py-12">
+      <div className="flex items-center justify-between mb-6 px-2">
+        <h2 className="text-2xl font-bold text-white flex items-center gap-2 m-0">
+          <Gamepad2 className="text-blue-500" aria-hidden="true" />
           {title}
         </h2>
-        <a href="#" className="view-all-link">
+        {/* TODO: replace href="#" with a real /games route once browse page exists */}
+        <a
+          href="#"
+          className="text-sm text-blue-500 no-underline hover:underline"
+        >
           View All
         </a>
       </div>
 
-      <div className="games-grid-list">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         {games.map((game) => (
-          <div key={game.id} className="game-card">
-            {/* Image Placeholder - future: use game.coverImageUrl or slug-based asset */}
-            <div className="game-image-wrapper">
-              <div className="game-placeholder-art">{game.name} Art</div>
-              <div className="game-req-badge">
-                {game.requirementTier ?? 'Unknown'} Reqs
-              </div>
-            </div>
-
-            <div className="game-card-content">
-              <h3 className="game-title">{game.name}</h3>
-              <div className="game-meta">
-                <span className="release-date">Released: 2025</span>
-                <span className="run-it-badge">Can I Run It?</span>
-              </div>
-            </div>
-          </div>
+          <GameCard key={game.id} game={game} />
         ))}
       </div>
     </section>

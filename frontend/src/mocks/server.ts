@@ -5,8 +5,8 @@ import { handlers } from './handlers';
 /**
  * Shared MSW server instance for all tests.
  *
- * Initialized in src/setupTests.ts — never create a new server inside a test file.
- * To override a handler in a specific test use:
- *   server.use(http.get(...))
+ * Initialized once in src/setupTests.ts via beforeAll/afterEach/afterAll.
+ * Never create a new server inside a test file — use server.use() overrides
+ * instead when a specific test needs a different response.
  */
 export const server = setupServer(...handlers);

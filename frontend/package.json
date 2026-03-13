@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.38.0",
+    "@tailwindcss/vite": "^4.2.1",
     "@types/node": "^24.7.2",
     "@vitejs/plugin-react": "^5.1.0",
     "eslint": "^9.38.0",
@@ -28,6 +29,7 @@
     "jsdom": "^27.0.1",
     "msw": "^2.12.10",
     "prettier": "^3.4.2",
+    "tailwindcss": "^4.2.1",
     "typescript-eslint": "^8.46.1",
     "vite": "^7.1.9",
     "vitest": "^3.2.4"
