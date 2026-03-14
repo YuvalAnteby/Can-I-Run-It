@@ -11,7 +11,11 @@ async function bootstrap() {
     app.setGlobalPrefix('api');
 
     // CORS Policy
-    app.enableCors();
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+    app.enableCors({
+        origin: frontendUrl,
+        credentials: true,
+    });
 
     // Enable endpoint versioning
     app.enableVersioning({
