@@ -1,71 +1,88 @@
-# Project: Can I Run It
+# Project: Can I Run It (ciri)
 
-## Project Overview
+A full-stack PC gaming compatibility checker. Users input their hardware specs; the system checks existing performance records in the DB and returns a compatibility result. Future phases will add an LLM fallback (Gemini/ChatGPT/Claude) and an ML model for performance prediction.
 
-This is a full-stack web application called "Can I Run It" that checks whether a user's PC can run a selected game based on their hardware specs and desired settings.
+## Monorepo Structure
 
-The project is a monorepo with a `backend` and a `frontend` directory.
-
-### Backend
-
-The backend is a NestJS application written in TypeScript. It also uses FastAPI for some Python-based functionality. It uses a Postgres database via TypeORM.
-
-### Frontend
-
-The frontend is a React application written in TypeScript, using Material UI for styling.
-
-### Infrastructure
-
-The project is containerized using Docker and Docker Compose. There are Dockerfiles for both the backend and frontend, and a docker-compose.yml file for setting up the development environment.
-
-## Building and Running
-
-### Prerequisites
-
-*   Docker & Docker Compose
-*   NodeJS & npm
-
-### Development
-
-To run the application in development mode, run the following command from the root of the project:
-
-```bash
-npm run docker:dev
+```
+/
+├── backend/          ← NestJS (TypeScript) REST API
+├── frontend/         ← React + Vite (TypeScript) SPA
+└── infra/
+    ├── .env                      ← single source of truth for all env vars
+    ├── .env.example
+    ├── docker-compose.yml        ← dev
+    ├── docker-compose.prod.yml   ← production
+    ├── docker-compose.tests.yml  ← E2E test isolation
+    ├── Dockerfile.backend
+    ├── Dockerfile.frontend
+    └── init-scripts/             ← postgres init SQL
 ```
 
-This will start the backend, frontend, and a Postgres database in Docker containers.
+## Tech Stack
 
-The services will be available at the following URLs:
+| Layer      | Technology                                                                  |
+| ---------- | --------------------------------------------------------------------------- |
+| Backend    | NestJS, TypeScript, TypeORM, PostgreSQL                                     |
+| Frontend   | React 19, Vite, TypeScript, Tailwind CSS                                    |
+| Testing    | Jest + Supertest (backend), Vitest + React Testing Library + MSW (frontend) |
+| Containers | Docker, docker-compose (dev / prod / tests)                                 |
 
-*   **Frontend:** http://localhost:3000
-*   **Backend:** http://localhost:4000
+## Roadmap (for context — do not implement ahead of schedule)
 
-To stop the services, run:
+1. **MVP (current):** NestJS backend with CPU/GPU endpoints + React frontend. Checks existing DB records for compatibility.
+2. **Phase 2:** Add LLM fallback (Gemini / ChatGPT / Claude API) when no DB record is found.
+3. **Phase 3:** Add a FastAPI microservice for an ML model that predicts performance. NestJS orchestrates: check DB first → LLM fallback → ML model. Never put ML logic in the NestJS backend.
 
-```bash
-npm run docker:down
+## Cross-Cutting Rules
+
+- Never use `any` in TypeScript — applies to both backend and frontend.
+- Always assume `"strict": true` in both `tsconfig.json` files.
+- Never mix imports across the `backend/` and `frontend/` boundary.
+- Never suggest running `npm install` or scripts without specifying which workspace (`backend` or `frontend`).
+- When scaffolding a feature end-to-end, always generate backend first, then frontend.
+- This is a portfolio project targeting the Israeli high-tech industry. Code quality, structure, and documentation standards should reflect production-grade work.
+
+## Environment Variables
+
+- All environment variables are defined in `infra/.env`. Never hardcode values that belong there.
+- When adding a new env var: add it to `infra/.env.example`, note which service consumes it, and use the correct prefix (`VITE_` for frontend, no prefix for backend).
+
+## Database
+
+- Primary ORM is TypeORM.
+- **Schema sync is intentional during MVP** (`synchronize: true` in dev). Do not replace with migrations until the schema stabilizes post-MVP.
+- Raw SQL via `QueryRunner` or `DataSource.query()` is acceptable for complex reporting or performance-critical queries. Always add a comment explaining why raw SQL was necessary. Never use raw SQL for standard CRUD.
+- The database runs in Docker. Never assume a locally installed PostgreSQL instance.
+- All `POSTGRES_*` env vars are read from `infra/.env`.
+
+## Docker
+
+- Dev: `docker compose -f infra/docker-compose.yml up -d --build`
+- Prod: `docker compose -f infra/docker-compose.prod.yml up -d --build`
+- Tests: `docker compose -f infra/docker-compose.tests.yml up --abort-on-container-exit`
+- Services communicate internally via Docker service names on `ciri-net` (e.g. `postgres:5432`).
+- Never suggest connecting to `localhost` for inter-service communication inside Docker.
+
+## Commit Message Convention
+
+Always use Conventional Commits format:
+
+```
+<type>(optional scope): <short description>
+
+Types: feat, fix, refactor, chore, test, docs, perf, ci
+Examples:
+  feat(cpu): add pagination to CPU search endpoint
+  fix(frontend): correct nestClient base URL for prod
+  chore(infra): update postgres image to 16-alpine
 ```
 
-### Production
+- Scope should match the affected area: `backend`, `frontend`, `infra`, or a module name (e.g. `cpu`, `gpu`).
+- Never generate a generic commit message like "update files" or "fix bug".
 
-To run the application in production mode, run the following command from the root of the project:
+## Output Format (applies to all code generation)
 
-```bash
-npm run docker:prod
-```
-
-## Development Conventions
-
-### Backend
-
-*   The backend is a NestJS application.
-*   Code should be written in TypeScript.
-*   Linting is done with ESLint, and can be run with `npm run lint` in the `backend` directory.
-*   Tests are written with Jest and can be run with `npm test` in the `backend` directory.
-
-### Frontend
-
-*   The frontend is a React application.
-*   Code should be written in TypeScript.
-*   The project was bootstrapped with Create React App.
-*   Tests are written with React Testing Library and can be run with `npm test` in the `frontend` directory.
+- For **NEW files**: Output the complete file.
+- For **EXISTING files**: Do NOT output the entire file. Output only the specific newly generated code block, and explicitly state where it should be inserted (e.g., "Add this method below `findAll()` in `users.service.ts`").
+- Ensure all generated code passes strict `tsconfig.json` and ESLint checks.

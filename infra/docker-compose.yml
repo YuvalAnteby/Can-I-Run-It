@@ -1,6 +1,5 @@
 name: can-i-run-it
 services:
-
   # NestJS backend
   backend:
     container_name: ciri-backend
@@ -9,10 +8,10 @@ services:
       dockerfile: ../infra/Dockerfile.backend
       target: dev
     environment:
-        - ENV=dev
-        - CHOKIDAR_USEPOLLING=true
-        - WATCHPACK_POLLING=true
-        - REACT_URL=http://localhost:${FRONTEND_PORT:-3000}
+      - ENV=dev
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - REACT_URL=http://localhost:${FRONTEND_PORT:-3000}
     env_file:
       - .env
     ports:
@@ -42,7 +41,7 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - REACT_APP_BASE_URL=http://localhost:${BACKEND_PORT:-4000}/api
+      - VITE_API_URL=http://localhost:${BACKEND_PORT:-4000}/api
 
     volumes:
       - ../frontend/:/app/
@@ -67,7 +66,11 @@ services:
     networks:
       - ciri-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-username} -d ${POSTGRES_DB:-myciridb}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-username} -d ${POSTGRES_DB:-myciridb}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5

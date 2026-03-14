@@ -1,4 +1,5 @@
 import { Controller, Get, Inject, VERSION_NEUTRAL } from '@nestjs/common';
+import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
     HealthCheck,
     HealthCheckResult,
@@ -7,6 +8,7 @@ import {
 } from '@nestjs/terminus';
 import { DataSource } from 'typeorm';
 
+@ApiTags('health')
 @Controller({ path: 'health', version: VERSION_NEUTRAL })
 export class HealthController {
     constructor(
@@ -18,6 +20,8 @@ export class HealthController {
 
     @Get('/postgres')
     @HealthCheck()
+    @ApiOperation({ summary: 'Check the health of the PostgreSQL connection' })
+    @ApiOkResponse({ description: 'The health check result' })
     check(): Promise<HealthCheckResult> {
         return this.health.check([
             () =>

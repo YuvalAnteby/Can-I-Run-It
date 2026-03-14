@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
-import { DatabaseModule } from '../database/database.module';
-import { TypeOrmGpuRepository } from '../gpu/gpu.typeorm.repository';
 
+import { DatabaseModule } from '../database/database.module';
 import { CpuController } from './cpu.controller';
 import { CpuService } from './cpu.service';
+import { TypeOrmCpuRepository } from './gpu.typeorm.repository';
 import { ICpuRepositoryToken } from './icpu.repository';
 
 @Module({
@@ -13,7 +13,7 @@ import { ICpuRepositoryToken } from './icpu.repository';
         CpuService,
         {
             provide: ICpuRepositoryToken,
-            useClass: TypeOrmGpuRepository,
+            useClass: TypeOrmCpuRepository,
         },
     ],
 })

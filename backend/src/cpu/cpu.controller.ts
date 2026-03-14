@@ -1,9 +1,11 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import {
+    ApiExtraModels,
     ApiOkResponse,
     ApiOperation,
     ApiParam,
     ApiTags,
+    getSchemaPath,
 } from '@nestjs/swagger';
 import { PaginatedResult } from 'src/common/dto/paginated-result.dto';
 
@@ -12,8 +14,9 @@ import { ClientCpuDto } from './dto/client-cpu-dto';
 import { CpuFilterDto } from './dto/filter-cpu-dto';
 import { CpuSearchDto } from './dto/search-cpu-dto';
 
-@ApiTags('gpus')
+@ApiTags('cpus')
 @Controller('cpus')
+@ApiExtraModels(PaginatedResult, ClientCpuDto)
 export class CpuController {
     constructor(private readonly cpuService: CpuService) {}
 
@@ -59,7 +62,19 @@ export class CpuController {
     @ApiOperation({ summary: 'Get a paginated list of CPUs' })
     @ApiOkResponse({
         description: 'A paginated list of CPUs',
-        type: PaginatedResult<ClientCpuDto>,
+        schema: {
+            allOf: [
+                { $ref: getSchemaPath(PaginatedResult) },
+                {
+                    properties: {
+                        data: {
+                            type: 'array',
+                            items: { $ref: getSchemaPath(ClientCpuDto) },
+                        },
+                    },
+                },
+            ],
+        },
     })
     async findAll(
         @Query() filterDTO: CpuFilterDto,

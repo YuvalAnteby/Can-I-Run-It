@@ -1,4 +1,4 @@
-import { ValidationPipe, VersioningType } from '@nestjs/common';
+import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
@@ -9,6 +9,13 @@ async function bootstrap() {
 
     // Global Prefix
     app.setGlobalPrefix('api');
+
+    // CORS Policy
+    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+    app.enableCors({
+        origin: frontendUrl,
+        credentials: true,
+    });
 
     // Enable endpoint versioning
     app.enableVersioning({
@@ -32,18 +39,18 @@ async function bootstrap() {
         .setVersion('1.0')
         .build();
     const documentFactory = () => SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('swagger', app, documentFactory);
+    SwaggerModule.setup('/api/docs', app, documentFactory);
+
+    const logger = new Logger('Bootstrap');
 
     // Start the server
     await app
         .listen(process.env.PORT ?? 4000)
         .then(() => {
-            console.log(
-                `NestJS is running on port ${process.env.PORT ?? 4000}`,
-            );
+            logger.log(`NestJS is running on port ${process.env.PORT ?? 4000}`);
         })
         .catch((err) => {
-            console.error('Error starting the NestJS:', err);
+            logger.error('Error starting the NestJS:', err);
             process.exit(1);
         });
 }
