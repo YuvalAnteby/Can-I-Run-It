@@ -23,7 +23,7 @@ export class TypeOrmCpuRepository implements ICpuRepository {
 
         const qb = this.repo.createQueryBuilder('cpu');
         if (manufacturer)
-            qb.andWhere('gpu.manufacturer = :manufacturer', { manufacturer });
+            qb.andWhere('cpu.manufacturer = :manufacturer', { manufacturer });
 
         return await qb
             .orderBy('cpu.id', 'ASC')
@@ -43,12 +43,12 @@ export class TypeOrmCpuRepository implements ICpuRepository {
             .select(['cpu.id', 'cpu.slug', 'cpu.name', 'cpu.manufacturer'])
             // WORD_SIMILARITY checks if 'rxt' is similar to any word INSIDE 'NVIDIA GeForce RTX...'
             // We set a threshold of 0.3 to catch typos (adjust 0.1-1.0 as needed)
-            .where('word_similarity(:query, gpu.name) > threshold', {
+            .where('word_similarity(:query, cpu.name) > :threshold', {
                 query: q,
                 threshold: SIMILARITY_THRESHOLD,
             })
             // Sort by best match first
-            .orderBy('word_similarity(:query, gpu.name)', 'DESC')
+            .orderBy('word_similarity(:query, cpu.name)', 'DESC')
             .getMany();
     }
 }

@@ -28,7 +28,7 @@ export class CpuService {
         const [results, total] = await this.cpuRepository.findAll(filterDTO);
 
         return {
-            data: results.map((gpu) => this.toClientCpuDto(gpu)),
+            data: results.map((cpu) => this.toClientCpuDto(cpu)),
             meta: { total, page: page, lastPage: Math.ceil(total / limit) },
         };
     }
@@ -42,7 +42,7 @@ export class CpuService {
         const { q } = searchDTO;
         const res: Cpu[] = await this.cpuRepository.searchByName(q);
 
-        return res.map((gpu) => this.toClientCpuDto(gpu));
+        return res.map((cpu) => this.toClientCpuDto(cpu));
     }
 
     /**
@@ -59,13 +59,15 @@ export class CpuService {
         return this.toClientCpuDto(res);
     }
 
-    // Helper method to convert Gpu entity to ClientGpuDto
+    // Helper method to convert Cpu entity to ClientCpuDto
     private toClientCpuDto(cpu: Cpu): ClientCpuDto {
         return {
             id: cpu.id,
             slug: cpu.slug,
             name: cpu.name,
             manufacturer: cpu.manufacturer,
+            tdp_watts: cpu.tdp_watts,
+            release_year: cpu.release_year,
         };
     }
 }

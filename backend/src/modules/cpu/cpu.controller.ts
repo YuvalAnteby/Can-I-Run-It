@@ -21,9 +21,9 @@ export class CpuController {
     constructor(private readonly cpuService: CpuService) {}
 
     /**
-     * Search for GPUs by name
+     * Search for CPUs by name
      * @param searchDTO - The search parameters
-     * @returns A list of GPUs matching the search query
+     * @returns A list of CPUs matching the search query
      */
     @Get('search')
     @ApiOperation({ summary: 'Search for CPUs by name' })
