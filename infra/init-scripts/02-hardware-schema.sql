@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS gpus (
   benchmarks JSONB DEFAULT '{}'::jsonb,
 
   -- Market
-  release_year INTEGER
+  release_year INTEGER,
   
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
