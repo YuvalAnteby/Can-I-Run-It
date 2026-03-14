@@ -1,6 +1,17 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+
+const ALLOWED_SORT_FIELDS = [
+    'name',
+    'releaseDate',
+    'developer',
+    'publisher',
+] as const;
+type SortField = (typeof ALLOWED_SORT_FIELDS)[number];
+
+const ALLOWED_SORT_ORDERS = ['ASC', 'DESC'] as const;
+type SortOrder = (typeof ALLOWED_SORT_ORDERS)[number];
 
 /**
  * DTO for filtering, searching, and paginating game results.
@@ -44,18 +55,21 @@ export class FilterGameDto {
         description: 'The field to sort results by',
         example: 'releaseDate',
         default: 'releaseDate',
+        enum: ALLOWED_SORT_FIELDS,
     })
     @IsOptional()
     @IsString()
-    sortBy?: string = 'releaseDate';
+    @IsIn(ALLOWED_SORT_FIELDS)
+    sortBy?: SortField = 'releaseDate';
 
     @ApiPropertyOptional({
         description: 'The sort order (ASC or DESC)',
         example: 'DESC',
-        enum: ['ASC', 'DESC'],
+        enum: ALLOWED_SORT_ORDERS,
         default: 'DESC',
     })
     @IsOptional()
     @IsString()
-    sortOrder?: 'ASC' | 'DESC' = 'DESC';
+    @IsIn(ALLOWED_SORT_ORDERS)
+    sortOrder?: SortOrder = 'DESC';
 }

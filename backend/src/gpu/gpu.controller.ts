@@ -1,9 +1,11 @@
 import { Controller, Get, Param, Query } from '@nestjs/common';
 import {
+    ApiExtraModels,
     ApiOkResponse,
     ApiOperation,
     ApiParam,
     ApiTags,
+    getSchemaPath,
 } from '@nestjs/swagger';
 import { PaginatedResult } from 'src/common/dto/paginated-result.dto';
 
@@ -14,6 +16,7 @@ import { GpuService } from './gpu.service';
 
 @ApiTags('gpus')
 @Controller('gpus')
+@ApiExtraModels(PaginatedResult, ClientGpuDto)
 export class GpuController {
     constructor(private readonly gpuService: GpuService) {}
 
@@ -59,7 +62,19 @@ export class GpuController {
     @ApiOperation({ summary: 'Get a paginated list of GPUs' })
     @ApiOkResponse({
         description: 'A paginated list of GPUs',
-        type: PaginatedResult<ClientGpuDto>,
+        schema: {
+            allOf: [
+                { $ref: getSchemaPath(PaginatedResult) },
+                {
+                    properties: {
+                        data: {
+                            type: 'array',
+                            items: { $ref: getSchemaPath(ClientGpuDto) },
+                        },
+                    },
+                },
+            ],
+        },
     })
     async findAll(
         @Query() filterDTO: GpusFilterDto,

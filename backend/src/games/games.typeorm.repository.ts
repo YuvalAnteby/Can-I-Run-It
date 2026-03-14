@@ -28,7 +28,18 @@ export class TypeOrmGamesRepository implements IGamesRepository {
         }
 
         if (sortBy) {
-            queryBuilder.orderBy(`game.${sortBy}`, sortOrder || 'DESC');
+            // sortBy is already validated by FilterGameDto @IsIn,
+            // but we use an explicit check here for defense-in-depth.
+            const allowedFields = [
+                'name',
+                'releaseDate',
+                'developer',
+                'publisher',
+            ];
+            const column = allowedFields.includes(sortBy)
+                ? sortBy
+                : 'releaseDate';
+            queryBuilder.orderBy(`game.${column}`, sortOrder || 'DESC');
         } else {
             queryBuilder.orderBy('game.releaseDate', 'DESC');
         }
