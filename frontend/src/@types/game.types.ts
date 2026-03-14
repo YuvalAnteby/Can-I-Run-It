@@ -1,13 +1,20 @@
-/** @type {ClientGameDto} */
+import { ClientCpuDto } from './cpu.types';
+import { ClientGpuDto } from './gpu.types';
 
-/**
- * Shared types for the Games domain.
- *
- * TODO: Once the NestJS games module is built, replace these hand-rolled
- * interfaces with auto-generated DTOs imported from the backend (or a shared
- * types package). Keep field names in sync with the games table in
- * infra/init-scripts/03-games-schema.sql.
- */
+export interface ClientGameRequirementDto {
+  tier: string;
+  description: string | null;
+  cpu: ClientCpuDto | null;
+  gpu: ClientGpuDto | null;
+  ramGb: number;
+  vramGb: number | null;
+  storageGb: number | null;
+  requiresSsd: boolean;
+  resolutionWidth: number;
+  resolutionHeight: number;
+  targetFps: number;
+  notes: string | null;
+}
 
 export interface ClientGameDto {
   id: number;
@@ -18,9 +25,16 @@ export interface ClientGameDto {
   releaseDate: string | null; // ISO date string, e.g. "2025-05-22"
   developer: string | null;
   publisher: string | null;
+  genre: string | null;
+  description: string | null;
+  tags: string[] | null;
   supportsRayTracing: boolean;
   supportsDlss: boolean;
   supportsFsr: boolean;
+  supportsXeSS: boolean;
+  isTrending: boolean;
+  trendingRank: number | null;
+  requirements?: ClientGameRequirementDto[];
 }
 
 export interface PaginationMeta {
