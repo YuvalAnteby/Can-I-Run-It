@@ -30,6 +30,8 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
       return { ...state, dropdownOpen: false };
     case 'SELECT_GAME':
       return { query: action.payload, dropdownOpen: false };
+    default:
+      return state;
   }
 }
 
@@ -127,19 +129,17 @@ export const HeroSearch = (): ReactElement => {
               role="listbox"
               aria-label="Search results"
             >
-              {isLoading && (
-                <div className="flex flex-col gap-1 px-1.5 py-1">
-                  {[1, 2, 3].map((i) => (
-                    <li
-                      key={i}
-                      className="h-[40px] w-full bg-white/5 rounded-md animate-pulse flex items-center px-3 gap-3"
-                    >
-                      <div className="h-3 w-2/3 bg-white/10 rounded" />
-                      <div className="h-3 w-12 bg-white/10 rounded ml-auto" />
-                    </li>
-                  ))}
-                </div>
-              )}
+              {isLoading &&
+                [1, 2, 3].map((i) => (
+                  <li
+                    key={i}
+                    className="h-[40px] w-full bg-white/5 rounded-md animate-pulse flex items-center px-4 gap-3 mx-0 my-1"
+                    role="presentation"
+                  >
+                    <div className="h-3 w-2/3 bg-white/10 rounded" />
+                    <div className="h-3 w-12 bg-white/10 rounded ml-auto" />
+                  </li>
+                ))}
 
               {isError && (
                 <li className="px-4 py-3 text-sm text-red-400 text-left">

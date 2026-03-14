@@ -21,12 +21,7 @@ export const GamesGrid = ({ title, games }: GamesGridProps): ReactElement => {
           {title}
         </h2>
         {/* TODO: link to a /games browse page once it exists */}
-        <a
-          href="#"
-          className="text-sm text-blue-500 no-underline hover:underline"
-        >
-          View All
-        </a>
+        <span className="text-sm text-blue-500 cursor-default">View All</span>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

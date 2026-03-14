@@ -44,7 +44,7 @@ export const MainHeader = (): React.ReactElement => {
             aria-label="Go to home"
           >
             <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center">
-              <img src="./favicon.ico" alt="" width={24} height={24} />
+              <img src="/favicon.ico" alt="" width={24} height={24} />
             </div>
             <span className="text-xl font-bold text-white -tracking-tight">
               Can I <span className="text-blue-500">Run It?</span>

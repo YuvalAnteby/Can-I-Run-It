@@ -77,9 +77,9 @@ export const GamesCarousel = ({
             ))}
 
         {!isLoading && games.length === 0 && (
-          <p className="text-gray-500 text-sm py-4">
-            No games to show right now.
-          </p>
+          <div className="snap-start shrink-0 py-4" role="listitem">
+            <p className="text-gray-500 text-sm">No games to show right now.</p>
+          </div>
         )}
       </div>
     </section>

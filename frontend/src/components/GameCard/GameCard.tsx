@@ -13,6 +13,9 @@ export const GameCard = ({ game, onClick }: GameCardProps): ReactElement => {
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>): void => {
     if (e.key === 'Enter' || e.key === ' ') {
+      if (e.key === ' ') {
+        e.preventDefault();
+      }
       onClick?.(game);
     }
   };
