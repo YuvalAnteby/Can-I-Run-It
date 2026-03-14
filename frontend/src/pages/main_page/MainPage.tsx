@@ -15,7 +15,7 @@ export default function MainPage(): ReactElement {
   const recentlyAddedGames = games.slice(6);
 
   return (
-    <main>
+    <div>
       {/* 1 — Hero + game search */}
       <HeroSearch />
 
@@ -47,6 +47,6 @@ export default function MainPage(): ReactElement {
           isLoading={isLoading}
         />
       </div>
-    </main>
+    </div>
   );
 }
