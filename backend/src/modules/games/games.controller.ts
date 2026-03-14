@@ -1,7 +1,7 @@
 import { Controller, Get, Param, Query, Version } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
-import { PaginatedResult } from '../common/dto/paginated-result.dto';
+import { PaginatedResult } from '../../common/dto/paginated-result.dto';
 import { ClientGameDto } from './dto/client-game.dto';
 import { FilterGameDto } from './dto/filter-game.dto';
 import { GamesService } from './games.service';

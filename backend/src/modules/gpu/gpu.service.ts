@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 
-import { PaginatedResult } from '../common/dto/paginated-result.dto';
+import { PaginatedResult } from '../../common/dto/paginated-result.dto';
 import { ClientGpuDto } from './dto/client-gpu-dto';
 import { GpusFilterDto } from './dto/filter-gpu-dto';
 import { GpuSearchDto } from './dto/search-gpu-dto';

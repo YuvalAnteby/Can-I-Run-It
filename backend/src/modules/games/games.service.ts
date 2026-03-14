@@ -1,6 +1,6 @@
 import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
-import { PaginatedResult } from '../common/dto/paginated-result.dto';
+import { PaginatedResult } from '../../common/dto/paginated-result.dto';
 import { ClientGameDto } from './dto/client-game.dto';
 import { FilterGameDto } from './dto/filter-game.dto';
 import { Game } from './entities/game.entity';

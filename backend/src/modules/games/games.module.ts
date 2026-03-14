@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { DatabaseModule } from '../database/database.module';
+import { DatabaseModule } from '../../database/database.module';
 import { GamesController } from './games.controller';
 import { GamesService } from './games.service';
 import { TypeOrmGamesRepository } from './games.typeorm.repository';

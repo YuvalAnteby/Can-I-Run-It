@@ -3,10 +3,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { DataSource } from 'typeorm';
 
-import { Cpu } from '../cpu/entities/cpu.entity';
-import { Game } from '../games/entities/game.entity';
-import { GameEngine } from '../games/entities/game-engine.entity';
-import { Gpu } from '../gpu/entities/gpu.entity';
+import { Cpu } from '../modules/cpu/entities/cpu.entity';
+import { Game } from '../modules/games/entities/game.entity';
+import { GameEngine } from '../modules/games/entities/game-engine.entity';
+import { Gpu } from '../modules/gpu/entities/gpu.entity';
 
 dotenv.config();
 

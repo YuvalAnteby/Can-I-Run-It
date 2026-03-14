@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 
-import { DatabaseModule } from '../database/database.module';
+import { DatabaseModule } from '../../database/database.module';
 import { GpuController } from './gpu.controller';
 import { GpuService } from './gpu.service';
 import { TypeOrmGpuRepository } from './gpu.typeorm.repository';

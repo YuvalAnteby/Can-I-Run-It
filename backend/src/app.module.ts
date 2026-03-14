@@ -3,11 +3,11 @@ import { TerminusModule } from '@nestjs/terminus';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { CpuModule } from './cpu/cpu.module';
 import { DatabaseModule } from './database/database.module';
-import { GamesModule } from './games/games.module';
-import { GpuModule } from './gpu/gpu.module';
-import { HealthModule } from './health/health.module';
+import { CpuModule } from './modules/cpu/cpu.module';
+import { GamesModule } from './modules/games/games.module';
+import { GpuModule } from './modules/gpu/gpu.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
     imports: [
