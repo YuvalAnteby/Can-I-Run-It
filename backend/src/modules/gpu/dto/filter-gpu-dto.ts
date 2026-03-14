@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 import { GpuBrand } from '../entities/gpu.entity';
@@ -9,13 +9,13 @@ import { GpuBrand } from '../entities/gpu.entity';
  */
 export class GpusFilterDto {
     @ApiProperty({
-        description: 'The manufacturer of the GPU (e.g., "nvidia", "amd")',
+        description:
+            'The manufacturer of the GPU (e.g., "Nvidia", "AMD", "Intel")',
         required: false,
         enum: GpuBrand,
     })
     @IsOptional()
-    @IsEnum(GpuBrand, { message: 'Manufacturer must be nvidia, amd, or intel' })
-    @Transform(({ value }: { value: string }) => value?.toLowerCase())
+    @IsEnum(GpuBrand, { message: 'Manufacturer must be Nvidia, AMD, or Intel' })
     manufacturer?: GpuBrand;
 
     @ApiProperty({

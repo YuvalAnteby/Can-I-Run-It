@@ -8,9 +8,9 @@ import {
 } from 'typeorm';
 
 export enum GpuBrand {
-    NVIDIA = 'nvidia',
-    AMD = 'amd',
-    INTEL = 'intel',
+    NVIDIA = 'Nvidia',
+    AMD = 'AMD',
+    INTEL = 'Intel',
 }
 
 /**
@@ -25,14 +25,14 @@ export class Gpu {
     })
     id: number;
 
-    @Column({ unique: true })
+    @Column({ unique: true, length: 100 })
     @ApiProperty({
         description: 'The slug of the GPU',
         example: 'nvidia-geforce-rtx-4090',
     })
     slug: string;
 
-    @Column()
+    @Column({ length: 100 })
     @ApiProperty({
         description: 'The name of the GPU',
         example: 'GeForce RTX 4090',
@@ -50,44 +50,51 @@ export class Gpu {
     })
     manufacturer: GpuBrand;
 
-    @Column()
+    @Column('int')
     @ApiProperty({ description: 'The VRAM of the GPU in GB', example: 24 })
     vram_gb: number;
 
-    @Column({ nullable: true })
+    @Column('int', { nullable: true })
     @ApiProperty({
-        description: 'The number of CUDA cores of the GPU',
+        description: 'The number of shading units of the GPU',
         example: 16384,
     })
-    cuda_cores: number;
+    shading_units: number;
 
-    @Column({ default: 0 })
+    @Column('int', { default: 0 })
     @ApiProperty({
         description: 'The number of Tensor cores of the GPU',
         example: 512,
     })
     tensor_cores: number;
 
-    @Column({ nullable: true })
+    @Column('int', { nullable: true })
     @ApiProperty({
         description: 'The base clock of the GPU in MHz',
         example: 2235,
     })
     base_clock_mhz: number;
 
-    @Column({ nullable: true })
+    @Column('int', { nullable: true })
     @ApiProperty({
         description: 'The boost clock of the GPU in MHz',
         example: 2520,
     })
     boost_clock_mhz: number;
 
-    @Column({ nullable: true })
+    @Column('int', { nullable: true })
     @ApiProperty({
         description: 'The memory bus width of the GPU in bits',
         example: 384,
     })
     memory_bus_width: number;
+
+    @Column('int', { nullable: true })
+    @ApiProperty({
+        description: 'The TDP of the GPU in Watts',
+        example: 450,
+    })
+    tdp_watts: number;
 
     @Column('jsonb', { default: {} })
     @ApiProperty({
@@ -96,21 +103,21 @@ export class Gpu {
     })
     benchmarks: Record<string, number>;
 
-    @Column({ type: 'date', nullable: true })
+    @Column('int', { nullable: true })
     @ApiProperty({
-        description: 'The release date of the GPU',
-        example: '2022-10-12',
+        description: 'The release year of the GPU',
+        example: 2022,
     })
-    release_date: string;
+    release_year: number;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ name: 'created_at' })
     @ApiProperty({
         description: 'The date and time the GPU was created',
         example: '2023-01-01T00:00:00.000Z',
     })
     created_at: Date;
 
-    @UpdateDateColumn()
+    @UpdateDateColumn({ name: 'updated_at' })
     @ApiProperty({
         description: 'The date and time the GPU was last updated',
         example: '2023-01-01T00:00:00.000Z',

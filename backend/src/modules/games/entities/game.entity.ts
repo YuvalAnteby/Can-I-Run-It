@@ -5,11 +5,13 @@ import {
     Entity,
     JoinColumn,
     ManyToOne,
+    OneToMany,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
 
 import { GameEngine } from './game-engine.entity';
+import { GameRequirement } from './game-requirement.entity';
 
 @Entity('games')
 export class Game {
@@ -39,6 +41,13 @@ export class Game {
     @ApiProperty({ type: () => GameEngine, nullable: true })
     gameEngine: GameEngine | null;
 
+    @OneToMany(() => GameRequirement, (requirement) => requirement.game)
+    @ApiProperty({
+        type: () => [GameRequirement],
+        description: 'The requirements of the game',
+    })
+    requirements: GameRequirement[];
+
     @Column({ type: 'varchar', length: 200, nullable: true })
     @ApiProperty({
         description: 'The publisher of the game',
@@ -63,6 +72,31 @@ export class Game {
     })
     releaseDate: Date | null;
 
+    @Column({ type: 'varchar', length: 100, nullable: true })
+    @ApiProperty({
+        description: 'The genre of the game',
+        example: 'Action RPG',
+        nullable: true,
+    })
+    genre: string | null;
+
+    @Column({ type: 'text', nullable: true })
+    @ApiProperty({
+        description: 'The description of the game',
+        example:
+            'Cyberpunk 2077 is an open-world, action-adventure story set in Night City...',
+        nullable: true,
+    })
+    description: string | null;
+
+    @Column({ type: 'text', array: true, nullable: true })
+    @ApiProperty({
+        description: 'The tags associated with the game',
+        example: ['ray-tracing', 'open-world', 'cpu-heavy'],
+        nullable: true,
+    })
+    tags: string[] | null;
+
     @Column({ type: 'boolean', name: 'supports_ray_tracing', default: false })
     @ApiProperty({ description: 'Whether the game supports ray tracing' })
     supportsRayTracing: boolean;
@@ -75,12 +109,28 @@ export class Game {
     @ApiProperty({ description: 'Whether the game supports AMD FSR' })
     supportsFsr: boolean;
 
+    @Column({ type: 'boolean', name: 'supports_xess', default: false })
+    @ApiProperty({ description: 'Whether the game supports Intel XeSS' })
+    supportsXeSS: boolean;
+
     @Column({ type: 'text', name: 'cover_image_url', nullable: true })
     @ApiProperty({
         description: 'The URL of the cover image',
         nullable: true,
     })
     coverImageUrl: string | null;
+
+    @Column({ type: 'boolean', name: 'is_trending', default: false })
+    @ApiProperty({ description: 'Whether the game is currently trending' })
+    isTrending: boolean;
+
+    @Column({ type: 'integer', name: 'trending_rank', nullable: true })
+    @ApiProperty({
+        description: 'The rank of the game in trending list',
+        example: 1,
+        nullable: true,
+    })
+    trendingRank: number | null;
 
     @CreateDateColumn({ name: 'created_at' })
     @ApiProperty({ description: 'The date and time the game was created' })

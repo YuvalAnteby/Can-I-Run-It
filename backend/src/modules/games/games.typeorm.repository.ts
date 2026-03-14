@@ -53,7 +53,12 @@ export class TypeOrmGamesRepository implements IGamesRepository {
     async findBySlug(slug: string): Promise<Game | null> {
         return await this.repo.findOne({
             where: { slug },
-            relations: ['gameEngine'],
+            relations: [
+                'gameEngine',
+                'requirements',
+                'requirements.cpu',
+                'requirements.gpu',
+            ],
         });
     }
 }

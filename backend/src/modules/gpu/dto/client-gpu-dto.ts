@@ -24,7 +24,7 @@ export class ClientGpuDto {
 
     @ApiProperty({
         description: 'The manufacturer of the GPU',
-        example: 'nvidia',
+        example: 'Nvidia',
     })
     manufacturer: string;
 
@@ -33,4 +33,25 @@ export class ClientGpuDto {
         example: 24,
     })
     vram_gb: number;
+
+    @ApiProperty({
+        description: 'The number of shading units of the GPU',
+        example: 16384,
+        nullable: true,
+    })
+    shading_units: number | null;
+
+    @ApiProperty({
+        description: 'The TDP of the GPU in Watts',
+        example: 450,
+        nullable: true,
+    })
+    tdp_watts: number | null;
+
+    @ApiProperty({
+        description: 'The release year of the GPU',
+        example: 2022,
+        nullable: true,
+    })
+    release_year: number | null;
 }

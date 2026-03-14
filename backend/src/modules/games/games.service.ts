@@ -2,8 +2,10 @@ import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 
 import { PaginatedResult } from '../../common/dto/paginated-result.dto';
 import { ClientGameDto } from './dto/client-game.dto';
+import { ClientGameRequirementDto } from './dto/client-game-requirement.dto';
 import { FilterGameDto } from './dto/filter-game.dto';
 import { Game } from './entities/game.entity';
+import { GameRequirement } from './entities/game-requirement.entity';
 import { MOCK_GAMES } from './games.constants';
 import type { IGamesRepository } from './igames.repository';
 import { IGamesRepositoryToken } from './igames.repository';
@@ -78,9 +80,57 @@ export class GamesService {
                 : null,
             developer: game.developer,
             publisher: game.publisher,
+            genre: game.genre,
+            description: game.description,
+            tags: game.tags,
             supportsRayTracing: game.supportsRayTracing,
             supportsDlss: game.supportsDlss,
             supportsFsr: game.supportsFsr,
+            supportsXeSS: game.supportsXeSS,
+            isTrending: game.isTrending,
+            trendingRank: game.trendingRank,
+            requirements: game.requirements?.map((req) =>
+                this.mapRequirementToDto(req),
+            ),
+        };
+    }
+
+    private mapRequirementToDto(
+        req: GameRequirement,
+    ): ClientGameRequirementDto {
+        return {
+            tier: req.tier,
+            description: req.description,
+            cpu: req.cpu
+                ? {
+                      id: req.cpu.id,
+                      slug: req.cpu.slug,
+                      name: req.cpu.name,
+                      manufacturer: req.cpu.manufacturer,
+                      tdp_watts: req.cpu.tdp_watts,
+                      release_year: req.cpu.release_year,
+                  }
+                : null,
+            gpu: req.gpu
+                ? {
+                      id: req.gpu.id,
+                      slug: req.gpu.slug,
+                      name: req.gpu.name,
+                      manufacturer: req.gpu.manufacturer,
+                      vram_gb: req.gpu.vram_gb,
+                      shading_units: req.gpu.shading_units,
+                      tdp_watts: req.gpu.tdp_watts,
+                      release_year: req.gpu.release_year,
+                  }
+                : null,
+            ramGb: req.ramGb,
+            vramGb: req.vramGb,
+            storageGb: req.storageGb,
+            requiresSsd: req.requiresSsd,
+            resolutionWidth: req.resolutionWidth,
+            resolutionHeight: req.resolutionHeight,
+            targetFps: req.targetFps,
+            notes: req.notes,
         };
     }
 }

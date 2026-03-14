@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform, Type } from 'class-transformer';
+import { Type } from 'class-transformer';
 import { IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 import { CpuBrand } from '../entities/cpu.entity';
@@ -9,13 +9,12 @@ import { CpuBrand } from '../entities/cpu.entity';
  */
 export class CpuFilterDto {
     @ApiProperty({
-        description: 'The manufacturer of the CPU (e.g., "intel", "amd")',
+        description: 'The manufacturer of the CPU (e.g., "Intel", "AMD")',
         required: false,
         enum: CpuBrand,
     })
     @IsOptional()
-    @IsEnum(CpuBrand, { message: 'Manufacturer must be amd or intel' })
-    @Transform(({ value }: { value: string }) => value?.toLowerCase())
+    @IsEnum(CpuBrand, { message: 'Manufacturer must be AMD or Intel' })
     manufacturer?: CpuBrand;
 
     @ApiProperty({

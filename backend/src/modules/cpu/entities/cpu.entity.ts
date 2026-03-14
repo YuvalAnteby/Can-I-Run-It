@@ -9,8 +9,8 @@ import {
 } from 'typeorm';
 
 export enum CpuBrand {
-    AMD = 'amd',
-    INTEL = 'intel',
+    AMD = 'AMD',
+    INTEL = 'Intel',
 }
 
 @Entity('cpus')
@@ -77,6 +77,14 @@ export class Cpu {
     })
     l3_cache_mb: number;
 
+    @Column('int', { nullable: true })
+    @ApiProperty({
+        description: 'The TDP of the CPU in Watts',
+        example: 65,
+        nullable: true,
+    })
+    tdp_watts: number;
+
     // -- Flexible Data --
     // 'jsonb' is specific to Postgres and allows the GIN indexing you requested
     @Index('idx_cpus_benchmarks', { synchronize: false })
@@ -87,12 +95,19 @@ export class Cpu {
     })
     benchmarks: Record<string, number>;
 
+    @Column('int', { nullable: true })
+    @ApiProperty({
+        description: 'The release year of the CPU',
+        example: 2019,
+    })
+    release_year: number;
+
     // -- Timestamps --
     @CreateDateColumn({ name: 'created_at' })
     @ApiProperty({ description: 'The date and time the CPU was created' })
-    createdAt: Date;
+    created_at: Date;
 
     @UpdateDateColumn({ name: 'updated_at' })
     @ApiProperty({ description: 'The date and time the CPU was last updated' })
-    updatedAt: Date;
+    updated_at: Date;
 }

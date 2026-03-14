@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+import { ClientGameRequirementDto } from './client-game-requirement.dto';
+
 /**
  * Data Transfer Object representing game information sent to the client.
  */
@@ -51,6 +53,28 @@ export class ClientGameDto {
     publisher: string | null;
 
     @ApiProperty({
+        description: 'The genre of the game',
+        example: 'Action RPG',
+        nullable: true,
+    })
+    genre: string | null;
+
+    @ApiProperty({
+        description: 'The description of the game',
+        example:
+            'Cyberpunk 2077 is an open-world, action-adventure story set in Night City...',
+        nullable: true,
+    })
+    description: string | null;
+
+    @ApiProperty({
+        description: 'The tags associated with the game',
+        example: ['ray-tracing', 'open-world', 'cpu-heavy'],
+        nullable: true,
+    })
+    tags: string[] | null;
+
+    @ApiProperty({
         description: 'Whether the game supports ray tracing',
         example: true,
     })
@@ -67,4 +91,29 @@ export class ClientGameDto {
         example: true,
     })
     supportsFsr: boolean;
+
+    @ApiProperty({
+        description: 'Whether the game supports Intel XeSS',
+        example: true,
+    })
+    supportsXeSS: boolean;
+
+    @ApiProperty({
+        description: 'Whether the game is currently trending',
+        example: false,
+    })
+    isTrending: boolean;
+
+    @ApiProperty({
+        description: 'The rank of the game in trending list',
+        example: 1,
+        nullable: true,
+    })
+    trendingRank: number | null;
+
+    @ApiProperty({
+        type: () => [ClientGameRequirementDto],
+        description: 'The requirements of the game',
+    })
+    requirements?: ClientGameRequirementDto[];
 }

@@ -4,9 +4,11 @@ import {
     CreateDateColumn,
     Entity,
     PrimaryGeneratedColumn,
+    Unique,
 } from 'typeorm';
 
 @Entity('game_engines')
+@Unique(['name', 'version'])
 export class GameEngine {
     @PrimaryGeneratedColumn()
     @ApiProperty({

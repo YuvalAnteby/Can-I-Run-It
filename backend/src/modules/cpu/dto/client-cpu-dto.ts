@@ -24,7 +24,21 @@ export class ClientCpuDto {
 
     @ApiProperty({
         description: 'The manufacturer of the CPU',
-        example: 'intel',
+        example: 'Intel',
     })
     manufacturer: string;
+
+    @ApiProperty({
+        description: 'The TDP of the CPU in Watts',
+        example: 65,
+        nullable: true,
+    })
+    tdp_watts: number | null;
+
+    @ApiProperty({
+        description: 'The release year of the CPU',
+        example: 2019,
+        nullable: true,
+    })
+    release_year: number | null;
 }
