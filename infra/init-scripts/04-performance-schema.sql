@@ -22,17 +22,24 @@ CREATE TABLE IF NOT EXISTS performance_records (
   
   -- Upscaling (Massive impact on modern FPS)
   upscaler upscaler_type DEFAULT 'off',
-  upscaler_quality upscaler_quality_mode,
+  upscaler_quality upscaler_quality_mode, -- NULL when upscaler = 'off'
 
   -- The Target Variable (Label)
   fps_avg FLOAT NOT NULL,
-  fps_1_percent_low FLOAT,
+  fps_1_percent_low FLOAT,  -- Perceived smoothness signal, important for UX
 
-  -- Metadata
+  -- Data Quality
   verified BOOLEAN DEFAULT false,
   source_url TEXT,
+
   created_at TIMESTAMP DEFAULT NOW()
 );
 
--- Speed up ML Data Export
-CREATE INDEX idx_perf_lookup ON performance_records(game_id, resolution_width, resolution_height, settings);
+-- Composite index for the most common lookup pattern:
+-- "give me all records for this game at this resolution and settings"
+CREATE INDEX idx_perf_lookup ON performance_records(game_id, res_width, res_height, settings);
+ 
+-- Separate indexes for hardware-based lookups
+-- (e.g. "how does this GPU perform across all games")
+CREATE INDEX idx_perf_gpu ON performance_records(gpu_id);
+CREATE INDEX idx_perf_cpu ON performance_records(cpu_id);

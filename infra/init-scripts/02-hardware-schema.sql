@@ -1,4 +1,10 @@
 -- ============================================
+-- EXTENSIONS
+-- ============================================
+ 
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+-- ============================================
 -- GPUS TABLE
 -- ============================================
 CREATE TABLE IF NOT EXISTS gpus (
@@ -9,21 +15,28 @@ CREATE TABLE IF NOT EXISTS gpus (
 
   -- Quantitative Specs
   vram_gb INTEGER NOT NULL,
-  cuda_cores INTEGER, -- Or "shading_units" for generic term
+  shading_units INTEGER, 
   tensor_cores INTEGER DEFAULT 0, -- Crucial for DLSS prediction
   base_clock_mhz INTEGER,
   boost_clock_mhz INTEGER,
   memory_bus_width INTEGER,
+  tdp_watts INTEGER,
   
   -- Benchmarks stored as flexible data here: {"timespy": 8700, "firestrike": 15000}
   benchmarks JSONB DEFAULT '{}'::jsonb,
 
   -- Market
-  release_date DATE,
+  release_year INTEGER
   
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
+
+-- GIN index for fast querying inside JSONB
+CREATE INDEX idx_gpus_benchmarks ON gpus USING GIN (benchmarks);
+ 
+-- Trigram index for fuzzy name search (autocomplete)
+CREATE INDEX idx_gpu_name_trgm ON gpus USING GIN (name gin_trgm_ops);
 
 -- ============================================
 -- CPUS TABLE
@@ -40,19 +53,19 @@ CREATE TABLE IF NOT EXISTS cpus (
   base_clock_ghz FLOAT NOT NULL,
   boost_clock_ghz FLOAT,
   l3_cache_mb INTEGER,
-  
+  tdp_watts INTEGER,
+
   -- Benchmarks stored as flexible data here: {"timespy": 8700, "firestrike": 15000}
   benchmarks JSONB DEFAULT '{}'::jsonb,
+
+  release_year INTEGER,
 
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
 
--- GIN Indexes allow fast querying inside the JSONB blob
-CREATE INDEX idx_gpus_benchmarks ON gpus USING GIN (benchmarks);
+-- GIN index for fast querying inside JSONB
 CREATE INDEX idx_cpus_benchmarks ON cpus USING GIN (benchmarks);
-
--- Trigram Indexes for fast fuzzy searching on names
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
-CREATE INDEX idx_gpu_name_trgm ON gpus USING GIN (name gin_trgm_ops);
+ 
+-- Trigram index for fuzzy name search (autocomplete)
 CREATE INDEX idx_cpu_name_trgm ON cpus USING GIN (name gin_trgm_ops);
