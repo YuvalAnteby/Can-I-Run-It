@@ -3,7 +3,7 @@
  * Source of truth: backend/src/gpu/dto/client-gpu-dto.ts
  */
 
-export type GpuManufacturer = 'nvidia' | 'amd' | 'intel';
+export type GpuManufacturer = 'Nvidia' | 'AMD' | 'Intel';
 
 export interface ClientGpuDto {
   id: number;
@@ -11,6 +11,9 @@ export interface ClientGpuDto {
   name: string;
   manufacturer: GpuManufacturer;
   vram_gb: number;
+  shading_units: number | null;
+  tdp_watts: number | null;
+  release_year: number | null;
 }
 
 export interface PaginationMeta {

@@ -3,13 +3,15 @@
  * Source of truth: backend/src/cpu/dto/client-cpu-dto.ts
  */
 
-export type CpuManufacturer = 'amd' | 'intel';
+export type CpuManufacturer = 'AMD' | 'Intel';
 
 export interface ClientCpuDto {
   id: number;
   slug: string;
   name: string;
   manufacturer: CpuManufacturer;
+  tdp_watts: number | null;
+  release_year: number | null;
 }
 
 export interface PaginationMeta {
