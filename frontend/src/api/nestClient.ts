@@ -13,7 +13,7 @@ import type { AxiosInstance, AxiosError } from 'axios';
  */
 const baseURL: string =
   (import.meta.env.VITE_API_URL as string | undefined) ??
-  'http://localhost:4000';
+  'http://localhost:4000/api';
 
 const nestClient: AxiosInstance = axios.create({
   baseURL,
