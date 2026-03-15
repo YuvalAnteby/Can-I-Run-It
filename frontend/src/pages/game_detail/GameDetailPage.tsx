@@ -1,35 +1,18 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { useGameDetail } from './useGameDetail';
 import { useCpuSearch, useGpuSearch } from './useHardwareSearch';
+import { useHardwareCheck } from './useHardwareCheck';
 import { ClientCpuDto } from '../../@types/cpu.types';
 import { ClientGpuDto } from '../../@types/gpu.types';
 import { SearchableSelect } from '../../components/SearchableSelect/SearchableSelect';
 
-// Fallback scoring for when benchmarks are missing from the DB.
-// These scores are normalized relative to a high-end reference (e.g., RTX 4090 = 100).
-const fallbackGpuScore: Record<string, number> = {
-  'nvidia-geforce-rtx-4090': 100,
-  'nvidia-geforce-rtx-4080': 80,
-  'nvidia-geforce-rtx-4070': 62,
-  'nvidia-geforce-rtx-3080': 58,
-  'nvidia-geforce-rtx-3070': 48,
-  'nvidia-geforce-rtx-3060': 34,
-  'nvidia-geforce-rtx-2080-ti': 52,
-  'nvidia-geforce-gtx-1080-ti': 30,
-  'nvidia-geforce-gtx-1060': 14,
-};
-
-const fallbackCpuScore: Record<string, number> = {
-  'intel-core-i9-13900k': 100,
-  'intel-core-i7-13700k': 85,
-  'intel-core-i5-13600k': 72,
-  'amd-ryzen-9-7950x3d': 98,
-  'amd-ryzen-7-7800x3d': 88,
-  'amd-ryzen-5-5600x': 60,
-  'intel-core-i5-12400f': 65,
-  'intel-core-i5-10400f': 45,
-};
+const DEFAULT_RESOLUTIONS = [
+  { label: '720p (HD)', width: 1280, height: 720 },
+  { label: '1080p (Full HD)', width: 1920, height: 1080 },
+  { label: '1440p (QHD)', width: 2560, height: 1440 },
+  { label: '2160p (4K)', width: 3840, height: 2160 },
+];
 
 export default function GameDetailPage(): React.ReactElement {
   const { slug } = useParams<{ slug: string }>();
@@ -57,8 +40,18 @@ export default function GameDetailPage(): React.ReactElement {
 
   const [selectedRam, setSelectedRam] = useState<number>(16);
   const [selectedStorage, setSelectedStorage] = useState<string>('ssd');
-  const [selectedResolution, setSelectedResolution] = useState<number>(1080);
-  const [hasChecked, setHasChecked] = useState(false);
+  const [selectedResolutionKey, setSelectedResolutionKey] =
+    useState<string>('1920x1080');
+  const [customWidth, setCustomWidth] = useState<number>(1920);
+  const [customHeight, setCustomHeight] = useState<number>(1080);
+  const [selectedPreset, setSelectedPreset] = useState<string>('high');
+
+  const {
+    mutate: runCheck,
+    data: checkResult,
+    isPending: isChecking,
+    reset: resetCheck,
+  } = useHardwareCheck();
 
   // Initialize active tier (e.g., "minimum") when game data first arrives
   React.useEffect(() => {
@@ -68,7 +61,7 @@ export default function GameDetailPage(): React.ReactElement {
   }, [game, activeTier]);
 
   // Derived state for the currently viewed requirement tier (tabs)
-  const currentReq = useMemo(() => {
+  const currentReq = React.useMemo(() => {
     return (
       game?.requirements?.find((r) => r.tier === activeTier) ||
       game?.requirements?.[0]
@@ -76,144 +69,52 @@ export default function GameDetailPage(): React.ReactElement {
   }, [game, activeTier]);
 
   const handleCheck = () => {
-    if (!selectedGpu || !selectedCpu) {
-      alert('Please select both a GPU and CPU.');
+    if (!selectedGpu || !selectedCpu || !slug || !activeTier) {
+      alert('Please select hardware and wait for game data.');
       return;
     }
-    setHasChecked(true);
-  };
 
-  /**
-   * Normalizes hardware performance into a 0-100 scale.
-   * Prioritizes dynamic database benchmarks over static fallbacks.
-   */
-  const getHardwareScore = (
-    hw: ClientCpuDto | ClientGpuDto | null | undefined,
-    type: 'cpu' | 'gpu',
-  ): number => {
-    if (!hw) return 0;
+    let width: number;
+    let height: number;
 
-    // Attempt to use db benchmarks if available
-    if (hw.benchmarks) {
-      if (type === 'gpu' && hw.benchmarks['3dmark-time-spy']) {
-        // Normalize 3DMark Time Spy scores against a 4090 reference (~26,000)
-        return hw.benchmarks['3dmark-time-spy'] / 260;
-      }
-      if (type === 'cpu' && hw.benchmarks['passmark']) {
-        // Normalize Passmark scores against a 13900k reference (~60,000)
-        return hw.benchmarks['passmark'] / 600;
-      }
-    }
-
-    // Fallback to static dictionary if benchmarks are missing
-    const map = type === 'gpu' ? fallbackGpuScore : fallbackCpuScore;
-    return map[hw.slug] || 30; // Default average score if unknown
-  };
-
-  /**
-   * Core logic for calculating compatibility and performance estimates.
-   * Compares user selection vs current active requirements tier.
-   */
-  const checkResult = useMemo(() => {
-    if (!hasChecked || !currentReq) return null;
-
-    const userGpu = selectedGpuObj;
-    const userCpu = selectedCpuObj;
-
-    const userGpuScore = getHardwareScore(userGpu, 'gpu');
-    const userCpuScore = getHardwareScore(userCpu, 'cpu');
-    const reqGpuScore = getHardwareScore(currentReq.gpu, 'gpu');
-    const reqCpuScore = getHardwareScore(currentReq.cpu, 'cpu');
-
-    // Basic pass/fail check with a 10% margin of error for optimization variations
-    const gpuPass = userGpuScore >= reqGpuScore * 0.9;
-    const cpuPass = userCpuScore >= reqCpuScore * 0.9;
-    const ramPass = selectedRam >= currentReq.ramGb;
-
-    const canRunMin = gpuPass && cpuPass && ramPass;
-
-    // "Recommended" status requires significant overhead (50%+) beyond the tier baseline
-    const canRunRec =
-      userGpuScore >= reqGpuScore * 1.5 &&
-      userCpuScore >= reqCpuScore * 1.5 &&
-      selectedRam >= currentReq.ramGb * 1.5;
-
-    let state: 'cant' | 'barely' | 'can';
-    let verdict;
-    let sub;
-
-    if (!canRunMin) {
-      state = 'cant';
-      verdict = "Won't run smoothly";
-      sub = !ramPass
-        ? 'Insufficient RAM'
-        : !gpuPass
-          ? 'GPU below requirement'
-          : 'CPU below requirement';
-    } else if (!canRunRec) {
-      state = 'barely';
-      verdict = 'Meets requirements';
-      sub = `Expect ~${currentReq.targetFps}fps at ${currentReq.resolutionHeight}p`;
-    } else if (userGpuScore >= 80) {
-      state = 'can';
-      verdict = 'Runs great';
-      sub = 'Exceeds recommended requirements';
+    if (selectedResolutionKey === 'custom') {
+      width = customWidth;
+      height = customHeight;
     } else {
-      state = 'can';
-      verdict = 'Runs well';
-      sub = 'Meets recommended requirements';
+      const [w, h] = selectedResolutionKey.split('x').map(Number);
+      width = w;
+      height = h;
     }
 
-    /**
-     * Heuristic-based FPS estimation based on normalized GPU performance tiers.
-     * Scales based on selected resolution (baseline: 1080p).
-     */
-    const estimateFPS = (score: number) => {
-      let resMultiplier = 1;
-      if (selectedResolution === 720) resMultiplier = 1.6;
-      else if (selectedResolution === 1440) resMultiplier = 0.65;
-      else if (selectedResolution === 2160) resMultiplier = 0.35;
-
-      const scaledScore = score * resMultiplier;
-
-      return {
-        low: Math.round(scaledScore * 1.05 + 2),
-        med: Math.round(scaledScore * 0.8),
-        high: Math.round(scaledScore * 0.62),
-        ultra: Math.round(scaledScore * 0.46),
-      };
-    };
-
-    return {
-      state,
-      verdict,
-      sub,
-      gpuPass,
-      cpuPass,
-      ramPass,
-      fps: estimateFPS(userGpuScore),
-    };
-  }, [
-    hasChecked,
-    currentReq,
-    selectedGpuObj,
-    selectedCpuObj,
-    selectedRam,
-    selectedResolution,
-  ]);
+    runCheck({
+      gameSlug: slug,
+      hardware: {
+        gpuId: parseInt(selectedGpu, 10),
+        cpuId: parseInt(selectedCpu, 10),
+        ramGb: selectedRam,
+        isSsd: selectedStorage === 'ssd',
+      },
+      settings: {
+        resolutionWidth: width,
+        resolutionHeight: height,
+        tier: activeTier,
+        preset: selectedPreset,
+      },
+    });
+  };
 
   const handleGpuSelect = (id: string) => {
     setSelectedGpu(id);
     const obj = gpuResults.find((g) => g.id.toString() === id);
     if (obj) setSelectedGpuObj(obj);
-    setHasChecked(false);
+    resetCheck();
   };
 
   const handleCpuSelect = (id: string) => {
     setSelectedCpu(id);
     const obj = cpuResults.find((c) => c.id.toString() === id);
     if (obj) setSelectedCpuObj(obj);
-    setHasChecked(false);
+    resetCheck();
   };
 
   if (isLoading)
@@ -292,7 +193,10 @@ export default function GameDetailPage(): React.ReactElement {
                 {game.requirements.map((req) => (
                   <button
                     key={req.tier}
-                    onClick={() => setActiveTier(req.tier)}
+                    onClick={() => {
+                      setActiveTier(req.tier);
+                      resetCheck();
+                    }}
                     className={`cursor-pointer px-4 py-1.5 rounded-md text-sm border transition-colors whitespace-nowrap ${
                       activeTier === req.tier
                         ? 'bg-[#1e1e2a] text-white border-[#3a3a4a] font-medium'
@@ -464,25 +368,23 @@ export default function GameDetailPage(): React.ReactElement {
               onSelect={handleCpuSelect}
             />
 
-            {/* RAM, STORAGE & RESOLUTION DROPDOWNS */}
+            {/* RAM, STORAGE, SETTINGS & RESOLUTION DROPDOWNS */}
             <div className="grid grid-cols-2 gap-2 mb-4">
               <div>
                 <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold">
                   RAM (GB)
                 </label>
-                <select
-                  className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
+                <input
+                  type="number"
+                  className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium"
                   value={selectedRam}
                   onChange={(e) => {
-                    setSelectedRam(parseInt(e.target.value, 10));
-                    setHasChecked(false);
+                    setSelectedRam(parseInt(e.target.value, 10) || 0);
+                    resetCheck();
                   }}
-                >
-                  <option value="8">8 GB</option>
-                  <option value="16">16 GB</option>
-                  <option value="32">32 GB</option>
-                  <option value="64">64 GB</option>
-                </select>
+                  min="1"
+                  max="512"
+                />
               </div>
               <div>
                 <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold">
@@ -493,38 +395,101 @@ export default function GameDetailPage(): React.ReactElement {
                   value={selectedStorage}
                   onChange={(e) => {
                     setSelectedStorage(e.target.value);
-                    setHasChecked(false);
+                    resetCheck();
                   }}
                 >
                   <option value="hdd">HDD</option>
                   <option value="ssd">SSD</option>
                 </select>
               </div>
+
+              <div className="col-span-2">
+                <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold">
+                  Settings Preset
+                </label>
+                <select
+                  className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
+                  value={selectedPreset}
+                  onChange={(e) => {
+                    setSelectedPreset(e.target.value);
+                    resetCheck();
+                  }}
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                  <option value="ultra">Ultra</option>
+                </select>
+              </div>
+
               <div className="col-span-2">
                 <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold">
                   Target Resolution
                 </label>
                 <select
                   className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
-                  value={selectedResolution}
+                  value={selectedResolutionKey}
                   onChange={(e) => {
-                    setSelectedResolution(parseInt(e.target.value, 10));
-                    setHasChecked(false);
+                    setSelectedResolutionKey(e.target.value);
+                    resetCheck();
                   }}
                 >
-                  <option value="720">720p (HD)</option>
-                  <option value="1080">1080p (Full HD)</option>
-                  <option value="1440">1440p (QHD)</option>
-                  <option value="2160">2160p (4K)</option>
+                  {DEFAULT_RESOLUTIONS.map((res) => (
+                    <option
+                      key={`${res.width}x${res.height}`}
+                      value={`${res.width}x${res.height}`}
+                    >
+                      {res.label}
+                    </option>
+                  ))}
+                  <option value="custom">Custom</option>
                 </select>
               </div>
+
+              {selectedResolutionKey === 'custom' && (
+                <div className="col-span-2 grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold">
+                      Width
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium"
+                      value={customWidth}
+                      onChange={(e) => {
+                        setCustomWidth(parseInt(e.target.value, 10) || 0);
+                        resetCheck();
+                      }}
+                      min="1"
+                      max="7680"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold">
+                      Height
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium"
+                      value={customHeight}
+                      onChange={(e) => {
+                        setCustomHeight(parseInt(e.target.value, 10) || 0);
+                        resetCheck();
+                      }}
+                      min="1"
+                      max="4320"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <button
               onClick={handleCheck}
-              className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white border-none rounded-md text-sm font-bold cursor-pointer transition-colors mt-2 active:scale-[0.98]"
+              disabled={isChecking}
+              className="w-full py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-blue-800 text-white border-none rounded-md text-sm font-bold cursor-pointer transition-colors mt-2 active:scale-[0.98]"
             >
-              Check Compatibility
+              {isChecking ? 'Checking...' : 'Check Compatibility'}
             </button>
 
             {/* RESULTS PANEL: Pass/Fail verdict and FPS progress bars */}
@@ -614,7 +579,10 @@ export default function GameDetailPage(): React.ReactElement {
                   {checkResult.state !== 'cant' && (
                     <div className="mt-3 pt-3 border-t border-[#1e1e2a]">
                       <div className="text-[0.7rem] text-gray-400 uppercase tracking-wider mb-2 font-bold">
-                        Estimated FPS @ {selectedResolution}p
+                        Estimated FPS @{' '}
+                        {selectedResolutionKey === 'custom'
+                          ? `${customWidth}x${customHeight}`
+                          : selectedResolutionKey}
                       </div>
                       <div className="flex flex-col gap-1.5">
                         {[
