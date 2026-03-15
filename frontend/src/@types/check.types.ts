@@ -1,3 +1,10 @@
+export enum SettingPreset {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  ULTRA = 'ultra',
+}
+
 export interface Hardware {
   cpuId: number;
   gpuId: number;
@@ -9,7 +16,7 @@ export interface Settings {
   resolutionWidth: number;
   resolutionHeight: number;
   tier: string;
-  preset?: string;
+  preset?: SettingPreset;
 }
 
 export interface CheckRequest {

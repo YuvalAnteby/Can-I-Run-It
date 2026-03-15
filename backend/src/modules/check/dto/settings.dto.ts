@@ -1,5 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+    IsEnum,
+    IsInt,
+    IsNotEmpty,
+    IsOptional,
+    IsString,
+} from 'class-validator';
+
+export enum SettingPreset {
+    LOW = 'low',
+    MEDIUM = 'medium',
+    HIGH = 'high',
+    ULTRA = 'ultra',
+}
 
 export class SettingsDto {
     @ApiProperty({
@@ -23,14 +36,15 @@ export class SettingsDto {
     })
     @IsString()
     @IsNotEmpty()
-    tier: string;
+    tier?: string;
 
     @ApiProperty({
         description: 'The settings preset (e.g., low, medium, high, ultra)',
-        example: 'high',
+        enum: SettingPreset,
+        example: SettingPreset.HIGH,
         required: false,
     })
-    @IsString()
+    @IsEnum(SettingPreset)
     @IsOptional()
-    preset?: string;
+    preset: SettingPreset;
 }

@@ -5,6 +5,7 @@ import { useCpuSearch, useGpuSearch } from './useHardwareSearch';
 import { useHardwareCheck } from './useHardwareCheck';
 import { ClientCpuDto } from '../../@types/cpu.types';
 import { ClientGpuDto } from '../../@types/gpu.types';
+import { SettingPreset } from '../../@types/check.types';
 import { SearchableSelect } from '../../components/SearchableSelect/SearchableSelect';
 
 const DEFAULT_RESOLUTIONS = [
@@ -44,7 +45,9 @@ export default function GameDetailPage(): React.ReactElement {
     useState<string>('1920x1080');
   const [customWidth, setCustomWidth] = useState<number>(1920);
   const [customHeight, setCustomHeight] = useState<number>(1080);
-  const [selectedPreset, setSelectedPreset] = useState<string>('high');
+  const [selectedPreset, setSelectedPreset] = useState<SettingPreset>(
+    SettingPreset.HIGH,
+  );
 
   const {
     mutate: runCheck,
@@ -411,14 +414,14 @@ export default function GameDetailPage(): React.ReactElement {
                   className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
                   value={selectedPreset}
                   onChange={(e) => {
-                    setSelectedPreset(e.target.value);
+                    setSelectedPreset(e.target.value as SettingPreset);
                     resetCheck();
                   }}
                 >
-                  <option value="low">Low</option>
-                  <option value="medium">Medium</option>
-                  <option value="high">High</option>
-                  <option value="ultra">Ultra</option>
+                  <option value={SettingPreset.LOW}>Low</option>
+                  <option value={SettingPreset.MEDIUM}>Medium</option>
+                  <option value={SettingPreset.HIGH}>High</option>
+                  <option value={SettingPreset.ULTRA}>Ultra</option>
                 </select>
               </div>
 
