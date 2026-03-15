@@ -1,5 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+export type CheckDataSource =
+    | 'db_record_verified'
+    | 'db_record_unverified'
+    | 'ml_model'
+    | 'gemini'
+    | 'fallback';
+
+export type CheckConfidence = 'high' | 'medium' | 'low';
+
 export class CheckResponseDto {
     @ApiProperty({
         description: 'The state of compatibility (can, barely, cant)',
@@ -47,4 +56,18 @@ export class CheckResponseDto {
         high: number;
         ultra: number;
     };
+
+    @ApiProperty({
+        enum: [
+            'db_record_verified',
+            'db_record_unverified',
+            'ml_model',
+            'gemini',
+            'fallback',
+        ],
+    })
+    source: CheckDataSource;
+
+    @ApiProperty({ enum: ['high', 'medium', 'low'] })
+    confidence: CheckConfidence;
 }

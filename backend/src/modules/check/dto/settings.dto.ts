@@ -36,6 +36,7 @@ export class SettingsDto {
     })
     @IsString()
     @IsNotEmpty()
+    @IsOptional()
     tier?: string;
 
     @ApiProperty({
@@ -45,6 +46,5 @@ export class SettingsDto {
         required: false,
     })
     @IsEnum(SettingPreset)
-    @IsOptional()
     preset: SettingPreset;
 }
