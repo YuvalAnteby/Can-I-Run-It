@@ -58,6 +58,18 @@ export class GpuService {
         return this.toClientGpuDto(res);
     }
 
+    /**
+     * Get a GPU by its ID
+     * @param id - The ID of the GPU
+     * @returns The GPU with the given ID
+     */
+    async findById(id: number): Promise<ClientGpuDto> {
+        const res: Gpu | null = await this.gpuRepository.findById(id);
+        if (!res) throw new NotFoundException(`GPU with ID "${id}" not found`);
+
+        return this.toClientGpuDto(res);
+    }
+
     // Helper method to convert Gpu entity to ClientGpuDto
     private toClientGpuDto(gpu: Gpu): ClientGpuDto {
         return {
@@ -65,10 +77,11 @@ export class GpuService {
             slug: gpu.slug,
             name: gpu.name,
             manufacturer: gpu.manufacturer,
-            vram_gb: gpu.vram_gb,
-            shading_units: gpu.shading_units,
-            tdp_watts: gpu.tdp_watts,
-            release_year: gpu.release_year,
+            vramGb: gpu.vramGb,
+            shadingUnits: gpu.shadingUnits,
+            tdpWatts: gpu.tdpWatts,
+            releaseYear: gpu.releaseYear,
+            benchmarks: gpu.benchmarks,
         };
     }
 }

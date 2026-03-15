@@ -10,8 +10,9 @@ export interface ClientCpuDto {
   slug: string;
   name: string;
   manufacturer: CpuManufacturer;
-  tdp_watts: number | null;
-  release_year: number | null;
+  tdpWatts: number | null;
+  releaseYear: number | null;
+  benchmarks?: Record<string, number>;
 }
 
 export interface PaginationMeta {

@@ -24,7 +24,7 @@ export class TypeOrmGpuRepository implements IGpuRepository {
         const qb = this.repo.createQueryBuilder('gpu');
         if (manufacturer)
             qb.andWhere('gpu.manufacturer = :manufacturer', { manufacturer });
-        if (minVram) qb.andWhere('gpu.vram_gb >= :minVram', { minVram });
+        if (minVram) qb.andWhere('gpu.vramGb >= :minVram', { minVram });
 
         return await qb
             .orderBy('gpu.id', 'ASC')
@@ -37,6 +37,10 @@ export class TypeOrmGpuRepository implements IGpuRepository {
         return await this.repo.findOneBy({ slug });
     }
 
+    async findById(id: number): Promise<Gpu | null> {
+        return await this.repo.findOneBy({ id });
+    }
+
     async searchByName(q: string): Promise<Gpu[]> {
         const SIMILARITY_THRESHOLD = 0.3;
         return await this.repo
@@ -46,7 +50,11 @@ export class TypeOrmGpuRepository implements IGpuRepository {
                 'gpu.slug',
                 'gpu.name',
                 'gpu.manufacturer',
-                'gpu.vram_gb',
+                'gpu.vramGb',
+                'gpu.shadingUnits',
+                'gpu.tdpWatts',
+                'gpu.releaseYear',
+                'gpu.benchmarks',
             ])
             // WORD_SIMILARITY checks if 'rxt' is similar to any word INSIDE 'NVIDIA GeForce RTX...'
             // We set a threshold of 0.3 to catch typos (adjust 0.1-1.0 as needed)
@@ -56,6 +64,7 @@ export class TypeOrmGpuRepository implements IGpuRepository {
             })
             // Sort by best match first
             .orderBy('word_similarity(:query, gpu.name)', 'DESC')
+            .take(20)
             .getMany();
     }
 }

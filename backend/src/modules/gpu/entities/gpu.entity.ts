@@ -50,51 +50,51 @@ export class Gpu {
     })
     manufacturer: GpuBrand;
 
-    @Column('int')
+    @Column({ type: 'int', name: 'vram_gb' })
     @ApiProperty({ description: 'The VRAM of the GPU in GB', example: 24 })
-    vram_gb: number;
+    vramGb: number;
 
-    @Column('int', { nullable: true })
+    @Column({ type: 'int', name: 'shading_units', nullable: true })
     @ApiProperty({
         description: 'The number of shading units of the GPU',
         example: 16384,
     })
-    shading_units: number;
+    shadingUnits: number;
 
-    @Column('int', { default: 0 })
+    @Column({ type: 'int', name: 'tensor_cores', default: 0 })
     @ApiProperty({
         description: 'The number of Tensor cores of the GPU',
         example: 512,
     })
-    tensor_cores: number;
+    tensorCores: number;
 
-    @Column('int', { nullable: true })
+    @Column({ type: 'int', name: 'base_clock_mhz', nullable: true })
     @ApiProperty({
         description: 'The base clock of the GPU in MHz',
         example: 2235,
     })
-    base_clock_mhz: number;
+    baseClockMhz: number;
 
-    @Column('int', { nullable: true })
+    @Column({ type: 'int', name: 'boost_clock_mhz', nullable: true })
     @ApiProperty({
         description: 'The boost clock of the GPU in MHz',
         example: 2520,
     })
-    boost_clock_mhz: number;
+    boostClockMhz: number;
 
-    @Column('int', { nullable: true })
+    @Column({ type: 'int', name: 'memory_bus_width', nullable: true })
     @ApiProperty({
         description: 'The memory bus width of the GPU in bits',
         example: 384,
     })
-    memory_bus_width: number;
+    memoryBusWidth: number;
 
-    @Column('int', { nullable: true })
+    @Column({ type: 'int', name: 'tdp_watts', nullable: true })
     @ApiProperty({
         description: 'The TDP of the GPU in Watts',
         example: 450,
     })
-    tdp_watts: number;
+    tdpWatts: number;
 
     @Column('jsonb', { default: {} })
     @ApiProperty({
@@ -103,24 +103,24 @@ export class Gpu {
     })
     benchmarks: Record<string, number>;
 
-    @Column('int', { nullable: true })
+    @Column({ type: 'int', name: 'release_year', nullable: true })
     @ApiProperty({
         description: 'The release year of the GPU',
         example: 2022,
     })
-    release_year: number;
+    releaseYear: number;
 
     @CreateDateColumn({ name: 'created_at' })
     @ApiProperty({
         description: 'The date and time the GPU was created',
         example: '2023-01-01T00:00:00.000Z',
     })
-    created_at: Date;
+    createdAt: Date;
 
     @UpdateDateColumn({ name: 'updated_at' })
     @ApiProperty({
         description: 'The date and time the GPU was last updated',
         example: '2023-01-01T00:00:00.000Z',
     })
-    updated_at: Date;
+    updatedAt: Date;
 }

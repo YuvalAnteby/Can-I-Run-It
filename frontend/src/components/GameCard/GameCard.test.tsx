@@ -10,12 +10,18 @@ const mockGame: ClientGameDto = {
   slug: 'test-game',
   name: 'Test Game',
   coverImageUrl: null,
-  releaseDate: '2025-01-01',
-  developer: 'Dev Studio',
-  publisher: 'Publisher Inc',
+  releaseDate: '2024-01-01',
+  developer: 'Test Dev',
+  publisher: 'Test Pub',
+  genre: 'Action',
+  description: 'Test Description',
+  tags: ['test'],
   supportsRayTracing: false,
   supportsDlss: false,
   supportsFsr: false,
+  supportsXeSS: false,
+  isTrending: false,
+  trendingRank: null,
 };
 
 describe('GameCard', () => {

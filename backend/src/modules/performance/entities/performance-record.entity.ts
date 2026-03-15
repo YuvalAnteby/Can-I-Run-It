@@ -106,6 +106,7 @@ export class PerformanceRecord {
     @Column({
         type: 'enum',
         enum: UpscalerQualityMode,
+        name: 'upscaler_quality',
         nullable: true,
     })
     @ApiProperty({

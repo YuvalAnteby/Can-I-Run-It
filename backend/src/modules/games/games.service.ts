@@ -107,8 +107,9 @@ export class GamesService {
                       slug: req.cpu.slug,
                       name: req.cpu.name,
                       manufacturer: req.cpu.manufacturer,
-                      tdp_watts: req.cpu.tdp_watts,
-                      release_year: req.cpu.release_year,
+                      tdpWatts: req.cpu.tdpWatts,
+                      releaseYear: req.cpu.releaseYear,
+                      benchmarks: req.cpu.benchmarks,
                   }
                 : null,
             gpu: req.gpu
@@ -117,10 +118,11 @@ export class GamesService {
                       slug: req.gpu.slug,
                       name: req.gpu.name,
                       manufacturer: req.gpu.manufacturer,
-                      vram_gb: req.gpu.vram_gb,
-                      shading_units: req.gpu.shading_units,
-                      tdp_watts: req.gpu.tdp_watts,
-                      release_year: req.gpu.release_year,
+                      vramGb: req.gpu.vramGb,
+                      shadingUnits: req.gpu.shadingUnits,
+                      tdpWatts: req.gpu.tdpWatts,
+                      releaseYear: req.gpu.releaseYear,
+                      benchmarks: req.gpu.benchmarks,
                   }
                 : null,
             ramGb: req.ramGb,

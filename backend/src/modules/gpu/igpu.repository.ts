@@ -16,6 +16,12 @@ export interface IGpuRepository {
     findBySlug(slug: string): Promise<Gpu | null>;
 
     /**
+     * Finds a GPU by its ID.
+     * @param id ID to search
+     */
+    findById(id: number): Promise<Gpu | null>;
+
+    /**
      * Finds GPUs by their name.
      * @param q search query to search by
      */
