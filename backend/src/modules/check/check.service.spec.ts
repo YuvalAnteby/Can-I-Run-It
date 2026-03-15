@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { GeminiService } from '../gemini/gemini.service';
 import { SettingPreset } from '../performance/entities/performance-record.entity';
 import { CheckService } from './check.service';
 
@@ -20,6 +21,12 @@ describe('CheckService', () => {
 
     const mockPerfRepo = {
         findOne: jest.fn(),
+        create: jest.fn(),
+        save: jest.fn(),
+    };
+
+    const mockGeminiService = {
+        estimate: jest.fn(),
     };
 
     const mockDataSource = {
@@ -36,6 +43,7 @@ describe('CheckService', () => {
             providers: [
                 CheckService,
                 { provide: 'DATA_SOURCE', useValue: mockDataSource },
+                { provide: GeminiService, useValue: mockGeminiService },
             ],
         }).compile();
 
@@ -47,7 +55,7 @@ describe('CheckService', () => {
         expect(service).toBeDefined();
     });
 
-    it('should return compatibility results using fallback when no record exists', async () => {
+    it('should return compatibility results using fallback when no record exists and Gemini fails', async () => {
         const mockGame = {
             slug: 'test-game',
             requirements: [
@@ -85,6 +93,7 @@ describe('CheckService', () => {
         mockCpuRepo.findOneBy.mockResolvedValue(mockCpu);
         mockGpuRepo.findOneBy.mockResolvedValue(mockGpu);
         mockPerfRepo.findOne.mockResolvedValue(null);
+        mockGeminiService.estimate.mockResolvedValue(null);
 
         const result = await service.checkCompatibility({
             gameSlug: 'test-game',
@@ -110,6 +119,58 @@ describe('CheckService', () => {
         expect(result.fps).toBeDefined();
         expect(result.fps.high).toBeGreaterThanOrEqual(60);
         expect(mockPerfRepo.findOne).toHaveBeenCalled();
+        expect(mockGeminiService.estimate).toHaveBeenCalled();
+    });
+
+    it('should return compatibility results from Gemini when no record exists', async () => {
+        const mockGame = {
+            id: 1,
+            slug: 'test-game',
+            requirements: [],
+        };
+
+        const mockCpu = {
+            id: 2,
+            slug: 'user-cpu',
+        };
+        const mockGpu = {
+            id: 2,
+            slug: 'user-gpu',
+        };
+
+        const geminiEstimate = {
+            fps: { low: 100, med: 80, high: 60, ultra: 40 },
+            note: 'Looks good',
+        };
+
+        mockGameRepo.findOne.mockResolvedValue(mockGame);
+        mockCpuRepo.findOneBy.mockResolvedValue(mockCpu);
+        mockGpuRepo.findOneBy.mockResolvedValue(mockGpu);
+        mockPerfRepo.findOne.mockResolvedValue(null);
+        mockGeminiService.estimate.mockResolvedValue(geminiEstimate);
+        mockPerfRepo.create.mockReturnValue({});
+
+        const result = await service.checkCompatibility({
+            gameSlug: 'test-game',
+            hardware: {
+                cpuId: 2,
+                gpuId: 2,
+                ramGb: 16,
+                isSsd: true,
+            },
+            settings: {
+                resolutionWidth: 1920,
+                resolutionHeight: 1080,
+                tier: 'minimum',
+                preset: SettingPreset.HIGH,
+            },
+        });
+
+        expect(result).toBeDefined();
+        expect(result.fps.high).toBe(60);
+        expect(mockGeminiService.estimate).toHaveBeenCalled();
+        expect(mockPerfRepo.create).toHaveBeenCalled();
+        expect(mockPerfRepo.save).toHaveBeenCalled();
     });
 
     it('should return compatibility results from DB record when found', async () => {
@@ -182,5 +243,6 @@ describe('CheckService', () => {
         expect(result.sub).toContain('75fps');
         expect(result.fps.high).toBe(75);
         expect(mockPerfRepo.findOne).toHaveBeenCalled();
+        expect(mockGeminiService.estimate).not.toHaveBeenCalled();
     });
 });
