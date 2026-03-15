@@ -16,6 +16,12 @@ export interface ICpuRepository {
     findBySlug(slug: string): Promise<Cpu | null>;
 
     /**
+     * Finds a CPU by its ID.
+     * @param id ID to search
+     */
+    findById(id: number): Promise<Cpu | null>;
+
+    /**
      * Finds CPUs by their name.
      * @param q search query to search by
      */

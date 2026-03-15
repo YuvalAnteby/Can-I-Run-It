@@ -36,6 +36,10 @@ export class TypeOrmCpuRepository implements ICpuRepository {
         return await this.repo.findOneBy({ slug });
     }
 
+    async findById(id: number): Promise<Cpu | null> {
+        return await this.repo.findOneBy({ id });
+    }
+
     async searchByName(q: string): Promise<Cpu[]> {
         const SIMILARITY_THRESHOLD = 0.3;
         return await this.repo

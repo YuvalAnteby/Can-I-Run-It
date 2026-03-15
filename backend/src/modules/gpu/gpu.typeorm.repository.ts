@@ -37,6 +37,10 @@ export class TypeOrmGpuRepository implements IGpuRepository {
         return await this.repo.findOneBy({ slug });
     }
 
+    async findById(id: number): Promise<Gpu | null> {
+        return await this.repo.findOneBy({ id });
+    }
+
     async searchByName(q: string): Promise<Gpu[]> {
         const SIMILARITY_THRESHOLD = 0.3;
         return await this.repo

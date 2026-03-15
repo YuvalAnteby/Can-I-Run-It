@@ -58,6 +58,18 @@ export class GpuService {
         return this.toClientGpuDto(res);
     }
 
+    /**
+     * Get a GPU by its ID
+     * @param id - The ID of the GPU
+     * @returns The GPU with the given ID
+     */
+    async findById(id: number): Promise<ClientGpuDto> {
+        const res: Gpu | null = await this.gpuRepository.findById(id);
+        if (!res) throw new NotFoundException(`GPU with ID "${id}" not found`);
+
+        return this.toClientGpuDto(res);
+    }
+
     // Helper method to convert Gpu entity to ClientGpuDto
     private toClientGpuDto(gpu: Gpu): ClientGpuDto {
         return {

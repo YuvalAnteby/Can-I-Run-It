@@ -59,6 +59,19 @@ export class CpuService {
         return this.toClientCpuDto(res);
     }
 
+    /**
+     * Get a CPU by its ID
+     * @param id - The ID of the CPU
+     * @returns The CPU with the given ID
+     */
+    async findById(id: number): Promise<ClientCpuDto> {
+        const res: Cpu | null = await this.cpuRepository.findById(id);
+
+        if (!res) throw new NotFoundException(`CPU with ID "${id}" not found`);
+
+        return this.toClientCpuDto(res);
+    }
+
     // Helper method to convert Cpu entity to ClientCpuDto
     private toClientCpuDto(cpu: Cpu): ClientCpuDto {
         return {
