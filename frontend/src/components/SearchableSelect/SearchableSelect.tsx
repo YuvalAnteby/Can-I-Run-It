@@ -17,6 +17,7 @@ interface SearchableSelectProps {
   onSearch: (query: string) => void;
   onSelect: (id: string) => void;
   disabled?: boolean;
+  error?: boolean;
 }
 
 export const SearchableSelect: React.FC<SearchableSelectProps> = ({
@@ -29,6 +30,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   onSearch,
   onSelect,
   disabled = false,
+  error = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -80,16 +82,25 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   return (
     <div className="relative mb-4" ref={wrapperRef}>
       {/* Field Label */}
-      <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-bold">
-        {label}
-      </label>
+      <div className="flex justify-between items-center mb-1.5">
+        <label className="block text-[0.75rem] text-gray-400 uppercase tracking-wider font-bold">
+          {label}
+        </label>
+        {error && (
+          <span className="text-red-500 text-[0.65rem] font-bold uppercase tracking-tight animate-pulse">
+            Required
+          </span>
+        )}
+      </div>
 
       {/* Main Trigger Button */}
       <div
-        className={`relative w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-[#e8e8e8] transition-all cursor-pointer ${
+        className={`relative w-full bg-[#0f0f13] border rounded-md text-[#e8e8e8] transition-all cursor-pointer ${
           isOpen
             ? 'border-blue-500 ring-1 ring-blue-500/20'
-            : 'hover:border-[#3a3a4a]'
+            : error
+              ? 'border-red-500/50 ring-1 ring-red-500/10'
+              : 'border-[#2a2a3a] hover:border-[#3a3a4a]'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         onClick={handleToggle}
       >
