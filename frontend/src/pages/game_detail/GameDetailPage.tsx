@@ -57,6 +57,7 @@ export default function GameDetailPage(): React.ReactElement {
 
   const [selectedRam, setSelectedRam] = useState<number>(16);
   const [selectedStorage, setSelectedStorage] = useState<string>('ssd');
+  const [selectedResolution, setSelectedResolution] = useState<number>(1080);
   const [hasChecked, setHasChecked] = useState(false);
 
   // Initialize active tier (e.g., "minimum") when game data first arrives
@@ -165,13 +166,23 @@ export default function GameDetailPage(): React.ReactElement {
 
     /**
      * Heuristic-based FPS estimation based on normalized GPU performance tiers.
+     * Scales based on selected resolution (baseline: 1080p).
      */
-    const estimateFPS = (score: number) => ({
-      low: Math.round(score * 1.05 + 2),
-      med: Math.round(score * 0.8),
-      high: Math.round(score * 0.62),
-      ultra: Math.round(score * 0.46),
-    });
+    const estimateFPS = (score: number) => {
+      let resMultiplier = 1;
+      if (selectedResolution === 720) resMultiplier = 1.6;
+      else if (selectedResolution === 1440) resMultiplier = 0.65;
+      else if (selectedResolution === 2160) resMultiplier = 0.35;
+
+      const scaledScore = score * resMultiplier;
+
+      return {
+        low: Math.round(scaledScore * 1.05 + 2),
+        med: Math.round(scaledScore * 0.8),
+        high: Math.round(scaledScore * 0.62),
+        ultra: Math.round(scaledScore * 0.46),
+      };
+    };
 
     return {
       state,
@@ -182,7 +193,14 @@ export default function GameDetailPage(): React.ReactElement {
       ramPass,
       fps: estimateFPS(userGpuScore),
     };
-  }, [hasChecked, currentReq, selectedGpuObj, selectedCpuObj, selectedRam]);
+  }, [
+    hasChecked,
+    currentReq,
+    selectedGpuObj,
+    selectedCpuObj,
+    selectedRam,
+    selectedResolution,
+  ]);
 
   const handleGpuSelect = (id: string) => {
     setSelectedGpu(id);
@@ -446,7 +464,7 @@ export default function GameDetailPage(): React.ReactElement {
               onSelect={handleCpuSelect}
             />
 
-            {/* RAM & STORAGE DROPDOWNS */}
+            {/* RAM, STORAGE & RESOLUTION DROPDOWNS */}
             <div className="grid grid-cols-2 gap-2 mb-4">
               <div>
                 <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold">
@@ -480,6 +498,24 @@ export default function GameDetailPage(): React.ReactElement {
                 >
                   <option value="hdd">HDD</option>
                   <option value="ssd">SSD</option>
+                </select>
+              </div>
+              <div className="col-span-2">
+                <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold">
+                  Target Resolution
+                </label>
+                <select
+                  className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
+                  value={selectedResolution}
+                  onChange={(e) => {
+                    setSelectedResolution(parseInt(e.target.value, 10));
+                    setHasChecked(false);
+                  }}
+                >
+                  <option value="720">720p (HD)</option>
+                  <option value="1080">1080p (Full HD)</option>
+                  <option value="1440">1440p (QHD)</option>
+                  <option value="2160">2160p (4K)</option>
                 </select>
               </div>
             </div>
@@ -578,7 +614,7 @@ export default function GameDetailPage(): React.ReactElement {
                   {checkResult.state !== 'cant' && (
                     <div className="mt-3 pt-3 border-t border-[#1e1e2a]">
                       <div className="text-[0.7rem] text-gray-400 uppercase tracking-wider mb-2 font-bold">
-                        Estimated FPS @ 1080p
+                        Estimated FPS @ {selectedResolution}p
                       </div>
                       <div className="flex flex-col gap-1.5">
                         {[
