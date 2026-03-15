@@ -40,7 +40,15 @@ export class TypeOrmCpuRepository implements ICpuRepository {
         const SIMILARITY_THRESHOLD = 0.3;
         return await this.repo
             .createQueryBuilder('cpu')
-            .select(['cpu.id', 'cpu.slug', 'cpu.name', 'cpu.manufacturer'])
+            .select([
+                'cpu.id',
+                'cpu.slug',
+                'cpu.name',
+                'cpu.manufacturer',
+                'cpu.tdp_watts',
+                'cpu.release_year',
+                'cpu.benchmarks',
+            ])
             // WORD_SIMILARITY checks if 'rxt' is similar to any word INSIDE 'NVIDIA GeForce RTX...'
             // We set a threshold of 0.3 to catch typos (adjust 0.1-1.0 as needed)
             .where('word_similarity(:query, cpu.name) > :threshold', {
@@ -49,6 +57,7 @@ export class TypeOrmCpuRepository implements ICpuRepository {
             })
             // Sort by best match first
             .orderBy('word_similarity(:query, cpu.name)', 'DESC')
+            .take(20)
             .getMany();
     }
 }

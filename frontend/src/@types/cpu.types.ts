@@ -12,6 +12,7 @@ export interface ClientCpuDto {
   manufacturer: CpuManufacturer;
   tdp_watts: number | null;
   release_year: number | null;
+  benchmarks?: Record<string, number>;
 }
 
 export interface PaginationMeta {

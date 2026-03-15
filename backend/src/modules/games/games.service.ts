@@ -109,6 +109,7 @@ export class GamesService {
                       manufacturer: req.cpu.manufacturer,
                       tdp_watts: req.cpu.tdp_watts,
                       release_year: req.cpu.release_year,
+                      benchmarks: req.cpu.benchmarks,
                   }
                 : null,
             gpu: req.gpu
@@ -121,6 +122,7 @@ export class GamesService {
                       shading_units: req.gpu.shading_units,
                       tdp_watts: req.gpu.tdp_watts,
                       release_year: req.gpu.release_year,
+                      benchmarks: req.gpu.benchmarks,
                   }
                 : null,
             ramGb: req.ramGb,

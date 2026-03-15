@@ -41,4 +41,11 @@ export class ClientCpuDto {
         nullable: true,
     })
     release_year: number | null;
+
+    @ApiProperty({
+        description: 'The benchmarks of the CPU',
+        example: { passmark: 17800 },
+        required: false,
+    })
+    benchmarks?: Record<string, number>;
 }

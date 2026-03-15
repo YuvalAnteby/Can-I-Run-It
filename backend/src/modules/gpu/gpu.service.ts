@@ -69,6 +69,7 @@ export class GpuService {
             shading_units: gpu.shading_units,
             tdp_watts: gpu.tdp_watts,
             release_year: gpu.release_year,
+            benchmarks: gpu.benchmarks,
         };
     }
 }

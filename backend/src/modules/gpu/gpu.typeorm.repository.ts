@@ -47,6 +47,10 @@ export class TypeOrmGpuRepository implements IGpuRepository {
                 'gpu.name',
                 'gpu.manufacturer',
                 'gpu.vram_gb',
+                'gpu.shading_units',
+                'gpu.tdp_watts',
+                'gpu.release_year',
+                'gpu.benchmarks',
             ])
             // WORD_SIMILARITY checks if 'rxt' is similar to any word INSIDE 'NVIDIA GeForce RTX...'
             // We set a threshold of 0.3 to catch typos (adjust 0.1-1.0 as needed)
@@ -56,6 +60,7 @@ export class TypeOrmGpuRepository implements IGpuRepository {
             })
             // Sort by best match first
             .orderBy('word_similarity(:query, gpu.name)', 'DESC')
+            .take(20)
             .getMany();
     }
 }

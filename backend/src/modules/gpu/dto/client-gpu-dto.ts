@@ -54,4 +54,11 @@ export class ClientGpuDto {
         nullable: true,
     })
     release_year: number | null;
+
+    @ApiProperty({
+        description: 'The benchmarks of the GPU',
+        example: { '3dmark-time-spy': 26000 },
+        required: false,
+    })
+    benchmarks?: Record<string, number>;
 }

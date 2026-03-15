@@ -68,6 +68,7 @@ export class CpuService {
             manufacturer: cpu.manufacturer,
             tdp_watts: cpu.tdp_watts,
             release_year: cpu.release_year,
+            benchmarks: cpu.benchmarks,
         };
     }
 }
