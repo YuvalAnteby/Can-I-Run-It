@@ -56,12 +56,12 @@ describe('CheckService', () => {
                     cpu: {
                         id: 1,
                         slug: 'min-cpu',
-                        benchmarks: { passmark: 1000 },
+                        benchmarks: { passmark: 10000 },
                     },
                     gpu: {
                         id: 1,
                         slug: 'min-gpu',
-                        benchmarks: { '3dmark-time-spy': 1000 },
+                        benchmarks: { '3dmark-time-spy': 4000 },
                     },
                     ramGb: 8,
                     resolutionHeight: 1080,
@@ -73,12 +73,12 @@ describe('CheckService', () => {
         const mockCpu = {
             id: 2,
             slug: 'user-cpu',
-            benchmarks: { passmark: 2000 },
+            benchmarks: { passmark: 40000 },
         };
         const mockGpu = {
             id: 2,
             slug: 'user-gpu',
-            benchmarks: { '3dmark-time-spy': 2000 },
+            benchmarks: { '3dmark-time-spy': 26000 },
         };
 
         mockGameRepo.findOne.mockResolvedValue(mockGame);
@@ -98,6 +98,7 @@ describe('CheckService', () => {
                 resolutionWidth: 1920,
                 resolutionHeight: 1080,
                 tier: 'minimum',
+                preset: SettingPreset.HIGH,
             },
         });
 
@@ -107,6 +108,7 @@ describe('CheckService', () => {
         expect(result.cpuPass).toBe(true);
         expect(result.ramPass).toBe(true);
         expect(result.fps).toBeDefined();
+        expect(result.fps.high).toBeGreaterThanOrEqual(60);
         expect(mockPerfRepo.findOne).toHaveBeenCalled();
     });
 

@@ -27,9 +27,6 @@ const CPU_BENCHMARK_DIVISOR = 600;
 // Minimum pass ratio: allow up to 10% below the requirement score before failing
 const MIN_PASS_RATIO = 0.9;
 
-// Recommended ratio: must exceed requirement by 50% to be considered "runs great"
-const RECOMMENDED_RATIO = 1.5;
-
 // TODO: Remove these fallback scores once benchmarks and Gemini API cover all hardware.
 // These are rough estimates used only when a hardware entry has no benchmark data.
 const FALLBACK_GPU_SCORE: Record<string, number> = {
@@ -80,6 +77,11 @@ export class CheckService {
      */
     async checkCompatibility(dto: CheckRequestDto): Promise<CheckResponseDto> {
         const { hardware, settings, gameSlug } = dto;
+
+        // Ensure a default preset if not provided
+        if (!settings.preset) {
+            settings.preset = SettingPreset.HIGH;
+        }
 
         // Parallel fetch — game, CPU and GPU are independent of each other
         const [game, userCpu, userGpu] = await Promise.all([
@@ -223,6 +225,7 @@ export class CheckService {
         hardware: HardwareDto,
         settings: SettingsDto,
     ): CheckResponseDto {
+        // Find the requirement corresponding to the selected tier (tab)
         const currentReq =
             game.requirements?.find((r) => r.tier === settings.tier) ||
             game.requirements?.[0];
@@ -238,40 +241,73 @@ export class CheckService {
         const reqGpuScore = this.getHardwareScore(currentReq.gpu, 'gpu');
         const reqCpuScore = this.getHardwareScore(currentReq.cpu, 'cpu');
 
+        // These pass indicators are relative to the selected tier's baseline (e.g. Recommended)
         const gpuPass = userGpuScore >= reqGpuScore * MIN_PASS_RATIO;
         const cpuPass = userCpuScore >= reqCpuScore * MIN_PASS_RATIO;
         const ramPass = hardware.ramGb >= currentReq.ramGb;
 
-        const canRunMin = gpuPass && cpuPass && ramPass;
-        const canRunRec =
-            userGpuScore >= reqGpuScore * RECOMMENDED_RATIO &&
-            userCpuScore >= reqCpuScore * RECOMMENDED_RATIO &&
-            hardware.ramGb >= currentReq.ramGb * RECOMMENDED_RATIO;
+        // Find the absolute minimum requirement to determine if the game can run AT ALL
+        const minReq =
+            game.requirements?.find((r) => r.tier === 'minimum') ||
+            game.requirements?.[0];
+        const minGpuScore = minReq
+            ? this.getHardwareScore(minReq.gpu, 'gpu')
+            : 0;
+        const minCpuScore = minReq
+            ? this.getHardwareScore(minReq.cpu, 'cpu')
+            : 0;
+        const minRam = minReq?.ramGb || 0;
+
+        const failsMinimumHard =
+            userGpuScore < minGpuScore * MIN_PASS_RATIO ||
+            userCpuScore < minCpuScore * MIN_PASS_RATIO ||
+            hardware.ramGb < minRam;
+
+        // Estimate FPS for the user's SPECIFIC resolution and preset
+        const estimatedFpsObj = this.estimateFPS(
+            userGpuScore,
+            settings.resolutionHeight,
+        );
+
+        const presetToFpsKey: Record<
+            SettingPreset,
+            keyof CheckResponseDto['fps']
+        > = {
+            [SettingPreset.LOW]: 'low',
+            [SettingPreset.MEDIUM]: 'med',
+            [SettingPreset.HIGH]: 'high',
+            [SettingPreset.ULTRA]: 'ultra',
+        };
+        const userFps = estimatedFpsObj[presetToFpsKey[settings.preset]];
 
         let state: 'can' | 'barely' | 'cant';
         let verdict: string;
         let sub: string;
 
-        if (!canRunMin) {
+        const resLabel = `${settings.resolutionHeight}p ${settings.preset}`;
+
+        if (failsMinimumHard) {
             state = 'cant';
             verdict = "Won't run smoothly";
-            sub = !ramPass
-                ? 'Insufficient RAM'
-                : !gpuPass
-                  ? 'GPU below requirement'
-                  : 'CPU below requirement';
-        } else if (!canRunRec) {
+            if (hardware.ramGb < minRam) {
+                sub = `Insufficient RAM (Minimum: ${minRam}GB)`;
+            } else if (userGpuScore < minGpuScore * MIN_PASS_RATIO) {
+                sub = 'GPU below minimum requirements';
+            } else {
+                sub = 'CPU below minimum requirements';
+            }
+        } else if (userFps >= 60) {
+            state = 'can';
+            verdict = userFps >= 100 ? 'Runs great' : 'Runs well';
+            sub = `Expect ~${userFps}fps at ${resLabel}`;
+        } else if (userFps >= 30) {
             state = 'barely';
-            verdict = 'Meets minimum requirements';
-            sub = `Expect ~${currentReq.targetFps}fps at ${currentReq.resolutionHeight}p`;
-        } else if (userGpuScore >= 80) {
-            state = 'can';
-            verdict = 'Runs great';
-            sub = 'Exceeds recommended requirements';
+            verdict = 'Playable';
+            sub = `Expect ~${userFps}fps at ${resLabel}`;
         } else {
-            state = 'can';
-            verdict = 'Runs well';
-            sub = 'Meets recommended requirements';
+            state = 'cant';
+            verdict = "Won't run smoothly";
+            sub = `Expect ~${userFps}fps at ${resLabel} (below playable threshold)`;
         }
 
         return {
@@ -281,7 +317,7 @@ export class CheckService {
             gpuPass,
             cpuPass,
             ramPass,
-            fps: this.estimateFPS(userGpuScore, settings.resolutionHeight),
+            fps: estimatedFpsObj,
             source: 'fallback',
             confidence: 'low',
         };
