@@ -33,14 +33,14 @@ export class ClientCpuDto {
         example: 65,
         nullable: true,
     })
-    tdp_watts: number | null;
+    tdpWatts: number | null;
 
     @ApiProperty({
         description: 'The release year of the CPU',
         example: 2019,
         nullable: true,
     })
-    release_year: number | null;
+    releaseYear: number | null;
 
     @ApiProperty({
         description: 'The benchmarks of the CPU',

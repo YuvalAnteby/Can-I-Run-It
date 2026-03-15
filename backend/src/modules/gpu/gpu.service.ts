@@ -77,10 +77,10 @@ export class GpuService {
             slug: gpu.slug,
             name: gpu.name,
             manufacturer: gpu.manufacturer,
-            vram_gb: gpu.vram_gb,
-            shading_units: gpu.shading_units,
-            tdp_watts: gpu.tdp_watts,
-            release_year: gpu.release_year,
+            vramGb: gpu.vramGb,
+            shadingUnits: gpu.shadingUnits,
+            tdpWatts: gpu.tdpWatts,
+            releaseYear: gpu.releaseYear,
             benchmarks: gpu.benchmarks,
         };
     }

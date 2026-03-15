@@ -49,8 +49,8 @@ export class TypeOrmCpuRepository implements ICpuRepository {
                 'cpu.slug',
                 'cpu.name',
                 'cpu.manufacturer',
-                'cpu.tdp_watts',
-                'cpu.release_year',
+                'cpu.tdpWatts',
+                'cpu.releaseYear',
                 'cpu.benchmarks',
             ])
             // WORD_SIMILARITY checks if 'rxt' is similar to any word INSIDE 'NVIDIA GeForce RTX...'

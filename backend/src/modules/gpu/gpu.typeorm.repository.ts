@@ -24,7 +24,7 @@ export class TypeOrmGpuRepository implements IGpuRepository {
         const qb = this.repo.createQueryBuilder('gpu');
         if (manufacturer)
             qb.andWhere('gpu.manufacturer = :manufacturer', { manufacturer });
-        if (minVram) qb.andWhere('gpu.vram_gb >= :minVram', { minVram });
+        if (minVram) qb.andWhere('gpu.vramGb >= :minVram', { minVram });
 
         return await qb
             .orderBy('gpu.id', 'ASC')
@@ -50,10 +50,10 @@ export class TypeOrmGpuRepository implements IGpuRepository {
                 'gpu.slug',
                 'gpu.name',
                 'gpu.manufacturer',
-                'gpu.vram_gb',
-                'gpu.shading_units',
-                'gpu.tdp_watts',
-                'gpu.release_year',
+                'gpu.vramGb',
+                'gpu.shadingUnits',
+                'gpu.tdpWatts',
+                'gpu.releaseYear',
                 'gpu.benchmarks',
             ])
             // WORD_SIMILARITY checks if 'rxt' is similar to any word INSIDE 'NVIDIA GeForce RTX...'

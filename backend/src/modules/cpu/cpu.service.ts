@@ -79,8 +79,8 @@ export class CpuService {
             slug: cpu.slug,
             name: cpu.name,
             manufacturer: cpu.manufacturer,
-            tdp_watts: cpu.tdp_watts,
-            release_year: cpu.release_year,
+            tdpWatts: cpu.tdpWatts,
+            releaseYear: cpu.releaseYear,
             benchmarks: cpu.benchmarks,
         };
     }

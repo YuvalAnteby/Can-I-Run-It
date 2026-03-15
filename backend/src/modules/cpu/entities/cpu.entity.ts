@@ -57,33 +57,33 @@ export class Cpu {
     threads: number;
 
     // Using 'float' (maps to double precision usually) for clock speeds
-    @Column('float')
+    @Column({ type: 'float', name: 'base_clock_ghz' })
     @ApiProperty({ description: 'The base clock speed in GHz', example: 3.6 })
-    base_clock_ghz: number;
+    baseClockGhz: number;
 
-    @Column('float', { nullable: true })
+    @Column({ type: 'float', name: 'boost_clock_ghz', nullable: true })
     @ApiProperty({
         description: 'The boost clock speed in GHz',
         example: 4.2,
         nullable: true,
     })
-    boost_clock_ghz: number;
+    boostClockGhz: number;
 
-    @Column('int', { nullable: true })
+    @Column({ type: 'int', name: 'l3_cache_mb', nullable: true })
     @ApiProperty({
         description: 'The L3 cache size in MB',
         example: 32,
         nullable: true,
     })
-    l3_cache_mb: number;
+    l3CacheMb: number;
 
-    @Column('int', { nullable: true })
+    @Column({ type: 'int', name: 'tdp_watts', nullable: true })
     @ApiProperty({
         description: 'The TDP of the CPU in Watts',
         example: 65,
         nullable: true,
     })
-    tdp_watts: number;
+    tdpWatts: number;
 
     // -- Flexible Data --
     // 'jsonb' is specific to Postgres and allows the GIN indexing you requested
@@ -95,19 +95,19 @@ export class Cpu {
     })
     benchmarks: Record<string, number>;
 
-    @Column('int', { nullable: true })
+    @Column({ type: 'int', name: 'release_year', nullable: true })
     @ApiProperty({
         description: 'The release year of the CPU',
         example: 2019,
     })
-    release_year: number;
+    releaseYear: number;
 
     // -- Timestamps --
     @CreateDateColumn({ name: 'created_at' })
     @ApiProperty({ description: 'The date and time the CPU was created' })
-    created_at: Date;
+    createdAt: Date;
 
     @UpdateDateColumn({ name: 'updated_at' })
     @ApiProperty({ description: 'The date and time the CPU was last updated' })
-    updated_at: Date;
+    updatedAt: Date;
 }

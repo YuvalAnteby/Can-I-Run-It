@@ -10,10 +10,10 @@ export interface ClientGpuDto {
   slug: string;
   name: string;
   manufacturer: GpuManufacturer;
-  vram_gb: number;
-  shading_units: number | null;
-  tdp_watts: number | null;
-  release_year: number | null;
+  vramGb: number;
+  shadingUnits: number | null;
+  tdpWatts: number | null;
+  releaseYear: number | null;
   benchmarks?: Record<string, number>;
 }
 
