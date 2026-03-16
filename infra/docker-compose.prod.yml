@@ -8,9 +8,7 @@ services:
       dockerfile: ../infra/Dockerfile.backend
       target: prod
     environment:
-      - ENV=production
-      # Internal Docker networking uses service names, so this is fine
-      - REACT_URL=http://ciri-frontend-prod
+      - REACT_URL=${REACT_URL:-http://react}
     env_file:
       - .env
     ports:
@@ -28,22 +26,21 @@ services:
       context: ../frontend
       dockerfile: ../infra/Dockerfile.frontend
       target: prod
+      args:
+        - VITE_API_URL=http://${API_DOMAIN:-localhost}:${BACKEND_PORT}/api
     env_file:
       - .env
     ports:
       - "${REACT_PORT}:80" # Nginx listens on 80 inside the container
     networks:
       - ciri-net-prod
-    environment:
-      # This variable must be baked in at build time for Vite,
-      # but we leave it here for clarity or runtime config injection if you add it later.
-      - VITE_API_URL=http://localhost:${BACKEND_PORT}/api
 
   # Postgres (Same as dev, but separate container/volume name to avoid conflicts)
   postgres:
     image: postgres:16-alpine
     container_name: ciri-postgres-prod
     restart: always
+    # TODO: remove port exposing
     ports:
       - "${POSTGRES_PORT}:5432"
     env_file:
