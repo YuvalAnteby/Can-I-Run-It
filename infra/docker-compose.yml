@@ -10,7 +10,7 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - REACT_URL=${ALLOWED_DOMAINS:-http://react}
+      - REACT_URL=${REACT_URL:-http://react}
     env_file:
       - .env
     ports:
