@@ -90,6 +90,8 @@ describe('GeminiService', () => {
     it('returns fps estimate and null note on a valid response', async () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
+            headers: new Headers(),
+            headers: new Headers(),
             json: () => Promise.resolve(validGeminiPayload),
         } as Response);
 
@@ -132,6 +134,7 @@ describe('GeminiService', () => {
 
         fetchSpy.mockResolvedValueOnce({
             ok: true,
+            headers: new Headers(),
             json: () => Promise.resolve(payload),
         } as Response);
 
@@ -189,6 +192,7 @@ describe('GeminiService', () => {
     it('returns null on non-OK HTTP response', async () => {
         fetchSpy.mockResolvedValueOnce({
             ok: false,
+            headers: new Headers(),
             status: 429,
             text: () => Promise.resolve('Rate limit exceeded'),
         } as Response);
@@ -225,6 +229,7 @@ describe('GeminiService', () => {
     it('returns null when Gemini returns invalid JSON', async () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
+            headers: new Headers(),
             json: () =>
                 Promise.resolve({
                     candidates: [
@@ -246,6 +251,7 @@ describe('GeminiService', () => {
     it('returns null when fps fields are missing', async () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
+            headers: new Headers(),
             json: () =>
                 Promise.resolve({
                     candidates: [
@@ -267,6 +273,7 @@ describe('GeminiService', () => {
     it('returns null when fps values are strings instead of numbers', async () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
+            headers: new Headers(),
             json: () =>
                 Promise.resolve({
                     candidates: [
@@ -304,6 +311,7 @@ describe('GeminiService', () => {
     it('returns null when candidates array is empty', async () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
+            headers: new Headers(),
             json: () => Promise.resolve({ candidates: [] }),
         } as Response);
 
@@ -330,6 +338,7 @@ describe('GeminiService', () => {
 
         fetchSpy.mockResolvedValueOnce({
             ok: true,
+            headers: new Headers(),
             json: () =>
                 Promise.resolve({
                     candidates: [{ content: { parts: [{ text: fenced }] } }],
@@ -351,6 +360,7 @@ describe('GeminiService', () => {
     it('rounds float fps values to integers', async () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
+            headers: new Headers(),
             json: () =>
                 Promise.resolve({
                     candidates: [

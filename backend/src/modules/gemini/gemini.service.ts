@@ -1,3 +1,4 @@
+import { GoogleGenAI, Type } from '@google/genai';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -33,27 +34,19 @@ Response schema:
   "note": string | null
 }`;
 
-const GEMINI_TIMEOUT_MS = 10_000;
-
-interface GeminiResponse {
-    candidates?: Array<{
-        content?: {
-            parts?: Array<{
-                text?: string;
-            }>;
-        };
-    }>;
-}
+const GEMINI_TIMEOUT_MS = 30_000;
 
 @Injectable()
 export class GeminiService {
     private readonly logger = new Logger(GeminiService.name);
     private readonly apiKey: string | undefined;
-    private readonly apiUrl =
-        'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent';
+    private readonly genAI: GoogleGenAI | undefined;
 
     constructor(private readonly config: ConfigService) {
         this.apiKey = this.config.get<string>('GEMINI_API_KEY');
+        if (this.apiKey) {
+            this.genAI = new GoogleGenAI({ apiKey: this.apiKey });
+        }
     }
 
     /**
@@ -124,46 +117,66 @@ export class GeminiService {
     }
 
     private async callGemini(userPrompt: string): Promise<string> {
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), GEMINI_TIMEOUT_MS);
+        if (!this.genAI) {
+            throw new Error('GenAI Client is not initialized');
+        }
 
-        let response: Response;
+        let timeoutId: ReturnType<typeof setTimeout>;
+        const timeoutPromise = new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(
+                () => reject(new Error('Gemini API timeout')),
+                GEMINI_TIMEOUT_MS,
+            );
+        });
+
         try {
-            response = await fetch(this.apiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'x-goog-api-key': this.apiKey!,
-                },
-                signal: controller.signal,
-                body: JSON.stringify({
-                    system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
-                    contents: [{ parts: [{ text: userPrompt }] }],
-                    generationConfig: {
-                        temperature: 0.2, // Low temp → more consistent numeric estimates
-                        maxOutputTokens: 200,
+            const callPromise = this.genAI.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: userPrompt,
+                config: {
+                    systemInstruction: SYSTEM_PROMPT,
+                    temperature: 0.2, // Low temp → more consistent numeric estimates
+                    responseMimeType: 'application/json',
+                    responseSchema: {
+                        type: Type.OBJECT,
+                        properties: {
+                            // The fps values should be rounded to the nearest integer by the model, but we round again just in case.
+                            fps: {
+                                type: Type.OBJECT,
+                                // All four presets must be present in the response
+                                // even if some have the same value (e.g. low and med might both be 30fps).
+                                properties: {
+                                    low: { type: Type.INTEGER },
+                                    med: { type: Type.INTEGER },
+                                    high: { type: Type.INTEGER },
+                                    ultra: { type: Type.INTEGER },
+                                },
+                                required: ['low', 'med', 'high', 'ultra'],
+                            },
+                            // The note is optional and can be null if there's nothing notable to mention.
+                            note: { type: Type.STRING, nullable: true },
+                        },
+                        required: ['fps'],
                     },
-                }),
+                },
             });
+
+            // Promise.race doesn't infer well with generic Promises. We assert to the GenerateContentResponse interface shape.
+            const response = (await Promise.race([
+                callPromise,
+                timeoutPromise,
+            ])) as { text?: string };
+
+            const text = response.text;
+
+            if (!text) {
+                throw new Error('Unexpected Gemini response shape');
+            }
+
+            return text.trim();
         } finally {
-            clearTimeout(timeout);
+            clearTimeout(timeoutId!);
         }
-
-        if (!response.ok) {
-            const body = await response.text();
-            throw new Error(`Gemini HTTP ${response.status}: ${body}`);
-        }
-
-        const json = (await response.json()) as GeminiResponse;
-        // Gemini wraps the model output under candidates[0].content.parts[0].text
-        const text: string | undefined =
-            json?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-        if (!text) {
-            throw new Error('Unexpected Gemini response shape');
-        }
-
-        return text.trim();
     }
 
     private parseResponse(raw: string): GeminiEstimate {
