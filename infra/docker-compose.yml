@@ -1,6 +1,5 @@
 name: can-i-run-it
 services:
-
   # NestJS backend
   backend:
     container_name: ciri-backend
@@ -9,10 +8,9 @@ services:
       dockerfile: ../infra/Dockerfile.backend
       target: dev
     environment:
-        - ENV=dev
-        - CHOKIDAR_USEPOLLING=true
-        - WATCHPACK_POLLING=true
-        - REACT_URL=http://localhost:${FRONTEND_PORT:-3000}
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - REACT_URL=${REACT_URL:-http://react}
     env_file:
       - .env
     ports:
@@ -33,17 +31,16 @@ services:
       context: ../frontend
       dockerfile: ../infra/Dockerfile.frontend
       target: dev
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - WATCHPACK_POLLING=true
+      - VITE_API_URL=http://${API_DOMAIN:-localhost}:${BACKEND_PORT}/api
     env_file:
       - .env
     ports:
       - "${REACT_PORT:-3000}:${REACT_PORT:-3000}"
     networks:
       - ciri-net
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-      - WATCHPACK_POLLING=true
-      - REACT_APP_BASE_URL=http://localhost:${BACKEND_PORT:-4000}/api
-
     volumes:
       - ../frontend/:/app/
       - /app/node_modules
@@ -63,10 +60,15 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-myciridb}
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
     networks:
       - ciri-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-username} -d ${POSTGRES_DB:-myciridb}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-username} -d ${POSTGRES_DB:-myciridb}",
+        ]
       interval: 10s
       timeout: 5s
       retries: 5

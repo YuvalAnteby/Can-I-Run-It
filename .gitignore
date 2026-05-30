@@ -208,3 +208,11 @@ __marimo__/
 
 # tests results
 **/*-test-results/
+
+/node_modules
+**/.DS_Store
+
+.gemini/
+gha-creds-*.json
+
+/infra/init-scripts/05-seed.sql

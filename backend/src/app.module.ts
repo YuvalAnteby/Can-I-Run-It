@@ -1,13 +1,30 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
+import { TerminusModule } from '@nestjs/terminus';
+
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { TerminusModule } from '@nestjs/terminus';
 import { DatabaseModule } from './database/database.module';
-import { HealthModule } from './health/health.module';
+import { CheckModule } from './modules/check/check.module';
+import { CpuModule } from './modules/cpu/cpu.module';
+import { GamesModule } from './modules/games/games.module';
+import { GpuModule } from './modules/gpu/gpu.module';
+import { HealthModule } from './modules/health/health.module';
 
 @Module({
-  imports: [TerminusModule, DatabaseModule, HealthModule],
-  controllers: [AppController],
-  providers: [AppService],
+    imports: [
+        ConfigModule.forRoot({
+            isGlobal: true,
+        }),
+        TerminusModule,
+        DatabaseModule,
+        HealthModule,
+        CpuModule,
+        GpuModule,
+        GamesModule,
+        CheckModule,
+    ],
+    controllers: [AppController],
+    providers: [AppService],
 })
 export class AppModule {}
