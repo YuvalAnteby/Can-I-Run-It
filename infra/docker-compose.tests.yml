@@ -7,10 +7,12 @@ services:
       - POSTGRES_PASSWORD=changeme
       - POSTGRES_DB=test_db
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      test: ["CMD-SHELL", "pg_isready -U username"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - ciri-net-tests
 
   backend:
     build:
@@ -28,4 +30,9 @@ services:
     command: >
       sh -c "npm run test && npm run test:e2e"
     volumes:
-      - ./backend-test-results:/app/test-results
+      - ../backend/test-results:/app/test-results
+    networks:
+      - ciri-net-tests
+
+networks:
+  ciri-net-tests:

@@ -2,7 +2,8 @@
 -- ============================================
 
 -- Hardware brands
-CREATE TYPE hardware_brand AS ENUM ('Nvidia', 'AMD', 'Intel');
+CREATE TYPE gpu_brand AS ENUM ('Nvidia', 'AMD', 'Intel');
+CREATE TYPE cpu_brand AS ENUM ('AMD', 'Intel');
 
 -- Custom settings aren't supported now
 CREATE TYPE setting_preset AS ENUM ('low', 'medium', 'high', 'ultra');

@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS gpus (
   id SERIAL PRIMARY KEY,
   slug VARCHAR(100) UNIQUE NOT NULL,
   name VARCHAR(100) NOT NULL,
-  manufacturer hardware_brand NOT NULL, -- Nvidia, AMD, Intel as enum
+  manufacturer gpu_brand NOT NULL, -- Nvidia, AMD, Intel as enum
 
   -- Quantitative Specs
   vram_gb INTEGER NOT NULL,
@@ -45,7 +45,7 @@ CREATE TABLE IF NOT EXISTS cpus (
   id SERIAL PRIMARY KEY,
   slug VARCHAR(100) UNIQUE NOT NULL,
   name VARCHAR(100) NOT NULL,
-  manufacturer hardware_brand NOT NULL, -- Intel, AMD
+  manufacturer cpu_brand NOT NULL, -- Intel, AMD
 
   -- Specs
   cores INTEGER NOT NULL,

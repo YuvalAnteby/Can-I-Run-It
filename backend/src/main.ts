@@ -11,9 +11,9 @@ async function bootstrap() {
     app.setGlobalPrefix('api');
 
     // CORS Policy
-    const frontendUrl = process.env.FRONTEND_URL ?? 'http://localhost:3000';
+    const frontendUrl = process.env.REACT_URL ?? 'http://react';
     app.enableCors({
-        origin: frontendUrl,
+        origin: [frontendUrl, 'http://localhost:3000'],
         credentials: true,
     });
 
