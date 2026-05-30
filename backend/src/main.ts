@@ -13,7 +13,7 @@ async function bootstrap() {
     // CORS Policy
     const frontendUrl = process.env.REACT_URL ?? 'http://react';
     app.enableCors({
-        origin: frontendUrl,
+        origin: [frontendUrl, 'http://localhost:3000'],
         credentials: true,
     });
 

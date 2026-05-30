@@ -42,6 +42,7 @@ export class Gpu {
     @Column({
         type: 'enum',
         enum: GpuBrand,
+        enumName: 'gpu_brand',
     })
     @ApiProperty({
         description: 'The manufacturer of the GPU',

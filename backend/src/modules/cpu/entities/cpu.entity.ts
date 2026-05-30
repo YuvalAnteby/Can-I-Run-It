@@ -39,6 +39,7 @@ export class Cpu {
     @Column({
         type: 'enum',
         enum: CpuBrand,
+        enumName: 'cpu_brand',
     })
     @ApiProperty({
         description: 'The manufacturer of the CPU',
