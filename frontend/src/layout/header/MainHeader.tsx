@@ -43,11 +43,11 @@ export const MainHeader = (): React.ReactElement => {
             className="flex items-center gap-2 no-underline text-inherit transition-colors duration-300 active:scale-[0.98]"
             aria-label="Go to home"
           >
-            <div className="w-8 h-8 bg-blue-500 rounded flex items-center justify-center">
-              <img src="/favicon.ico" alt="" width={24} height={24} />
+            <div className="rounded flex items-center justify-center">
+              <img src="/favicon.ico" alt="Logo" width={32} height={32} />
             </div>
             <span className="text-xl font-bold text-white -tracking-tight">
-              Can I <span className="text-blue-500">Run It?</span>
+              <span className="text-sky-400">an I</span> Run It?
             </span>
           </NavLink>
 
