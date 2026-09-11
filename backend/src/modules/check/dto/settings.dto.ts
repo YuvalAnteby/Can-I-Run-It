@@ -7,6 +7,7 @@ import {
     IsOptional,
     IsString,
     Min,
+    ValidateIf,
 } from 'class-validator';
 
 import {
@@ -66,7 +67,7 @@ export class SettingsDto {
         default: 60,
         required: false,
     })
-    @IsOptional()
+    @ValidateIf((_, value) => value !== undefined)
     @IsInt()
     @IsIn(TARGET_FPS_VALUES)
     targetFps?: TargetFps = 60;

@@ -26,3 +26,16 @@ it('rejects an unsupported target FPS', async () => {
         (await validate(dto)).some((error) => error.property === 'targetFps'),
     ).toBe(true);
 });
+
+it('rejects a null target FPS', async () => {
+    const dto = plainToInstance(SettingsDto, {
+        resolutionWidth: 1920,
+        resolutionHeight: 1080,
+        targetFps: null,
+        preset: 'high',
+    });
+
+    expect(
+        (await validate(dto)).some((error) => error.property === 'targetFps'),
+    ).toBe(true);
+});
