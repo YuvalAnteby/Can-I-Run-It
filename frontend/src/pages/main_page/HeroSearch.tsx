@@ -1,4 +1,4 @@
-import { Gauge, Monitor, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useEffect, useReducer, useRef } from 'react';
 import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -71,20 +71,16 @@ export const HeroSearch = (): ReactElement => {
       <div className="relative z-10 max-w-[900px] mx-auto">
         {/* Main Heading */}
         <h1 className="text-[2.5rem] md:text-[3.5rem] font-extrabold text-white/[0.87] m-0 mb-5 leading-[1.1] tracking-[-1px]">
-          Will your PC{' '}
-          <span className="bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
-            survive
-          </span>{' '}
-          or{' '}
-          <span className="bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
-            thrive?
-          </span>
+          Can I run it?
         </h1>
 
         {/* Subtitle */}
         <p className="text-xl text-white/60 m-0 mx-auto mb-10 max-w-[650px] leading-relaxed">
-          Stop guessing. Compare your PC hardware against 15,000+ games
-          instantly. No account required to check.
+          Stop guessing!
+          <br />
+          Compare your PC hardware against 15,000+ games instantly.
+          <br />
+          No account required to check.
         </p>
 
         {/* Search Bar */}
@@ -172,19 +168,6 @@ export const HeroSearch = (): ReactElement => {
                 ))}
             </ul>
           )}
-        </div>
-
-        {/* Guest Features */}
-        <div className="mt-8 flex justify-center gap-5 text-white/60 text-[0.9rem]">
-          <div className="flex items-center gap-1.5">
-            <Gauge size={16} />
-            <span>Accurate FPS Estimates</span>
-          </div>
-          <span>|</span>
-          <div className="flex items-center gap-1.5">
-            <Monitor size={16} />
-            <span>Auto-Detect Hardware</span>
-          </div>
         </div>
       </div>
     </div>
