@@ -16,8 +16,14 @@ export interface Settings {
   resolutionWidth: number;
   resolutionHeight: number;
   tier?: string;
-  preset?: SettingPreset;
-  targetFps: TargetFps;
+  preset: SettingPreset;
+  targetFps?: TargetFps;
+  upscaler?: 'off' | 'DLSS' | 'FSR' | 'XeSS';
+  upscalerQuality?:
+    | 'quality'
+    | 'balanced'
+    | 'performance'
+    | 'ultra_performance';
 }
 
 export interface CheckRequest {

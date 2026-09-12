@@ -6,6 +6,18 @@ interface CompatibilityResultProps {
   resolutionLabel: string;
 }
 
+function renderPassStatus(pass: boolean | null): React.ReactNode {
+  if (pass === null) {
+    return <span className="text-gray-400 font-medium">Not available</span>;
+  }
+
+  return pass ? (
+    <span className="text-green-500 font-medium">✓ Passes</span>
+  ) : (
+    <span className="text-red-500 font-medium">✕ Below req</span>
+  );
+}
+
 export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
   checkResult,
   resolutionLabel,
@@ -57,27 +69,15 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
         {/* Performance Indicators */}
         <div className="flex justify-between items-center py-1 text-xs">
           <span className="text-gray-300 font-medium">GPU</span>
-          {checkResult.gpuPass ? (
-            <span className="text-green-500 font-medium">✓ Passes</span>
-          ) : (
-            <span className="text-red-500 font-medium">✕ Below req</span>
-          )}
+          {renderPassStatus(checkResult.gpuPass)}
         </div>
         <div className="flex justify-between items-center py-1 text-xs">
           <span className="text-gray-300 font-medium">CPU</span>
-          {checkResult.cpuPass ? (
-            <span className="text-green-500 font-medium">✓ Passes</span>
-          ) : (
-            <span className="text-red-500 font-medium">✕ Below req</span>
-          )}
+          {renderPassStatus(checkResult.cpuPass)}
         </div>
         <div className="flex justify-between items-center py-1 text-xs">
           <span className="text-gray-300 font-medium">RAM</span>
-          {checkResult.ramPass ? (
-            <span className="text-green-500 font-medium">✓ Passes</span>
-          ) : (
-            <span className="text-red-500 font-medium">✕ Below req</span>
-          )}
+          {renderPassStatus(checkResult.ramPass)}
         </div>
 
         {/* Estimated Frame Rates */}
