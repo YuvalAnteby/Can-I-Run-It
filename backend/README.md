@@ -6,9 +6,10 @@ when no stored result matches a compatibility request.
 
 ## Configuration
 
-All Docker environments read the repository-level `infra/.env`; do not create
-a separate backend environment file. Start from `infra/.env.example` and keep
-database credentials and `GEMINI_API_KEY` out of version control.
+Development and production Docker stacks read the repository-level `infra/.env`;
+the isolated test stack uses deterministic values from its Compose file. Do not
+create a separate backend environment file. Start from `infra/.env.example` and
+keep database credentials and `GEMINI_API_KEY` out of version control.
 
 Within Compose, PostgreSQL is available to NestJS as `postgres:5432`.
 Production schema synchronization is disabled; tracked SQL in
@@ -94,8 +95,9 @@ The possible verdicts are `Can run`, `Can't run`, `Likely can run`,
 
 The selected preset's FPS is compared with `targetFps`. Insufficient VRAM forces
 a failing verdict even when FPS meets the target. SSD mismatch adds an advisory
-note only. CPU, GPU-model, and RAM comparisons are advisory evidence on
-non-measured paths. Storage capacity is not accepted or evaluated.
+note only. Fresh Gemini estimates and local heuristic results may include
+advisory CPU, GPU-model, and RAM comparisons; cached provider and measured rows
+return those checks as `null`. Storage capacity is not accepted or evaluated.
 
 The route allows ten requests per IP per one-minute window and returns HTTP 429
 with `Retry-After` after the limit. This guard is per backend process, not a

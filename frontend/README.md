@@ -6,9 +6,10 @@ provides styling. Production assets are served by Nginx in Docker.
 
 ## Configuration
 
-The Compose stacks use the repository-level `infra/.env` as the single
-configuration file. `VITE_API_URL` must be a browser-reachable NestJS base URL
-ending in `/api`; it is compiled into the production bundle. Provider keys and
+Development and production Compose stacks use the repository-level `infra/.env`
+as the single configuration file; the isolated test stack uses deterministic
+values from its Compose file. `VITE_API_URL` must be a browser-reachable NestJS
+base URL ending in `/api`; it is compiled into the production bundle. Provider keys and
 database credentials belong to the backend/Compose environment and must never
 be exposed through a `VITE_` variable.
 

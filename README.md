@@ -53,8 +53,10 @@ is not collected or evaluated.
 
 ### Configuration
 
-`infra/.env` is the single configuration file used by the Compose stacks. Copy
-the tracked template, then replace its example values for your environment:
+`infra/.env` is the single configuration file used by the development and
+production Compose stacks. The isolated test stack uses deterministic values
+from its Compose file instead. Copy the tracked template, then replace its
+example values for your environment:
 
 ```bash
 cp infra/.env.example infra/.env
