@@ -1,4 +1,12 @@
-import { Body, Controller, Post, UseGuards, Version } from '@nestjs/common';
+import {
+    Body,
+    Controller,
+    HttpCode,
+    HttpStatus,
+    Post,
+    UseGuards,
+    Version,
+} from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { CheckRateLimitGuard } from '../../common/guards/check-rate-limit.guard';
@@ -13,6 +21,7 @@ export class CheckController {
     constructor(private readonly checkService: CheckService) {}
 
     @Post()
+    @HttpCode(HttpStatus.OK)
     @Version('1')
     @ApiOperation({ summary: 'Check hardware compatibility for a game' })
     @ApiOkResponse({ type: CheckResponseDto })

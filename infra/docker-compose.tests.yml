@@ -25,6 +25,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
+      - NODE_ENV=test
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=username
       - POSTGRES_PASSWORD=changeme

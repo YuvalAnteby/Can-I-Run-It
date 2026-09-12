@@ -74,11 +74,12 @@ describe('CheckController (e2e)', () => {
                 settings: {
                     resolutionWidth: 1920,
                     resolutionHeight: 1080,
+                    tier: 'recommended',
                     preset: 'ultra',
                     targetFps: 90,
                 },
             })
-            .expect(201)
+            .expect(200)
             .expect((response) => {
                 const body = response.body as CheckResponse;
                 expect(body.source).toBe('measured');
