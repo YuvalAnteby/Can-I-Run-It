@@ -153,7 +153,11 @@ export const HardwareCheckCard: React.FC<HardwareCheckCardProps> = ({
       </button>
 
       {checkError && (
-        <p role="alert" className="mt-3 text-sm text-red-400">
+        <p
+          role="alert"
+          aria-live="polite"
+          className="mt-3 rounded-md bg-red-500/10 p-3 text-sm text-red-300"
+        >
           {checkError}
         </p>
       )}
