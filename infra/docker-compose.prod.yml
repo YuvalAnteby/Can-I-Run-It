@@ -8,7 +8,7 @@ services:
       dockerfile: ../infra/Dockerfile.backend
       target: prod
     environment:
-      - REACT_URL=${REACT_URL:-http://react}
+      - REACT_URL=${REACT_URL:-}
     env_file:
       - .env
     ports:
