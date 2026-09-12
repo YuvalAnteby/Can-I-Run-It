@@ -2,9 +2,10 @@ name: CI - PR Checks
 
 on:
   pull_request:
-    branches: [ staging, main ]
+    branches: [staging, main]
     paths:
       - 'backend/**'
+      - 'frontend/**'
       - 'infra/**'
       - '.github/workflows/backend-ci.yml'
       - '!**/*.md'
@@ -14,59 +15,54 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # 1. TESTS WITHOUT DOCKER (Lint & Unit Tests)
   static_analysis:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    defaults:
-      run:
-        working-directory: ./backend
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'npm'
-          cache-dependency-path: backend/package-lock.json
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run test
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - name: Install backend dependencies
+        run: npm ci --prefix backend
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+      - name: Lint backend
+        run: npm run lint --prefix backend
+      - name: Lint frontend
+        run: npm run lint --prefix frontend
+      - name: Type-check backend
+        run: npm run typecheck --prefix backend
+      - name: Type-check frontend
+        run: npm run typecheck --prefix frontend
+      - name: Test backend
+        run: npm test --prefix backend
+      - name: Test frontend
+        run: npm test --prefix frontend
+      - name: Build backend
+        run: npm run build --prefix backend
+      - name: Build frontend
+        run: npm run build --prefix frontend
 
-  # 2. TESTS WITH DOCKER (Integration / E2E)
   integration_tests:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: static_analysis
     steps:
       - uses: actions/checkout@v4
-      # ... (Your existing .env creation logic) ...
-      - name: Create test .env file
-        run: |
-          cat > infra/.env << EOF
-          PORT=3000
-          NODE_ENV=test
-          POSTGRES_HOST=postgres-test
-          POSTGRES_PORT=5432
-          POSTGRES_USER=postgres
-          POSTGRES_PASSWORD=password
-          POSTGRES_DB=test_db
-          JWT_SECRET=test-jwt-secret-for-ci
-          EOF
-          
       - uses: docker/setup-buildx-action@v3
-      # ... (Your existing Cache logic) ...
-      
-      - name: Run E2E Tests
-        run: |
-          docker compose -f infra/docker-compose.tests.yml up --build --exit-code-from backend --abort-on-container-exit
+      - name: Run Docker-backed tests
+        run: docker compose -f infra/docker-compose.tests.yml up --build --exit-code-from backend --abort-on-container-exit
 
-  # 3. BUILD CHECK (Only verifying Dockerfile works correctly)
   dry_run_build:
     runs-on: ubuntu-latest
     needs: integration_tests
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-      - name: Verify Docker Build
-        run: |
-          docker build -f infra/Dockerfile.backend -t temp-check:latest ./backend
+      - name: Verify Docker build
+        run: docker build -f infra/Dockerfile.backend -t temp-check:latest ./backend
