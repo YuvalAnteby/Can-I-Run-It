@@ -147,7 +147,7 @@ describe('CheckService', () => {
         );
     });
 
-    it('uses upscaler preferences only inside the selected source group', async () => {
+    it('uses quality preference within the preferred upscaler and source group', async () => {
         mockPerfRepo.find.mockResolvedValue([
             record({
                 source: 'gemini',
@@ -156,7 +156,8 @@ describe('CheckService', () => {
                 fpsAvg: 120,
             }),
             record({
-                upscaler: UpscalerType.OFF,
+                upscaler: UpscalerType.DLSS,
+                upscalerQuality: UpscalerQualityMode.PERFORMANCE,
                 fpsAvg: 60,
                 createdAt: new Date('2026-09-12T00:00:00.000Z'),
             }),
@@ -208,7 +209,7 @@ describe('CheckService', () => {
         expect(mockPerfRepo.save).not.toHaveBeenCalled();
     });
 
-    it('persists only a new Gemini average with provider provenance', async () => {
+    it('persists a new Gemini average with provider provenance and off upscaler assumptions', async () => {
         mockGeminiService.estimate.mockResolvedValue({
             fps: { low: 80, med: 70, high: 60, ultra: 45 },
             note: null,
@@ -229,8 +230,8 @@ describe('CheckService', () => {
             resolutionWidth: 1920,
             resolutionHeight: 1080,
             settings: SettingPreset.HIGH,
-            upscaler: UpscalerType.DLSS,
-            upscalerQuality: UpscalerQualityMode.BALANCED,
+            upscaler: UpscalerType.OFF,
+            upscalerQuality: null,
             fpsAvg: 60,
             fps1PercentLow: null,
             verified: false,
