@@ -11,6 +11,8 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    volumes:
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
       - ciri-net-tests
 
