@@ -69,7 +69,7 @@ describe('CheckService', () => {
                     gpu: {
                         id: 1,
                         slug: 'min-gpu',
-                        benchmarks: { '3dmark-time-spy': 4000 },
+                        benchmarks: { timespy_extreme: 4000 },
                     },
                     ramGb: 8,
                     resolutionHeight: 1080,
@@ -86,7 +86,7 @@ describe('CheckService', () => {
         const mockGpu = {
             id: 2,
             slug: 'user-gpu',
-            benchmarks: { '3dmark-time-spy': 26000 },
+            benchmarks: { timespy_extreme: 26000 },
         };
 
         mockGameRepo.findOne.mockResolvedValue(mockGame);
@@ -188,7 +188,7 @@ describe('CheckService', () => {
                     gpu: {
                         id: 1,
                         slug: 'min-gpu',
-                        benchmarks: { '3dmark-time-spy': 1000 },
+                        benchmarks: { timespy_extreme: 1000 },
                     },
                     ramGb: 8,
                     resolutionHeight: 1080,
@@ -205,7 +205,7 @@ describe('CheckService', () => {
         const mockGpu = {
             id: 2,
             slug: 'user-gpu',
-            benchmarks: { '3dmark-time-spy': 2000 },
+            benchmarks: { timespy_extreme: 2000 },
         };
 
         const mockRecord = {
@@ -214,6 +214,7 @@ describe('CheckService', () => {
             settings: SettingPreset.HIGH,
             gpu: mockGpu,
             cpu: mockCpu,
+            source: 'measured',
         };
 
         mockGameRepo.findOne.mockResolvedValue(mockGame);
@@ -239,7 +240,7 @@ describe('CheckService', () => {
 
         expect(result).toBeDefined();
         expect(result.state).toBe('can');
-        expect(result.verdict).toBe('Runs well');
+        expect(result.verdict).toBe('Can run');
         expect(result.sub).toContain('75fps');
         expect(result.fps.high).toBe(75);
         expect(mockPerfRepo.findOne).toHaveBeenCalled();

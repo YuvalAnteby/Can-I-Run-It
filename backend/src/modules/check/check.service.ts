@@ -16,7 +16,7 @@ import {
     buildResponseFromRecord,
 } from './check.response-builder';
 import { CheckRequestDto } from './dto/check-request.dto';
-import { CheckResponseDto } from './dto/check-response.dto';
+import { CheckFps, CheckResponseDto } from './dto/check-response.dto';
 import { HardwareDto } from './dto/hardware.dto';
 import { SettingsDto } from './dto/settings.dto';
 
@@ -146,7 +146,7 @@ export class CheckService {
      * Failures are swallowed - a cache miss is not fatal.
      */
     private async cacheGeminiResult(
-        estimate: { fps: CheckResponseDto['fps']; note: string | null },
+        estimate: { fps: CheckFps; note: string | null },
         game: Game,
         cpu: Cpu,
         gpu: Gpu,
