@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-import { TARGET_FPS_VALUES } from './settings.dto';
 import type { TargetFps } from './settings.dto';
+import { TARGET_FPS_VALUES } from './settings.dto';
 
 export type CheckState = 'can' | 'cant' | 'insufficient';
 export type CheckVerdict =
