@@ -117,7 +117,7 @@ describe('CheckService', () => {
         expect(result.cpuPass).toBe(true);
         expect(result.ramPass).toBe(true);
         expect(result.fps).toBeDefined();
-        expect(result.fps.high).toBeGreaterThanOrEqual(60);
+        expect(result.fps?.high).toBeGreaterThanOrEqual(60);
         expect(mockPerfRepo.findOne).toHaveBeenCalled();
         expect(mockGeminiService.estimate).toHaveBeenCalled();
     });
@@ -167,7 +167,7 @@ describe('CheckService', () => {
         });
 
         expect(result).toBeDefined();
-        expect(result.fps.high).toBe(60);
+        expect(result.fps?.high).toBe(60);
         expect(mockGeminiService.estimate).toHaveBeenCalled();
         expect(mockPerfRepo.create).toHaveBeenCalled();
         expect(mockPerfRepo.save).toHaveBeenCalled();
@@ -242,7 +242,7 @@ describe('CheckService', () => {
         expect(result.state).toBe('can');
         expect(result.verdict).toBe('Can run');
         expect(result.sub).toContain('75fps');
-        expect(result.fps.high).toBe(75);
+        expect(result.fps?.high).toBe(75);
         expect(mockPerfRepo.findOne).toHaveBeenCalled();
         expect(mockGeminiService.estimate).not.toHaveBeenCalled();
     });

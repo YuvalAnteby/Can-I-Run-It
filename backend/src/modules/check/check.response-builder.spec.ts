@@ -10,6 +10,7 @@ import {
 } from '../performance/entities/performance-record.entity';
 import {
     buildInsufficientResponse,
+    buildResponseFromFallback,
     buildResponseFromGemini,
     buildResponseFromRecord,
 } from './check.response-builder';
@@ -17,6 +18,7 @@ import { HardwareDto } from './dto/hardware.dto';
 import {
     SettingPreset as RequestSettingPreset,
     SettingsDto,
+    TargetFps,
 } from './dto/settings.dto';
 
 const now = new Date('2026-09-11T00:00:00.000Z');
@@ -201,5 +203,173 @@ describe('check response builders', () => {
         expect(result.verdict).toBe('Insufficient data');
         expect(result.source).toBeNull();
         expect(result.fps).toBeNull();
+        expect(result).toMatchObject({
+            state: 'insufficient',
+            provider: null,
+            confidence: null,
+            targetFps: 60,
+            gpuPass: null,
+            cpuPass: null,
+            ramPass: null,
+            vramPass: null,
+            ssdPass: null,
+            notes: [],
+        });
+    });
+
+    it.each([
+        ['measured', 60, 'can', 'Can run', 'measured', null],
+        ['measured', 59.9, 'cant', "Can't run", 'measured', null],
+        ['gemini', 60, 'can', 'Likely can run', 'ai', 'gemini'],
+        ['gemini', 59.9, 'cant', "Likely can't run", 'ai', 'gemini'],
+    ])(
+        'uses source and unrounded FPS for %s at %s FPS',
+        (source, fpsAvg, state, verdict, responseSource, provider) => {
+            const result = buildResponseFromRecord(
+                measuredRecord({ source, fpsAvg }),
+                hardware,
+            );
+
+            expect(result).toMatchObject({
+                state,
+                verdict,
+                source: responseSource,
+                provider,
+                targetFps: 60,
+                gpuPass: null,
+                cpuPass: null,
+                ramPass: null,
+                vramPass: null,
+                ssdPass: null,
+                notes: [],
+            });
+        },
+    );
+
+    it.each([
+        ['measured', 8, 'Can run'],
+        ['measured', 12, "Can't run"],
+        ['gemini', 8, 'Likely can run'],
+        ['gemini', 12, "Likely can't run"],
+    ])(
+        'applies record warnings for %s requiring %s GB VRAM',
+        (source, vramGb, verdict) => {
+            const result = buildResponseFromRecord(
+                measuredRecord({ source, fpsAvg: 90 }),
+                hardwareWith({ isSsd: false }),
+                gameWithRequirement({ vramGb, requiresSsd: true })
+                    .requirements[0],
+                90,
+            );
+
+            expect(result.verdict).toBe(verdict);
+            expect(result.ssdPass).toBe(false);
+            expect(result.vramPass).toBe(vramGb === 8);
+            expect(result.notes).toEqual([expect.stringMatching(/SSD/i)]);
+        },
+    );
+
+    it.each([
+        [RequestSettingPreset.MEDIUM, 90, 'Likely can run'],
+        [RequestSettingPreset.HIGH, 90, "Likely can't run"],
+    ] as const)(
+        'uses AI %s FPS against target %s with advisory hardware checks',
+        (preset, targetFps, verdict) => {
+            const result = buildResponseFromGemini(
+                {
+                    ...geminiEstimate(),
+                    note: 'Shader compilation may stutter.',
+                },
+                gameWithRequirement({
+                    cpu: cpu({ benchmarks: { passmark: 60_000 } }),
+                    gpu: gpuWithVram(8, {
+                        benchmarks: { timespy_extreme: 19_500 },
+                    }),
+                    ramGb: 32,
+                    requiresSsd: true,
+                    targetFps: 30,
+                }),
+                userCpu,
+                gpuWithVram(8),
+                hardwareWith({ isSsd: false }),
+                { ...settings, preset, targetFps },
+            );
+
+            expect(result).toMatchObject({
+                verdict,
+                source: 'ai',
+                provider: 'gemini',
+                confidence: 'medium',
+                targetFps: 90,
+                gpuPass: false,
+                cpuPass: false,
+                ramPass: false,
+                vramPass: true,
+                ssdPass: false,
+            });
+            expect(result.notes).toEqual([
+                'Shader compilation may stutter.',
+                expect.stringMatching(/SSD/i),
+            ]);
+        },
+    );
+
+    it.each<[TargetFps, number, string]>([
+        [60, 8, 'Likely can run'],
+        [90, 8, "Likely can't run"],
+        [60, 12, "Likely can't run"],
+    ])(
+        'uses benchmark FPS and warnings for fallback at target %s with %s GB VRAM',
+        (targetFps, vramGb, verdict) => {
+            const result = buildResponseFromFallback(
+                gameWithRequirement({
+                    vramGb,
+                    requiresSsd: true,
+                    targetFps: 30,
+                    ramGb: 32,
+                }),
+                cpu({ benchmarks: { passmark: 1_000 } }),
+                gpuWithVram(8, { benchmarks: { timespy_extreme: 19_500 } }),
+                hardwareWith({ isSsd: false }),
+                { ...settings, preset: RequestSettingPreset.MEDIUM, targetFps },
+            );
+
+            expect(result).toMatchObject({
+                verdict,
+                source: 'estimate',
+                provider: null,
+                confidence: 'low',
+                targetFps,
+                fps: { low: 107, med: 80, high: 62, ultra: 46 },
+                cpuPass: false,
+                ramPass: false,
+                ssdPass: false,
+            });
+            expect(result.notes).toEqual([expect.stringMatching(/SSD/i)]);
+        },
+    );
+
+    it('returns insufficient data from fallback when requirements are absent', () => {
+        const game = gameWithRequirement();
+        game.requirements = [];
+
+        const result = buildResponseFromFallback(
+            game,
+            userCpu,
+            gpuWithVram(8),
+            hardware,
+            settings,
+            120,
+        );
+
+        expect(result).toMatchObject({
+            state: 'insufficient',
+            verdict: 'Insufficient data',
+            source: null,
+            provider: null,
+            confidence: null,
+            fps: null,
+            targetFps: 120,
+        });
     });
 });

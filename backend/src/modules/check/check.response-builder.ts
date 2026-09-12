@@ -1,5 +1,3 @@
-import { NotFoundException } from '@nestjs/common';
-
 import { Cpu } from '../cpu/entities/cpu.entity';
 import { Game } from '../games/entities/game.entity';
 import { GameRequirement } from '../games/entities/game-requirement.entity';
@@ -159,9 +157,7 @@ export function buildResponseFromFallback(
     const requirement = findRequirement(game, settings);
 
     if (!requirement) {
-        throw new NotFoundException(
-            `Requirements for game "${game.slug}" not found`,
-        );
+        return buildInsufficientResponse(targetFps);
     }
 
     const gpuPass = requirement.gpu
