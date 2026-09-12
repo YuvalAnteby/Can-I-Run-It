@@ -73,7 +73,7 @@ Do not commit `infra/.env`.
 ### Development
 
 ```bash
-docker compose -f infra/docker-compose.yml up -d --build
+docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --build
 ```
 
 With the template's default ports, open:
@@ -86,14 +86,14 @@ With the template's default ports, open:
 Follow or stop the development stack with:
 
 ```bash
-docker compose -f infra/docker-compose.yml logs -f
-docker compose -f infra/docker-compose.yml down
+docker compose --env-file infra/.env -f infra/docker-compose.yml logs -f
+docker compose --env-file infra/.env -f infra/docker-compose.yml down
 ```
 
 ### Production
 
 ```bash
-docker compose -f infra/docker-compose.prod.yml up -d --build
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --build
 ```
 
 The production frontend is built with `VITE_API_URL`, starts only after the API
@@ -103,10 +103,10 @@ TypeORM schema synchronization is disabled.
 Useful production operations:
 
 ```bash
-docker compose -f infra/docker-compose.prod.yml ps
-docker compose -f infra/docker-compose.prod.yml logs -f
-docker compose -f infra/docker-compose.prod.yml pull
-docker compose -f infra/docker-compose.prod.yml up -d --build
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml ps
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml logs -f
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml pull
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --build
 ```
 
 ### Tests
@@ -126,8 +126,9 @@ fresh Compose volume. They do not rerun on every container restart.
 
 Development and production use persistent named volumes. To apply a fresh
 bootstrap, first back up any data you need, then remove the relevant stack's
-volume with `docker compose -f <compose-file> down -v` and start it again. The
-`-v` operation permanently deletes that stack's database volume.
+volume with `docker compose --env-file infra/.env -f <compose-file> down -v` and
+start it again. The `-v` operation permanently deletes that stack's database
+volume.
 
 ## API
 
