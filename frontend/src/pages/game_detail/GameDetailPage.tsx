@@ -42,11 +42,14 @@ export default function GameDetailPage(): React.ReactElement {
     setCustomHeight,
     selectedPreset,
     setSelectedPreset,
+    selectedTargetFps,
+    setSelectedTargetFps,
 
     // Status
     hasAttemptedSubmit,
     isChecking,
     checkResult,
+    checkError,
     isFormValid,
 
     // Handlers
@@ -135,6 +138,8 @@ export default function GameDetailPage(): React.ReactElement {
           onStorageChange={setSelectedStorage}
           selectedPreset={selectedPreset}
           onPresetChange={setSelectedPreset}
+          selectedTargetFps={selectedTargetFps}
+          onTargetFpsChange={setSelectedTargetFps}
           selectedResolutionKey={selectedResolutionKey}
           onResolutionKeyChange={setSelectedResolutionKey}
           customWidth={customWidth}
@@ -144,6 +149,7 @@ export default function GameDetailPage(): React.ReactElement {
           hasAttemptedSubmit={hasAttemptedSubmit}
           isChecking={isChecking}
           checkResult={checkResult}
+          checkError={checkError}
           isFormValid={isFormValid}
           onCheck={handleCheck}
         />

@@ -16,7 +16,7 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
         className={`p-3.5 flex items-center gap-2.5 border-b ${
           checkResult.state === 'cant'
             ? 'bg-red-500/10 border-red-500/20'
-            : checkResult.state === 'barely'
+            : checkResult.state === 'insufficient'
               ? 'bg-orange-500/10 border-orange-500/20'
               : 'bg-green-500/10 border-green-500/20'
         }`}
@@ -25,14 +25,14 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
           className={`w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0 ${
             checkResult.state === 'cant'
               ? 'bg-red-500/20 text-red-500'
-              : checkResult.state === 'barely'
+              : checkResult.state === 'insufficient'
                 ? 'bg-orange-500/20 text-orange-500'
                 : 'bg-green-500/20 text-green-500'
           }`}
         >
           {checkResult.state === 'cant'
             ? '✕'
-            : checkResult.state === 'barely'
+            : checkResult.state === 'insufficient'
               ? '!'
               : '✓'}
         </div>
@@ -41,7 +41,7 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
             className={`text-sm font-bold ${
               checkResult.state === 'cant'
                 ? 'text-red-500'
-                : checkResult.state === 'barely'
+                : checkResult.state === 'insufficient'
                   ? 'text-orange-500'
                   : 'text-green-500'
             }`}
@@ -81,7 +81,7 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
         </div>
 
         {/* Estimated Frame Rates */}
-        {checkResult.state !== 'cant' && (
+        {checkResult.fps && (
           <div className="mt-3 pt-3 border-t border-[#1e1e2a]">
             <div className="text-[0.7rem] text-gray-400 uppercase tracking-wider mb-2 font-bold">
               Estimated FPS @ {resolutionLabel}

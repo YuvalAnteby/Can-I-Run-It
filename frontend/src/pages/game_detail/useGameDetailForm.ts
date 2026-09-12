@@ -3,7 +3,7 @@ import { useCpuSearch, useGpuSearch } from './useHardwareSearch';
 import { useHardwareCheck } from './useHardwareCheck';
 import { ClientCpuDto } from '../../@types/cpu.types';
 import { ClientGpuDto } from '../../@types/gpu.types';
-import { SettingPreset } from '../../@types/check.types';
+import { SettingPreset, TargetFps } from '../../@types/check.types';
 import { ClientGameDto } from '../../@types/game.types';
 
 export function useGameDetailForm(
@@ -40,6 +40,7 @@ export function useGameDetailForm(
   const [selectedPreset, setSelectedPreset] = useState<SettingPreset>(
     SettingPreset.HIGH,
   );
+  const [selectedTargetFps, setSelectedTargetFps] = useState<TargetFps>(60);
 
   const [hasAttemptedSubmit, setHasAttemptedSubmit] = useState(false);
 
@@ -47,6 +48,7 @@ export function useGameDetailForm(
     mutate: runCheck,
     data: checkResult,
     isPending: isChecking,
+    error: checkError,
     reset: resetCheck,
   } = useHardwareCheck();
 
@@ -68,7 +70,7 @@ export function useGameDetailForm(
   const handleCheck = () => {
     setHasAttemptedSubmit(true);
 
-    if (!selectedGpu || !selectedCpu || !slug || !activeTier) {
+    if (!selectedGpu || !selectedCpu || !slug) {
       return;
     }
 
@@ -95,8 +97,9 @@ export function useGameDetailForm(
       settings: {
         resolutionWidth: width,
         resolutionHeight: height,
-        tier: activeTier,
+        tier: activeTier ?? undefined,
         preset: selectedPreset,
+        targetFps: selectedTargetFps,
       },
     });
   };
@@ -145,6 +148,11 @@ export function useGameDetailForm(
     resetCheck();
   };
 
+  const handleTargetFpsChange = (targetFps: TargetFps) => {
+    setSelectedTargetFps(targetFps);
+    resetCheck();
+  };
+
   const handleActiveTierChange = (tier: string) => {
     setActiveTier(tier);
     resetCheck();
@@ -185,11 +193,14 @@ export function useGameDetailForm(
     setCustomHeight: handleCustomHeightChange,
     selectedPreset,
     setSelectedPreset: handlePresetChange,
+    selectedTargetFps,
+    setSelectedTargetFps: handleTargetFpsChange,
 
     // Status
     hasAttemptedSubmit,
     isChecking,
     checkResult,
+    checkError: checkError?.message,
     isFormValid,
 
     // Handlers
