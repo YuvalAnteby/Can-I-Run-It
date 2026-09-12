@@ -133,6 +133,9 @@ export class PerformanceRecord {
     @ApiProperty({ description: 'Whether the record is verified' })
     verified: boolean;
 
+    @Column({ type: 'varchar', length: 50, default: 'measured' })
+    source: string;
+
     @Column({ type: 'text', name: 'source_url', nullable: true })
     @ApiProperty({
         description: 'The source URL of the benchmark data',

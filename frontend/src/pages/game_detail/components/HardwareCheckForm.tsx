@@ -1,6 +1,10 @@
 import React from 'react';
 import { SearchableSelect } from '../../../components/SearchableSelect/SearchableSelect';
-import { SettingPreset } from '../../../@types/check.types';
+import {
+  SettingPreset,
+  TARGET_FPS_VALUES,
+  TargetFps,
+} from '../../../@types/check.types';
 import { ClientCpuDto } from '../../../@types/cpu.types';
 import { ClientGpuDto } from '../../../@types/gpu.types';
 
@@ -27,6 +31,9 @@ interface HardwareCheckFormProps {
 
   selectedPreset: SettingPreset;
   onPresetChange: (preset: SettingPreset) => void;
+
+  selectedTargetFps: TargetFps;
+  onTargetFpsChange: (targetFps: TargetFps) => void;
 
   selectedResolutionKey: string;
   onResolutionKeyChange: (key: string) => void;
@@ -63,6 +70,9 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
 
   selectedPreset,
   onPresetChange,
+
+  selectedTargetFps,
+  onTargetFpsChange,
 
   selectedResolutionKey,
   onResolutionKeyChange,
@@ -143,6 +153,29 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
             <option value={SettingPreset.MEDIUM}>Medium</option>
             <option value={SettingPreset.HIGH}>High</option>
             <option value={SettingPreset.ULTRA}>Ultra</option>
+          </select>
+        </div>
+
+        <div className="col-span-2">
+          <label
+            htmlFor="target-fps"
+            className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold"
+          >
+            Target FPS
+          </label>
+          <select
+            id="target-fps"
+            className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500 appearance-none cursor-pointer font-medium"
+            value={selectedTargetFps}
+            onChange={(e) =>
+              onTargetFpsChange(Number(e.target.value) as TargetFps)
+            }
+          >
+            {TARGET_FPS_VALUES.map((targetFps) => (
+              <option key={targetFps} value={targetFps}>
+                {targetFps} FPS
+              </option>
+            ))}
           </select>
         </div>
 

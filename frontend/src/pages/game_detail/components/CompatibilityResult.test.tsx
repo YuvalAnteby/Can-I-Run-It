@@ -1,0 +1,339 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import type { ComponentProps, ReactElement } from 'react';
+import { describe, expect, it, vi } from 'vitest';
+
+import {
+  SettingPreset,
+  type CheckRequest,
+  type CheckResponse,
+} from '../../../@types/check.types';
+import { server } from '../../../mocks/server';
+import { useHardwareCheck } from '../useHardwareCheck';
+import { CompatibilityResult } from './CompatibilityResult';
+import { HardwareCheckCard } from './HardwareCheckCard';
+
+const CHECK_URL = 'http://localhost:4000/api/v1/check';
+const SSD_ADVISORY = 'An SSD is recommended for smoother asset streaming.';
+const VRAM_FAILURE = 'Your GPU has less VRAM than this preset requires.';
+
+const measuredResult: CheckResponse = {
+  state: 'can',
+  verdict: 'Can run',
+  sub: 'Recorded performance meets your selected target.',
+  source: 'measured',
+  provider: null,
+  confidence: 'high',
+  targetFps: 60,
+  fps: { low: 110, med: 96, high: 78, ultra: 62 },
+  gpuPass: true,
+  cpuPass: true,
+  ramPass: true,
+  vramPass: true,
+  ssdPass: true,
+  notes: [],
+};
+
+const aiResult: CheckResponse = {
+  state: 'can',
+  verdict: 'Likely can run',
+  sub: 'AI-predicted performance meets your selected target.',
+  source: 'ai',
+  provider: 'gemini',
+  confidence: 'medium',
+  targetFps: 90,
+  fps: { low: 124, med: 108, high: 94, ultra: 71 },
+  gpuPass: true,
+  cpuPass: true,
+  ramPass: true,
+  vramPass: true,
+  ssdPass: true,
+  notes: [],
+};
+
+const estimateResult: CheckResponse = {
+  state: 'cant',
+  verdict: "Likely can't run",
+  sub: 'Estimated performance misses your selected target.',
+  source: 'estimate',
+  provider: null,
+  confidence: 'low',
+  targetFps: 120,
+  fps: { low: 88, med: 72, high: 58, ultra: 41 },
+  gpuPass: false,
+  cpuPass: true,
+  ramPass: true,
+  vramPass: false,
+  ssdPass: false,
+  notes: [],
+};
+
+const insufficientResult: CheckResponse = {
+  state: 'insufficient',
+  verdict: 'Insufficient data',
+  sub: 'No performance data is available for this configuration.',
+  source: null,
+  provider: null,
+  confidence: null,
+  targetFps: 60,
+  fps: null,
+  gpuPass: null,
+  cpuPass: null,
+  ramPass: null,
+  vramPass: null,
+  ssdPass: null,
+  notes: [],
+};
+
+const cardProps: ComponentProps<typeof HardwareCheckCard> = {
+  gpuResults: [],
+  isLoadingGpus: false,
+  onGpuSearch: vi.fn(),
+  onGpuSelect: vi.fn(),
+  cpuResults: [],
+  isLoadingCpus: false,
+  onCpuSearch: vi.fn(),
+  onCpuSelect: vi.fn(),
+  selectedGpu: '1',
+  selectedGpuName: 'GeForce RTX 4090',
+  selectedCpu: '1',
+  selectedCpuName: 'Intel Core i9-14900K',
+  selectedRam: 16,
+  onRamChange: vi.fn(),
+  selectedStorage: 'ssd',
+  onStorageChange: vi.fn(),
+  selectedPreset: SettingPreset.HIGH,
+  onPresetChange: vi.fn(),
+  selectedTargetFps: 60,
+  onTargetFpsChange: vi.fn(),
+  selectedResolutionKey: '1920x1080',
+  onResolutionKeyChange: vi.fn(),
+  customWidth: 1920,
+  onCustomWidthChange: vi.fn(),
+  customHeight: 1080,
+  onCustomHeightChange: vi.fn(),
+  hasAttemptedSubmit: true,
+  isChecking: false,
+  checkResult: undefined,
+  checkError: undefined,
+  isFormValid: true,
+  onCheck: vi.fn(),
+};
+
+const checkRequest: CheckRequest = {
+  gameSlug: 'cyberpunk-2077',
+  hardware: { cpuId: 1, gpuId: 1, ramGb: 16, isSsd: true },
+  settings: {
+    resolutionWidth: 1920,
+    resolutionHeight: 1080,
+    preset: SettingPreset.HIGH,
+    targetFps: 90,
+  },
+};
+
+function MutationHarness(): ReactElement {
+  const check = useHardwareCheck();
+
+  return (
+    <>
+      <button type="button" onClick={() => check.mutate(checkRequest)}>
+        Run check
+      </button>
+      {check.data && (
+        <CompatibilityResult
+          checkResult={check.data}
+          resolutionLabel="1920x1080"
+        />
+      )}
+      {check.error && <p role="alert">{check.error.message}</p>}
+    </>
+  );
+}
+
+function renderMutationHarness(): ReturnType<typeof render> {
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false } },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MutationHarness />
+    </QueryClientProvider>,
+  );
+}
+
+describe('CompatibilityResult', () => {
+  it.each([
+    [measuredResult, 'Verified', 'Can run'],
+    [
+      { ...measuredResult, state: 'cant', verdict: "Can't run" },
+      'Verified',
+      "Can't run",
+    ],
+    [aiResult, 'AI', 'Likely can run'],
+    [estimateResult, 'Estimate', "Likely can't run"],
+  ] as const)(
+    'shows the API provenance and verdict',
+    (result, badge, verdict) => {
+      render(
+        <CompatibilityResult
+          checkResult={result}
+          resolutionLabel="1920x1080"
+        />,
+      );
+
+      expect(screen.getByText(badge)).toBeInTheDocument();
+      expect(screen.getByText(verdict)).toBeInTheDocument();
+    },
+  );
+
+  it('shows the AI provider and selected target inside the FPS panel', () => {
+    render(
+      <CompatibilityResult
+        checkResult={aiResult}
+        resolutionLabel="1920x1080"
+      />,
+    );
+
+    expect(screen.getByText('Gemini')).toBeInTheDocument();
+    expect(screen.getByText(/target: 90 fps/i)).toBeInTheDocument();
+  });
+
+  it('renders insufficient data without an FPS panel', () => {
+    render(
+      <CompatibilityResult
+        checkResult={insufficientResult}
+        resolutionLabel="1920x1080"
+      />,
+    );
+
+    expect(screen.getByText('Insufficient data')).toBeInTheDocument();
+    expect(screen.queryByText(/fps/i)).not.toBeInTheDocument();
+  });
+
+  it('renders VRAM failure and SSD advisory as separate notes', () => {
+    render(
+      <CompatibilityResult
+        checkResult={estimateResult}
+        resolutionLabel="1920x1080"
+      />,
+    );
+
+    const notes = screen.getAllByRole('listitem');
+    expect(notes).toHaveLength(2);
+    expect(notes[0]).toHaveTextContent(VRAM_FAILURE);
+    expect(notes[1]).toHaveTextContent(SSD_ADVISORY);
+  });
+
+  it('derives trusted warnings without rendering free-text notes', () => {
+    render(
+      <CompatibilityResult
+        checkResult={{
+          ...estimateResult,
+          vramPass: true,
+          notes: [SSD_ADVISORY, 'Untrusted provider explanation.'],
+        }}
+        resolutionLabel="1920x1080"
+      />,
+    );
+
+    const notes = screen.getAllByRole('listitem');
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toHaveTextContent(SSD_ADVISORY);
+    expect(
+      screen.queryByText('Untrusted provider explanation.'),
+    ).not.toBeInTheDocument();
+  });
+
+  it('renders unknown hardware evidence without reporting a failure', () => {
+    render(
+      <CompatibilityResult
+        checkResult={insufficientResult}
+        resolutionLabel="1920x1080"
+      />,
+    );
+
+    expect(screen.getAllByText('Not available')).toHaveLength(3);
+    expect(screen.queryByText(/below req/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/VRAM|SSD/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('HardwareCheckCard errors', () => {
+  it.each([
+    'Too many compatibility checks. Please wait a minute and try again.',
+    'The compatibility check timed out. Please try again.',
+    "We couldn't check compatibility. Please try again.",
+  ])('announces a safe recovery message', (message) => {
+    render(<HardwareCheckCard {...cardProps} checkError={message} />);
+
+    expect(within(screen.getByRole('alert')).getByText(message)).toBeVisible();
+  });
+});
+
+describe('hardware check mutation journey', () => {
+  it('uses the default MSW handler for the selected target', async () => {
+    renderMutationHarness();
+    fireEvent.click(screen.getByRole('button', { name: 'Run check' }));
+
+    const result = await screen.findByRole('status', {}, { timeout: 1_000 });
+    expect(within(result).getByText('Verified')).toBeInTheDocument();
+    expect(within(result).getByText(/target: 90 fps/i)).toBeInTheDocument();
+    expect(within(result).getByText(/high settings/i)).toBeInTheDocument();
+  });
+
+  it('posts selected settings, shows a safe failure, and retries', async () => {
+    let requestCount = 0;
+    let capturedRequest:
+      | { method: string; pathname: string; body: CheckRequest }
+      | undefined;
+    server.use(
+      http.post(CHECK_URL, async ({ request }) => {
+        const body = (await request.json()) as CheckRequest;
+        requestCount += 1;
+        capturedRequest = {
+          method: request.method,
+          pathname: new URL(request.url).pathname,
+          body,
+        };
+
+        if (requestCount === 1) {
+          return HttpResponse.json(
+            { message: 'Database stack trace must stay private.' },
+            { status: 500 },
+          );
+        }
+
+        return HttpResponse.json({
+          ...measuredResult,
+          sub: `Recorded performance at ${body.settings.preset} settings meets your selected target.`,
+          targetFps: body.settings.targetFps ?? 60,
+        });
+      }),
+    );
+
+    renderMutationHarness();
+    fireEvent.click(screen.getByRole('button', { name: 'Run check' }));
+
+    expect(
+      await screen.findByRole('alert', {}, { timeout: 1_000 }),
+    ).toHaveTextContent("We couldn't check compatibility. Please try again.");
+    expect(screen.queryByText(/Database stack trace/i)).not.toBeInTheDocument();
+    expect(capturedRequest).toMatchObject({
+      method: 'POST',
+      pathname: '/api/v1/check',
+      body: {
+        settings: { targetFps: 90, preset: SettingPreset.HIGH },
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run check' }));
+
+    const result = await screen.findByRole('status', {}, { timeout: 1_000 });
+    expect(within(result).getByText('Verified')).toBeInTheDocument();
+    expect(within(result).getByText(/target: 90 fps/i)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(requestCount).toBe(2);
+  }, 3_000);
+});

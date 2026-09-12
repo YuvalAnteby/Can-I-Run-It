@@ -1,98 +1,150 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Backend
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+The backend is a NestJS 11 REST API written in TypeScript. It uses TypeORM with
+PostgreSQL for the catalog and performance records, and optionally calls Gemini
+when no stored result matches a compatibility request.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Configuration
 
-## Description
+Development and production Docker stacks read the repository-level `infra/.env`;
+the isolated test stack uses deterministic values from its Compose file. Do not
+create a separate backend environment file. Start from `infra/.env.example` and
+keep database credentials and `GEMINI_API_KEY` out of version control.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Within Compose, PostgreSQL is available to NestJS as `postgres:5432`.
+Production schema synchronization is disabled; tracked SQL in
+`infra/init-scripts/` creates and seeds a fresh PostgreSQL volume.
 
-## Project setup
+## Public compatibility API
 
-```bash
-$ npm install
+`POST /api/v1/check` accepts JSON in this shape:
+
+```json
+{
+    "gameSlug": "cyberpunk-2077",
+    "hardware": {
+        "cpuId": 1,
+        "gpuId": 1,
+        "ramGb": 32,
+        "isSsd": true
+    },
+    "settings": {
+        "resolutionWidth": 1920,
+        "resolutionHeight": 1080,
+        "tier": "recommended",
+        "preset": "ultra",
+        "targetFps": 60,
+        "upscaler": "DLSS",
+        "upscalerQuality": "quality"
+    }
+}
 ```
 
-## Compile and run the project
+`tier`, `targetFps`, `upscaler`, and `upscalerQuality` are optional. Presets are
+`low`, `medium`, `high`, or `ultra`. Target FPS accepts only `30`, `60`, `90`,
+`120`, or `144` and defaults to `60`. Upscaler values are `off`, `DLSS`, `FSR`,
+or `XeSS`; quality values are `quality`, `balanced`, `performance`, or
+`ultra_performance`.
 
-```bash
-# development
-$ npm run start
+The stored-record identity is exactly:
 
-# watch mode
-$ npm run start:dev
+1. game
+2. CPU
+3. GPU
+4. RAM
+5. resolution width and height
+6. settings preset
 
-# production mode
-$ npm run start:prod
+Upscaler and quality only rank matching candidates. Target FPS, requirement
+tier, SSD choice, and storage capacity do not change the lookup identity.
+Measured rows rank before all provider rows, then an upscaler preference and
+the newest record break ties.
+
+A successful response contains the explicit verdict, provenance, selected
+target, FPS data when available, hardware checks, and notes:
+
+```json
+{
+    "state": "can",
+    "verdict": "Can run",
+    "sub": "Measured ~90fps at 1080p ultra",
+    "source": "measured",
+    "provider": null,
+    "confidence": "high",
+    "targetFps": 60,
+    "fps": { "low": 200, "med": 150, "high": 120, "ultra": 90 },
+    "gpuPass": null,
+    "cpuPass": null,
+    "ramPass": null,
+    "vramPass": true,
+    "ssdPass": true,
+    "notes": []
+}
 ```
 
-## Run tests
+The possible verdicts are `Can run`, `Can't run`, `Likely can run`,
+`Likely can't run`, and `Insufficient data`. Provenance is:
+
+- `measured`: a stored benchmark; exact verdict wording.
+- `ai`: a stored or new provider estimate; `provider` currently identifies
+  Gemini and verdict wording is qualified with “Likely”.
+- `estimate`: the local requirements-based heuristic; low confidence and
+  “Likely” verdict wording.
+- `null`: insufficient data; `fps`, provider, confidence, and hardware checks
+  are also null.
+
+The selected preset's FPS is compared with `targetFps`. Insufficient VRAM forces
+a failing verdict even when FPS meets the target. SSD mismatch adds an advisory
+note only. Fresh Gemini estimates and local heuristic results may include
+advisory CPU, GPU-model, and RAM comparisons; cached provider and measured rows
+return those checks as `null`. Storage capacity is not accepted or evaluated.
+
+The route allows ten requests per IP per one-minute window and returns HTTP 429
+with `Retry-After` after the limit. This guard is per backend process, not a
+distributed limit.
+
+## Fallback behavior
+
+The compatibility flow is measured record, stored provider record, Gemini,
+then local heuristic. A valid new Gemini result is cached as unverified provider
+data with its average FPS only; no 1% low value is fabricated. Heuristic results
+are never stored.
+
+Gemini is skipped or treated as unavailable when its key is missing, the
+eight-second request times out, the provider errors, or its payload is invalid.
+NestJS then uses the heuristic only when game requirements provide enough
+context; otherwise it returns `Insufficient data` with no FPS values.
+Additional providers and an ML prediction path are future work.
+
+## Commands
+
+Run package commands from `backend/`:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+npm ci
+npm run start:dev
+npm run typecheck
+npm run lint
+npm test
+npm run test:e2e
+npm run build
+npm run start:prod
 ```
 
-## Deployment
+Local package execution requires a reachable PostgreSQL instance and matching
+environment variables. The supported full-stack path is the repository Compose
+setup documented in the [root README](../README.md).
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+With the default development ports:
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+- Swagger: <http://localhost:4000/api/docs>
+- Database health: <http://localhost:4000/api/health/postgres>
+- Compatibility check: <http://localhost:4000/api/v1/check>
 
-```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
-```
+## Tests and CI
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Jest covers unit tests and Supertest covers E2E behavior. The isolated Compose
+test command starts a clean PostgreSQL service with tracked schema/seed scripts,
+runs unit tests, and exercises a seeded compatibility request through the real
+API. CI also runs lint, type-check, production build, frontend checks, and a
+Docker build.

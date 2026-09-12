@@ -210,9 +210,8 @@ __marimo__/
 **/*-test-results/
 
 /node_modules
+.worktrees/
 **/.DS_Store
 
 .gemini/
 gha-creds-*.json
-
-/infra/init-scripts/05-seed.sql

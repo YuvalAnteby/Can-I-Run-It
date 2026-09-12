@@ -7,6 +7,7 @@ export class HardwareDto {
         example: 1,
     })
     @IsInt()
+    @Min(1)
     cpuId: number;
 
     @ApiProperty({
@@ -14,6 +15,7 @@ export class HardwareDto {
         example: 1,
     })
     @IsInt()
+    @Min(1)
     gpuId: number;
 
     @ApiProperty({

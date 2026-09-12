@@ -34,7 +34,7 @@ Response schema:
   "note": string | null
 }`;
 
-const GEMINI_TIMEOUT_MS = 30_000;
+const GEMINI_TIMEOUT_MS = 8_000;
 
 @Injectable()
 export class GeminiService {
@@ -75,19 +75,15 @@ export class GeminiService {
         let raw: string;
         try {
             raw = await this.callGemini(userPrompt);
-            this.logger.debug(`Raw Gemini response: ${raw}`);
-        } catch (err: unknown) {
-            this.logger.error(
-                'Gemini API call failed',
-                err instanceof Error ? err.stack : String(err),
-            );
+        } catch {
+            this.logger.error('Gemini API call failed');
             return null;
         }
 
         try {
             return this.parseResponse(raw);
-        } catch (err: unknown) {
-            this.logger.error('Failed to parse Gemini response', { raw, err });
+        } catch {
+            this.logger.error('Failed to parse Gemini response');
             return null;
         }
     }
@@ -121,12 +117,13 @@ export class GeminiService {
             throw new Error('GenAI Client is not initialized');
         }
 
+        const controller = new AbortController();
         let timeoutId: ReturnType<typeof setTimeout>;
         const timeoutPromise = new Promise<never>((_, reject) => {
-            timeoutId = setTimeout(
-                () => reject(new Error('Gemini API timeout')),
-                GEMINI_TIMEOUT_MS,
-            );
+            timeoutId = setTimeout(() => {
+                reject(new Error('Gemini API timeout'));
+                controller.abort();
+            }, GEMINI_TIMEOUT_MS);
         });
 
         try {
@@ -134,6 +131,7 @@ export class GeminiService {
                 model: 'gemini-2.5-flash',
                 contents: userPrompt,
                 config: {
+                    abortSignal: controller.signal,
                     systemInstruction: SYSTEM_PROMPT,
                     temperature: 0.2, // Low temp → more consistent numeric estimates
                     responseMimeType: 'application/json',
@@ -190,10 +188,13 @@ export class GeminiService {
         const { fps, note } = parsed;
 
         if (
-            typeof fps?.low !== 'number' ||
-            typeof fps?.med !== 'number' ||
-            typeof fps?.high !== 'number' ||
-            typeof fps?.ultra !== 'number'
+            ![fps?.low, fps?.med, fps?.high, fps?.ultra].every(
+                (value) =>
+                    typeof value === 'number' &&
+                    Number.isFinite(value) &&
+                    value > 0 &&
+                    Math.round(value) > 0,
+            )
         ) {
             throw new Error('Missing or invalid fps fields in Gemini response');
         }

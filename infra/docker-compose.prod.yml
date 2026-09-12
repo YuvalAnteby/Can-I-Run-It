@@ -3,12 +3,16 @@ services:
   # NestJS backend (Production)
   backend:
     container_name: ciri-backend-prod
+    restart: always
     build:
       context: ../backend
       dockerfile: ../infra/Dockerfile.backend
       target: prod
     environment:
-      - REACT_URL=${REACT_URL:-http://react}
+      - REACT_URL=${REACT_URL:-}
+      - PORT=${BACKEND_PORT}
+      - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
     env_file:
       - .env
     ports:
@@ -16,22 +20,36 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget -qO- http://localhost:$${PORT:-4000}/api/health/postgres > /dev/null || exit 1",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
     networks:
       - ciri-net-prod
 
   # React Frontend (Production - Nginx)
   react:
     container_name: ciri-frontend-prod
+    restart: always
     build:
       context: ../frontend
       dockerfile: ../infra/Dockerfile.frontend
       target: prod
       args:
-        - VITE_API_URL=http://${API_DOMAIN:-localhost}:${BACKEND_PORT}/api
+        VITE_API_URL: ${VITE_API_URL:?VITE_API_URL must be set}
     env_file:
       - .env
     ports:
       - "${REACT_PORT}:80" # Nginx listens on 80 inside the container
+    depends_on:
+      backend:
+        condition: service_healthy
     networks:
       - ciri-net-prod
 
@@ -51,6 +69,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - pgdata-prod:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
       - ciri-net-prod
     healthcheck:

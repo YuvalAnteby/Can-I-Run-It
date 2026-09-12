@@ -1,3 +1,5 @@
+import { NavLink } from 'react-router-dom';
+
 interface FooterLink {
   label: string;
   href: string;
@@ -17,8 +19,7 @@ const FOOTER_LINK_GROUPS: FooterLinkGroup[] = [
       { label: 'Games', href: '#', comingSoon: true },
       // TODO: Point to /hardware-rank once the Hardware Rank page exists
       { label: 'Hardware Rank', href: '#', comingSoon: true },
-      // TODO: Point to /about once the About page exists
-      { label: 'About', href: '#', comingSoon: true },
+      { label: 'About', href: '/about' },
     ],
   },
   {
@@ -67,6 +68,13 @@ export const MainFooter = (): React.ReactElement => {
                       >
                         {link.label}
                       </button>
+                    ) : link.href.startsWith('/') ? (
+                      <NavLink
+                        to={link.href}
+                        className="inline-flex items-center rounded-sm no-underline text-gray-400 transition-colors duration-200 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1115]"
+                      >
+                        {link.label}
+                      </NavLink>
                     ) : (
                       <a
                         href={link.href}
