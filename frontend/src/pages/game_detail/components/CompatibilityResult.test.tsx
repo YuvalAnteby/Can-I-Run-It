@@ -273,6 +273,16 @@ describe('HardwareCheckCard errors', () => {
 });
 
 describe('hardware check mutation journey', () => {
+  it('uses the default MSW handler for the selected target', async () => {
+    renderMutationHarness();
+    fireEvent.click(screen.getByRole('button', { name: 'Run check' }));
+
+    const result = await screen.findByRole('status', {}, { timeout: 1_000 });
+    expect(within(result).getByText('Verified')).toBeInTheDocument();
+    expect(within(result).getByText(/target: 90 fps/i)).toBeInTheDocument();
+    expect(within(result).getByText(/high settings/i)).toBeInTheDocument();
+  });
+
   it('posts selected settings, shows a safe failure, and retries', async () => {
     let requestCount = 0;
     let capturedRequest:
