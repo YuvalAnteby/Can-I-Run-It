@@ -10,7 +10,9 @@ services:
       target: prod
     environment:
       - REACT_URL=${REACT_URL:-}
+      - PORT=${BACKEND_PORT}
       - POSTGRES_HOST=postgres
+      - POSTGRES_PORT=5432
     env_file:
       - .env
     ports:
@@ -22,7 +24,7 @@ services:
       test:
         [
           "CMD-SHELL",
-          "wget -qO- http://localhost:$${BACKEND_PORT:-4000}/api/health/postgres > /dev/null || exit 1",
+          "wget -qO- http://localhost:$${PORT:-4000}/api/health/postgres > /dev/null || exit 1",
         ]
       interval: 10s
       timeout: 5s
@@ -40,7 +42,7 @@ services:
       dockerfile: ../infra/Dockerfile.frontend
       target: prod
       args:
-        VITE_API_URL: ${VITE_API_URL}
+        VITE_API_URL: ${VITE_API_URL:?VITE_API_URL must be set}
     env_file:
       - .env
     ports:
