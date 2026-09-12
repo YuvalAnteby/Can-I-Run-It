@@ -11,6 +11,8 @@ const sourceLabels = {
   ai: 'AI',
   estimate: 'Estimate',
 } as const;
+const VRAM_FAILURE = 'Your GPU has less VRAM than this preset requires.';
+const SSD_ADVISORY = 'An SSD is recommended for smoother asset streaming.';
 
 function renderPassStatus(pass: boolean | null): React.ReactNode {
   if (pass === null) {
@@ -34,6 +36,10 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
         ? 'Gemini'
         : 'AI provider'
       : null;
+  const notes = [
+    ...(checkResult.vramPass === false ? [VRAM_FAILURE] : []),
+    ...(checkResult.ssdPass === false ? [SSD_ADVISORY] : []),
+  ];
 
   return (
     <div
@@ -79,12 +85,12 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
               {checkResult.verdict}
             </div>
             {checkResult.source && (
-              <span className="rounded-md bg-white/10 px-2 py-0.5 text-[0.65rem] font-bold text-gray-200">
+              <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs font-bold text-gray-200">
                 {sourceLabels[checkResult.source]}
               </span>
             )}
             {provider && (
-              <span className="text-[0.7rem] font-medium text-gray-300">
+              <span className="text-xs font-medium text-gray-300">
                 {provider}
               </span>
             )}
@@ -109,12 +115,12 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
           {renderPassStatus(checkResult.ramPass)}
         </div>
 
-        {checkResult.notes.length > 0 && (
+        {notes.length > 0 && (
           <ul
             aria-label="Compatibility notes"
             className="mt-3 space-y-1.5 border-t border-[#1e1e2a] pt-3 text-xs text-amber-300"
           >
-            {checkResult.notes.map((note) => (
+            {notes.map((note) => (
               <li key={note}>{note}</li>
             ))}
           </ul>

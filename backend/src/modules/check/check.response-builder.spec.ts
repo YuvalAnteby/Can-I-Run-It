@@ -192,9 +192,9 @@ describe('check response builders', () => {
         expect(result.verdict).toBe("Likely can't run");
         expect(result.vramPass).toBe(false);
         expect(result.ssdPass).toBe(false);
-        expect(result.notes).toEqual(
-            expect.arrayContaining([expect.stringMatching(/SSD/i)]),
-        );
+        expect(result.notes).toEqual([
+            'An SSD is recommended for smoother asset streaming.',
+        ]);
     });
 
     it('returns insufficient data without fabricated FPS', () => {
@@ -265,7 +265,9 @@ describe('check response builders', () => {
             expect(result.verdict).toBe(verdict);
             expect(result.ssdPass).toBe(false);
             expect(result.vramPass).toBe(vramGb === 8);
-            expect(result.notes).toEqual([expect.stringMatching(/SSD/i)]);
+            expect(result.notes).toEqual([
+                'An SSD is recommended for smoother asset streaming.',
+            ]);
         },
     );
 
@@ -308,8 +310,7 @@ describe('check response builders', () => {
                 ssdPass: false,
             });
             expect(result.notes).toEqual([
-                'Shader compilation may stutter.',
-                expect.stringMatching(/SSD/i),
+                'An SSD is recommended for smoother asset streaming.',
             ]);
         },
     );
@@ -345,7 +346,9 @@ describe('check response builders', () => {
                 ramPass: false,
                 ssdPass: false,
             });
-            expect(result.notes).toEqual([expect.stringMatching(/SSD/i)]);
+            expect(result.notes).toEqual([
+                'An SSD is recommended for smoother asset streaming.',
+            ]);
         },
     );
 

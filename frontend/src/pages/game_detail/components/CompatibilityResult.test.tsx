@@ -1,10 +1,22 @@
-import { render, screen, within } from '@testing-library/react';
-import type { ComponentProps } from 'react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import type { ComponentProps, ReactElement } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import { SettingPreset, type CheckResponse } from '../../../@types/check.types';
+import {
+  SettingPreset,
+  type CheckRequest,
+  type CheckResponse,
+} from '../../../@types/check.types';
+import { server } from '../../../mocks/server';
+import { useHardwareCheck } from '../useHardwareCheck';
 import { CompatibilityResult } from './CompatibilityResult';
 import { HardwareCheckCard } from './HardwareCheckCard';
+
+const CHECK_URL = 'http://localhost:4000/api/v1/check';
+const SSD_ADVISORY = 'An SSD is recommended for smoother asset streaming.';
+const VRAM_FAILURE = 'Your GPU has less VRAM than this preset requires.';
 
 const measuredResult: CheckResponse = {
   state: 'can',
@@ -54,10 +66,7 @@ const estimateResult: CheckResponse = {
   ramPass: true,
   vramPass: false,
   ssdPass: false,
-  notes: [
-    'Your GPU has less VRAM than this preset requires.',
-    'An SSD is recommended for smoother asset streaming.',
-  ],
+  notes: [],
 };
 
 const insufficientResult: CheckResponse = {
@@ -111,6 +120,48 @@ const cardProps: ComponentProps<typeof HardwareCheckCard> = {
   isFormValid: true,
   onCheck: vi.fn(),
 };
+
+const checkRequest: CheckRequest = {
+  gameSlug: 'cyberpunk-2077',
+  hardware: { cpuId: 1, gpuId: 1, ramGb: 16, isSsd: true },
+  settings: {
+    resolutionWidth: 1920,
+    resolutionHeight: 1080,
+    preset: SettingPreset.HIGH,
+    targetFps: 90,
+  },
+};
+
+function MutationHarness(): ReactElement {
+  const check = useHardwareCheck();
+
+  return (
+    <>
+      <button type="button" onClick={() => check.mutate(checkRequest)}>
+        Run check
+      </button>
+      {check.data && (
+        <CompatibilityResult
+          checkResult={check.data}
+          resolutionLabel="1920x1080"
+        />
+      )}
+      {check.error && <p role="alert">{check.error.message}</p>}
+    </>
+  );
+}
+
+function renderMutationHarness(): ReturnType<typeof render> {
+  const queryClient = new QueryClient({
+    defaultOptions: { mutations: { retry: false } },
+  });
+
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <MutationHarness />
+    </QueryClientProvider>,
+  );
+}
 
 describe('CompatibilityResult', () => {
   it.each([
@@ -171,8 +222,28 @@ describe('CompatibilityResult', () => {
 
     const notes = screen.getAllByRole('listitem');
     expect(notes).toHaveLength(2);
-    expect(notes[0]).toHaveTextContent(/VRAM/i);
-    expect(notes[1]).toHaveTextContent(/SSD/i);
+    expect(notes[0]).toHaveTextContent(VRAM_FAILURE);
+    expect(notes[1]).toHaveTextContent(SSD_ADVISORY);
+  });
+
+  it('derives trusted warnings without rendering free-text notes', () => {
+    render(
+      <CompatibilityResult
+        checkResult={{
+          ...estimateResult,
+          vramPass: true,
+          notes: [SSD_ADVISORY, 'Untrusted provider explanation.'],
+        }}
+        resolutionLabel="1920x1080"
+      />,
+    );
+
+    const notes = screen.getAllByRole('listitem');
+    expect(notes).toHaveLength(1);
+    expect(notes[0]).toHaveTextContent(SSD_ADVISORY);
+    expect(
+      screen.queryByText('Untrusted provider explanation.'),
+    ).not.toBeInTheDocument();
   });
 
   it('renders unknown hardware evidence without reporting a failure', () => {
@@ -185,6 +256,7 @@ describe('CompatibilityResult', () => {
 
     expect(screen.getAllByText('Not available')).toHaveLength(3);
     expect(screen.queryByText(/below req/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/VRAM|SSD/i)).not.toBeInTheDocument();
   });
 });
 
@@ -198,4 +270,60 @@ describe('HardwareCheckCard errors', () => {
 
     expect(within(screen.getByRole('alert')).getByText(message)).toBeVisible();
   });
+});
+
+describe('hardware check mutation journey', () => {
+  it('posts selected settings, shows a safe failure, and retries', async () => {
+    let requestCount = 0;
+    let capturedRequest:
+      | { method: string; pathname: string; body: CheckRequest }
+      | undefined;
+    server.use(
+      http.post(CHECK_URL, async ({ request }) => {
+        const body = (await request.json()) as CheckRequest;
+        requestCount += 1;
+        capturedRequest = {
+          method: request.method,
+          pathname: new URL(request.url).pathname,
+          body,
+        };
+
+        if (requestCount === 1) {
+          return HttpResponse.json(
+            { message: 'Database stack trace must stay private.' },
+            { status: 500 },
+          );
+        }
+
+        return HttpResponse.json({
+          ...measuredResult,
+          sub: `Recorded performance at ${body.settings.preset} settings meets your selected target.`,
+          targetFps: body.settings.targetFps ?? 60,
+        });
+      }),
+    );
+
+    renderMutationHarness();
+    fireEvent.click(screen.getByRole('button', { name: 'Run check' }));
+
+    expect(
+      await screen.findByRole('alert', {}, { timeout: 1_000 }),
+    ).toHaveTextContent("We couldn't check compatibility. Please try again.");
+    expect(screen.queryByText(/Database stack trace/i)).not.toBeInTheDocument();
+    expect(capturedRequest).toMatchObject({
+      method: 'POST',
+      pathname: '/api/v1/check',
+      body: {
+        settings: { targetFps: 90, preset: SettingPreset.HIGH },
+      },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Run check' }));
+
+    const result = await screen.findByRole('status', {}, { timeout: 1_000 });
+    expect(within(result).getByText('Verified')).toBeInTheDocument();
+    expect(within(result).getByText(/target: 90 fps/i)).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(requestCount).toBe(2);
+  }, 3_000);
 });

@@ -56,7 +56,10 @@ function getWarnings(
     return {
         vramPass,
         ssdPass,
-        notes: ssdPass === false ? ['An SSD is required for this game.'] : [],
+        notes:
+            ssdPass === false
+                ? ['An SSD is recommended for smoother asset streaming.']
+                : [],
     };
 }
 
@@ -140,9 +143,6 @@ export function buildResponseFromGemini(
         cpuPass,
         ramPass,
         ...warnings,
-        notes: estimate.note
-            ? [estimate.note, ...warnings.notes]
-            : warnings.notes,
     };
 }
 
