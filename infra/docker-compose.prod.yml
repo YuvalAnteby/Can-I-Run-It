@@ -43,8 +43,6 @@ services:
       target: prod
       args:
         VITE_API_URL: ${VITE_API_URL:?VITE_API_URL must be set}
-    env_file:
-      - .env
     ports:
       - "${REACT_PORT}:80" # Nginx listens on 80 inside the container
     depends_on:
