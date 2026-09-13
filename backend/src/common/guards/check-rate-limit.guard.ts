@@ -13,6 +13,10 @@ export class TooManyRequestsException extends HttpException {
     }
 }
 
+/**
+ * A guard that checks the rate limit for incoming requests based on the client's IP address.
+ * Used mostly for Gemini API requests, which are not authenticated and thus cannot be rate-limited per user.
+ */
 @Injectable()
 export class CheckRateLimitGuard implements CanActivate {
     // ponytail: per-process limits; use a shared store when running multiple replicas.
