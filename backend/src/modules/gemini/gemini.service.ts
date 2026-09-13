@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -27,6 +27,8 @@ Rules:
 - All fps values must be positive integers.
 - Calibration reference: an RTX 4090 + i9-13900K running a modern AAA title at 1080p High averages ~140fps.
 - The "note" field must be null if there is nothing notable, or a plain string under 100 characters if there is (e.g. shader compilation stutters, VRAM pressure, known CPU bottleneck).
+- Before emitting JSON, privately reason through the hardware, game demands, resolution and preset. Sanity check that FPS values are plausible and decrease from low → ultra.
+- Never output reasoning, output only the JSON object.
 
 Response schema:
 {
@@ -128,11 +130,14 @@ export class GeminiService {
 
         try {
             const callPromise = this.genAI.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.1-flash-lite',
                 contents: userPrompt,
                 config: {
                     abortSignal: controller.signal,
                     systemInstruction: SYSTEM_PROMPT,
+                    thinkingConfig: {
+                        thinkingLevel: ThinkingLevel.MEDIUM,
+                    },
                     temperature: 0.2, // Low temp → more consistent numeric estimates
                     responseMimeType: 'application/json',
                     responseSchema: {
