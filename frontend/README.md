@@ -1,8 +1,8 @@
-# Frontend
+# <img src="public/logo192.png" alt="Logo" width="36" /> Frontend
 
 The frontend is a React 19 and Vite TypeScript SPA. React Router handles pages,
 React Query and the shared Axios client handle API state, and Tailwind CSS
-provides styling. Production assets are served by Nginx in Docker.
+provides styling. Production assets are served by Nginx in Docker locally.
 
 ## Configuration
 

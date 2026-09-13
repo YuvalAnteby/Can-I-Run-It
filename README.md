@@ -1,48 +1,87 @@
-# Can I Run It
+# <img src="frontend/public/logo192.png" alt="Logo" width="36" /> Can I Run It
 
+<p align="center"> 
+<img src="https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
+<img src="https://img.shields.io/badge/nestjs-%23E0234E.svg?style=for-the-badge&logo=nestjs&logoColor=white" alt="NestJS">
+<img src="https://img.shields.io/badge/Postgres-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white" alt="Postgres">
+<img src="https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB" alt="React">
+<img src="https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
+<br>
+<img src="https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg" alt="License: MPL 2.0"> 
+</p>
 Can I Run It is a full-stack PC gaming compatibility checker. Choose a game,
 CPU, GPU, RAM, storage type, resolution, graphics preset, and target FPS to get
 a source-labelled compatibility result.
-
+</br>
 Public demo URL: pending.
 
 ## Architecture
 
-- NestJS 11 and TypeORM provide the REST API and compatibility orchestration.
-- React 19, Vite, React Query, Axios, and Tailwind CSS provide the browser UI.
-- PostgreSQL 16 stores the game catalog, hardware, requirements, and performance
-  records.
-- Gemini is the optional AI fallback when no matching stored record exists.
-- Docker Compose runs development, production, and isolated backend test stacks.
-- GitHub Actions checks linting, types, tests, production builds, and the
-  Docker-backed API journey.
+Browser runs the React SPA, which queries the NestJS REST API.
+Only the NestJS API queries PostgreSQL and the Gemini AI provider.
+</br>
+The frontend and backend are containerized with Docker Compose, using a CICD pipeline to build and test the stack on GitHub Actions.
 
-The frontend calls the NestJS API; NestJS is the only service that accesses
-PostgreSQL or the Gemini credential. Containers reach PostgreSQL as
-`postgres:5432` on their Compose network.
+```mermaid
+flowchart LR
+    User[User] --> Browser[Browser]
+    Browser --> Frontend[React 19 SPA<br/>Vite · Tailwind]
+
+    Frontend -- React Query · Axios --> API[NestJS REST API]
+    API -- TypeORM --> DB[(PostgreSQL 16)]
+    API -. performance optional fallback .-> Gemini[Gemini API]
+
+    subgraph Docker[Docker Compose]
+        Frontend
+        API
+        DB
+    end
+
+    CI[GitHub Actions] -. CICD .-> Docker
+```
 
 ## Compatibility behavior
 
-The exact stored-record lookup identity has six parts: game, CPU, GPU, RAM,
-resolution, and graphics preset. Target FPS, SSD choice, and storage capacity
-are not lookup fields. Upscaler and upscaler quality are optional preferences:
-a preferred match wins within the selected source group, but another matching
-record may be used when the preference is unavailable.
+User input consists of a picked game and hardware combination (CPU, GPU, RAM, optional SSD/HDD), game settings (resolution, graphic preset) and target FPS.
+</br>
+The Frontend sends a POST request to the API, which returns a source labelled result card with an FPS panel and optional advisory warning.
+</br>
+Results prefer measured data, then stored AI provider data, then a local heuristic estimate, and finally an insufficient-data verdict. Gemini results are chached in DB for future requests.
+</br>
 
-Results are selected in this order:
+```mermaid
+flowchart TD
+    Input[User inserts hardware & game combination] --> Key[Exact lookup key:<br/>Game · CPU · GPU · RAM · Resolution · Preset]
+    Key --> Upscaler[Prefer matching upscaler and quality<br/>when available]
+    Upscaler --> Measured{Measured record found?}
 
-1. A matching measured record (`Verified` in the UI).
-2. A stored provider result, or a new Gemini result (`AI`).
-3. A requirements-based heuristic (`Estimate`).
-4. `Insufficient data` when neither provider data nor enough requirement data
-   is available. This outcome has no FPS values or provenance badge.
+    Measured -->|Yes| Verified[Verified result]
+    Measured -->|No| Provider{Stored AI provider result?}
 
-Measured records always outrank provider records. Gemini results cache only the
-average FPS as unverified provider data; heuristic results are not persisted.
-The supported target FPS values are `30`, `60`, `90`, `120`, and `144`, with
-`60` used by default. A VRAM shortage overrides an otherwise positive verdict.
-An SSD mismatch is advisory and does not change the verdict. Storage capacity
-is not collected or evaluated.
+    Provider -->|Yes| AI[AI result]
+    Provider -->|No| Gemini[Request Gemini result]
+    Gemini --> Valid{Valid provider response?}
+
+    Valid -->|Yes| Cache[Cache average FPS as provider data]
+    Cache --> AI
+    Valid -->|No| Requirements{Usable game requirements?}
+
+    Requirements -->|Yes| Estimate[Requirements-based estimate]
+    Requirements -->|No| Insufficient[Insufficient data]
+
+    Verified --> Verdict[Evaluate target FPS]
+    AI --> Verdict
+    Estimate --> Verdict
+
+    Verdict --> VRAM{VRAM shortage?}
+    VRAM -->|Yes| Cannot[Cannot run]
+    VRAM -->|No| FPS{Average FPS meets target?}
+    FPS -->|Yes| Can[Can run]
+    FPS -->|No| Cannot
+
+    Verdict -. advisory warning .-> SSD[SSD mismatch warning<br/>does not change verdict]
+    Insufficient --> NoFPS[No FPS values or provenance badge]
+```
 
 ## Run with Docker
 
@@ -55,8 +94,9 @@ is not collected or evaluated.
 
 `infra/.env` is the single configuration file used by the development and
 production Compose stacks. The isolated test stack uses deterministic values
-from its Compose file instead. Copy the tracked template, then replace its
-example values for your environment:
+from its Compose file instead.
+</br>
+Copy the tracked template, then replace its example values for your environment:
 
 ```bash
 cp infra/.env.example infra/.env
@@ -92,6 +132,11 @@ docker compose --env-file infra/.env -f infra/docker-compose.yml down
 
 ### Production
 
+Using the production Compose file is similar to development's compose, using the file `infra/docker-compose.prod.yml` instead of `infra/docker-compose.yml`.
+</br>
+</br>
+Build and restart the production stack with the latest images:
+
 ```bash
 docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --build
 ```
@@ -99,15 +144,6 @@ docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --bu
 The production frontend is built with `VITE_API_URL`, starts only after the API
 is healthy, and the API starts only after PostgreSQL is healthy. Production
 TypeORM schema synchronization is disabled.
-
-Useful production operations:
-
-```bash
-docker compose --env-file infra/.env -f infra/docker-compose.prod.yml ps
-docker compose --env-file infra/.env -f infra/docker-compose.prod.yml logs -f
-docker compose --env-file infra/.env -f infra/docker-compose.prod.yml pull
-docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --build
-```
 
 ### Tests
 
@@ -124,31 +160,34 @@ The tracked files in `infra/init-scripts/` define the PostgreSQL schema and the
 curated demo seed. PostgreSQL runs them in filename order when it initializes a
 fresh Compose volume. They do not rerun on every container restart.
 
-Development and production use persistent named volumes. To apply a fresh
-bootstrap, first back up any data you need, then remove the relevant stack's
+Development and production use persistent named volumes.
+</br>
+To apply a fresh bootstrap, first back up any data you need, then remove the relevant stack's
 volume with `docker compose --env-file infra/.env -f <compose-file> down -v` and
 start it again. The `-v` operation permanently deletes that stack's database
 volume.
 
 ## API
 
-The public compatibility route is `POST /api/v1/check`. See the
-[backend guide](backend/README.md) for the request/response contract and API
-limits. See the [frontend guide](frontend/README.md) for UI behavior and local
+The public compatibility route is `POST /api/v1/check`.
+</br>
+See the [backend guide](backend/README.md) for the request/response contract and API limits.
+</br>
+See the [frontend guide](frontend/README.md) for UI behavior and local
 scripts.
 
 ## Current limits and future work
 
-The tracked seed is curated, not exhaustive. Gemini is the only implemented AI
-provider, uses an eight-second backend timeout, and can be unavailable because
-of configuration, provider errors, or invalid responses. The fallback heuristic
-is deliberately coarse and requires usable game requirements. The check route's
-ten-requests-per-minute limit is in process, so it is not shared across multiple
-backend replicas.
+1. The tracked seed is curated, not exhaustive.
+2. Gemini is the only implemented AI provider, uses an eight-second backend timeout, and can be unavailable because of configuration, provider errors, or invalid responses.
+3. The fallback heuristic is deliberately coarse and requires usable game requirements.
+4. The check route's 10 requests per minute limit is in process, so it is not shared across multiple backend replicas.
 
-Future work includes additional AI providers, provider-neutral orchestration,
-a trained ML performance model, broader measured coverage, and shared rate
-limiting for multi-replica deployments.
+5. Future work includes:
+   - additional AI providers
+   - provider neutral orchestration
+   - trained ML performance model
+   - broader measured coverage
 
 ## License
 

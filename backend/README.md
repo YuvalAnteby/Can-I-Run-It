@@ -1,4 +1,4 @@
-# Backend
+# <img src="../frontend/public/logo192.png" alt="Logo" width="36" /> Backend
 
 The backend is a NestJS 11 REST API written in TypeScript. It uses TypeORM with
 PostgreSQL for the catalog and performance records, and optionally calls Gemini
