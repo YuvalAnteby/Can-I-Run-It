@@ -16,7 +16,7 @@ import { HardwareCheckCard } from './HardwareCheckCard';
 
 const CHECK_URL = 'http://localhost:4000/api/v1/check';
 const SSD_ADVISORY = 'An SSD is recommended for smoother asset streaming.';
-const VRAM_FAILURE = 'Your GPU has less VRAM than this preset requires.';
+const VRAM_FAILURE = "GPU doesn't have enough VRAM for the selected settings.";
 
 const measuredResult: CheckResponse = {
   state: 'can',
@@ -171,7 +171,6 @@ describe('CompatibilityResult', () => {
       'Verified',
       "Can't run",
     ],
-    [aiResult, 'AI', 'Likely can run'],
     [estimateResult, 'Estimate', "Likely can't run"],
   ] as const)(
     'shows the API provenance and verdict',
@@ -188,7 +187,7 @@ describe('CompatibilityResult', () => {
     },
   );
 
-  it('shows the AI provider and selected target inside the FPS panel', () => {
+  it('shows AI provenance as an icon with an accessible hover label', () => {
     render(
       <CompatibilityResult
         checkResult={aiResult}
@@ -196,7 +195,11 @@ describe('CompatibilityResult', () => {
       />,
     );
 
-    expect(screen.getByText('Gemini')).toBeInTheDocument();
+    const providerIcon = screen.getByRole('img', { name: 'AI gemini' });
+    expect(providerIcon).toHaveAttribute('title', 'AI gemini');
+    expect(
+      screen.queryByText('Gemini', { exact: true }),
+    ).not.toBeInTheDocument();
     expect(screen.getByText(/target: 90 fps/i)).toBeInTheDocument();
   });
 

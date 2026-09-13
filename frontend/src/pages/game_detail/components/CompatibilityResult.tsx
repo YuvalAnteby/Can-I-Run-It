@@ -1,4 +1,6 @@
 import React from 'react';
+import { Sparkles } from 'lucide-react';
+
 import { CheckResponse } from '../../../@types/check.types';
 
 interface CompatibilityResultProps {
@@ -8,10 +10,9 @@ interface CompatibilityResultProps {
 
 const sourceLabels = {
   measured: 'Verified',
-  ai: 'AI',
   estimate: 'Estimate',
 } as const;
-const VRAM_FAILURE = 'Your GPU has less VRAM than this preset requires.';
+const VRAM_FAILURE = "GPU doesn't have enough VRAM for the selected settings.";
 const SSD_ADVISORY = 'An SSD is recommended for smoother asset streaming.';
 
 function renderPassStatus(pass: boolean | null): React.ReactNode {
@@ -30,12 +31,6 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
   checkResult,
   resolutionLabel,
 }) => {
-  const provider =
-    checkResult.source === 'ai'
-      ? checkResult.provider === 'gemini'
-        ? 'Gemini'
-        : 'AI provider'
-      : null;
   const notes = [
     ...(checkResult.vramPass === false ? [VRAM_FAILURE] : []),
     ...(checkResult.ssdPass === false ? [SSD_ADVISORY] : []),
@@ -84,16 +79,20 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
             >
               {checkResult.verdict}
             </div>
-            {checkResult.source && (
+            {checkResult.source === 'ai' ? (
+              <span
+                role="img"
+                aria-label={`AI ${checkResult.provider}`}
+                title={`AI ${checkResult.provider}`}
+                className="inline-flex items-center text-gray-300"
+              >
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
+              </span>
+            ) : checkResult.source ? (
               <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs font-bold text-gray-200">
                 {sourceLabels[checkResult.source]}
               </span>
-            )}
-            {provider && (
-              <span className="text-xs font-medium text-gray-300">
-                {provider}
-              </span>
-            )}
+            ) : null}
           </div>
           <div className="text-[0.7rem] text-gray-300 mt-0.5 font-medium">
             {checkResult.sub}
@@ -158,7 +157,7 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
                   key={tier.label}
                   className="flex items-center gap-2 text-[0.7rem]"
                 >
-                  <div className="w-8 text-gray-400 text-right shrink-0 font-bold">
+                  <div className="w-7 text-gray-400 text-right shrink-0 font-bold">
                     {tier.label}
                   </div>
                   <div className="flex-1 h-1.5 bg-[#1e1e2a] rounded-full overflow-hidden">
@@ -170,7 +169,7 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
                       }}
                     />
                   </div>
-                  <div className="w-10 text-white font-bold text-right">
+                  <div className="w-11 text-white font-bold text-right">
                     {tier.val} fps
                   </div>
                 </div>
