@@ -100,6 +100,7 @@ export function useGameDetailForm(
         tier: activeTier ?? undefined,
         preset: selectedPreset,
         targetFps: selectedTargetFps,
+        upscaler: 'off',
       },
     });
   };
