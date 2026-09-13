@@ -1,14 +1,13 @@
-name: CI - PR Checks
+name: CI - Backend Checks
 
 on:
   pull_request:
     branches: [staging, main]
     paths:
-      - 'backend/**'
-      - 'frontend/**'
-      - 'infra/**'
-      - '.github/workflows/backend-ci.yml'
-      - '!**/*.md'
+      - "backend/**"
+      - "infra/**"
+      - ".github/workflows/backend-ci.yml"
+      - "!**/*.md"
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -17,36 +16,24 @@ concurrency:
 jobs:
   static_analysis:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: |
-            backend/package-lock.json
-            frontend/package-lock.json
-      - name: Install backend dependencies
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: backend/package-lock.json
+      - name: Install dependencies
         run: npm ci --prefix backend
-      - name: Install frontend dependencies
-        run: npm ci --prefix frontend
       - name: Lint backend
         run: npm run lint --prefix backend
-      - name: Lint frontend
-        run: npm run lint --prefix frontend
       - name: Type-check backend
         run: npm run typecheck --prefix backend
-      - name: Type-check frontend
-        run: npm run typecheck --prefix frontend
       - name: Test backend
         run: npm test --prefix backend
-      - name: Test frontend
-        run: npm test --prefix frontend
       - name: Build backend
         run: npm run build --prefix backend
-      - name: Build frontend
-        run: npm run build --prefix frontend
 
   integration_tests:
     runs-on: ubuntu-latest
