@@ -1,155 +1,194 @@
-# 🎮 Can I Run It
+# <img src="frontend/public/logo192.png" alt="Logo" width="36" /> Can I Run It
 
 <p align="center"> 
 <img src="https://img.shields.io/badge/typescript-%23007ACC.svg?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript">
-<img src="https://img.shields.io/badge/python-3670A0?style=for-the-badge&logo=python&logoColor=white" alt="Python">
 <img src="https://img.shields.io/badge/nestjs-%23E0234E.svg?style=for-the-badge&logo=nestjs&logoColor=white" alt="NestJS">
-<img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi" alt="FastAPI"> 
+<img src="https://img.shields.io/badge/Postgres-%23316192.svg?style=for-the-badge&logo=postgresql&logoColor=white" alt="Postgres">
 <img src="https://img.shields.io/badge/react-%2320232a.svg?style=for-the-badge&logo=react&logoColor=%2361DAFB" alt="React">
 <img src="https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white" alt="Docker">
 <br>
 <img src="https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg" alt="License: MPL 2.0"> 
 </p>
+Can I Run It is a full-stack PC gaming compatibility checker. Choose a game,
+CPU, GPU, RAM, storage type, resolution, graphics preset, and target FPS to get
+a source-labelled compatibility result.
+</br>
+Public demo URL: pending.
 
-**Can I Run It** is a full-stack web app that checks whether your PC can run a selected game based on your hardware
-specs and desired settings.
-<br>
-This monorepo contains the backend (NestJS + FastAPI) and the frontend (React (TS) + MUI + CSS).
+## Architecture
 
----
+Browser runs the React SPA, which queries the NestJS REST API.
+Only the NestJS API queries PostgreSQL and the Gemini AI provider.
+</br>
+The frontend and backend are containerized with Docker Compose, using a CICD pipeline to build and test the stack on GitHub Actions.
 
-## 🚧 Project Status
+```mermaid
+flowchart LR
+    User[User] --> Browser[Browser]
+    Browser --> Frontend[React 19 SPA<br/>Vite · Tailwind]
 
-> 🛠️ **Currently in active development**
+    Frontend -- React Query · Axios --> API[NestJS REST API]
+    API -- TypeORM --> DB[(PostgreSQL 16)]
+    API -. performance optional fallback .-> Gemini[Gemini API]
 
-- The backend is functional for local use during development.
-- The database is private and not publicly seeded, so local testing requires coordination.
-- Many planned features are being actively built.
+    subgraph Docker[Docker Compose]
+        Frontend
+        API
+        DB
+    end
 
----
+    CI[GitHub Actions] -. CICD .-> Docker
+```
 
-## 📚 Table of Contents
+## Compatibility behavior
 
-- [Tech Stack](#-tech-stack)
-- [Running Locally](#-running-locally)
-- [License](#-license)
-- [Related](#-related)
-<!-- - [Features](#-features)
-    - [Implemented](#-implemented)
-    - [Upcoming](#-upcoming)
--->
----
+User input consists of a picked game and hardware combination (CPU, GPU, RAM, optional SSD/HDD), game settings (resolution, graphic preset) and target FPS.
+</br>
+The Frontend sends a POST request to the API, which returns a source labelled result card with an FPS panel and optional advisory warning.
+</br>
+Results prefer measured data, then stored AI provider data, then a local heuristic estimate, and finally an insufficient-data verdict. Gemini results are chached in DB for future requests.
+</br>
 
-## ⚙️ Tech Stack
+```mermaid
+flowchart TD
+    Input[User inserts hardware & game combination] --> Key[Exact lookup key:<br/>Game · CPU · GPU · RAM · Resolution · Preset]
+    Key --> Upscaler[Prefer matching upscaler and quality<br/>when available]
+    Upscaler --> Measured{Measured record found?}
 
-#### Backend:
-- **Languages:** TypeScript, Python 3.11+
-- **Frameworks:** NestJS, FastAPI
-- **Database:** Postgres (Via TypeORM)
-- **Testing:** Jest
-- **Containerization:** Docker & Docker Compose
-- **CI/CD:** GitHub Actions 
+    Measured -->|Yes| Verified[Verified result]
+    Measured -->|No| Provider{Stored AI provider result?}
 
-#### Frontend:
-- **Language:** TypeScript
-- **Frameworks:** React
-- **Routing & API calls:** React Router, Axios 
-- **Styling:** Material UI (MUI), CSS
+    Provider -->|Yes| AI[AI result]
+    Provider -->|No| Gemini[Request Gemini result]
+    Gemini --> Valid{Valid provider response?}
 
----
+    Valid -->|Yes| Cache[Cache average FPS as provider data]
+    Cache --> AI
+    Valid -->|No| Requirements{Usable game requirements?}
 
-<!--
-## 🌟 Features
+    Requirements -->|Yes| Estimate[Requirements-based estimate]
+    Requirements -->|No| Insufficient[Insufficient data]
 
-### ✅ Implemented
+    Verified --> Verdict[Evaluate target FPS]
+    AI --> Verdict
+    Estimate --> Verdict
 
- - Core Functionality:
-  - Hardware selectors (CPU, GPU, RAM)
-  - Game cards with interactive details page 
-  - Compatibility checker based on MongoDB performance data
-- Backend:
-  - FastAPI backend with documented routes (Swagger)
-  - Unit tests and continuous integration with GitHub Actions
-  - Dockerized setup for both local and production environments
-  - Python scripts to add games, hardware and performance data to MongoDB
+    Verdict --> VRAM{VRAM shortage?}
+    VRAM -->|Yes| Cannot[Cannot run]
+    VRAM -->|No| FPS{Average FPS meets target?}
+    FPS -->|Yes| Can[Can run]
+    FPS -->|No| Cannot
 
-- Frontend:
-  - React components styled with MUI
-  - API integration via Axios and React Router
+    Verdict -. advisory warning .-> SSD[SSD mismatch warning<br/>does not change verdict]
+    Insufficient --> NoFPS[No FPS values or provenance badge]
+```
 
-### 🔜 Upcoming
-- User accounts using OAuth
-- Game pricing from external APIs (e.g. Steam, Epic)
-- LLM fallback when no data exists
-- Performance optimizations (lazy load, caching)
-- UI polish & support for different screen sizes
-- Basic ML model for hardware upgrade recommendations, based on recorded data
-
---- 
--->
-
-## 🐳 Running Locally
+## Run with Docker
 
 ### Prerequisites
-> ⚠️ Backend requires the seeded Postgres DB to work fully or CSV file to seed locally
-- Docker & Docker Compose [Install Docker](https://www.docker.com/products/docker-desktop/)
-- NodeJS & npm
 
-### Clone the repo
-```bash
-git clone https://github.com/YuvalAnteby/Can-I-Run-It.git
-cd Can-I-Run-It
-```
-### Run in development mode
-Runs the backend, Postgres and React apps, allows live reloading. remove `-d` to see logs live.
+- Docker with Docker Compose
+- Git
+
+### Configuration
+
+`infra/.env` is the single configuration file used by the development and
+production Compose stacks. The isolated test stack uses deterministic values
+from its Compose file instead.
+</br>
+Copy the tracked template, then replace its example values for your environment:
 
 ```bash
-npm run docker:dev
-```
-<!--
-### Run in production mode
-Runs the backend, MongoDB and React apps as static files.
-```bash
-npm run docker:prod
-```
--->
-# Stop everything
-```bash
-npm run docker:down
+cp infra/.env.example infra/.env
 ```
 
-### Access the apps (default ports)
-- Frontend: http://localhost:3000
-- Backend:  http://localhost:4000
-<!-- - API docs:  http://localhost:4000/docs -->
-- For more info see [backend/README.md](https://github.com/YuvalAnteby/Can-I-Run-It/blob/main/backend/README.md) 
-and [frontend/README.md](https://github.com/YuvalAnteby/Can-I-Run-It/blob/main/frontend/README.md)
+Keep `POSTGRES_HOST=postgres` for containers. `REACT_URL` is the browser-facing
+frontend origin allowed by production CORS. `VITE_API_URL` is compiled into the
+production frontend and must be a browser-reachable backend URL ending in
+`/api`. Set `GEMINI_API_KEY` to a valid key to enable Gemini, or leave it empty
+to use the heuristic/insufficient-data fallback.
 
----
-<!--
-## 🖼️ Screenshots
-<p float="left">
-<img src="screenshots/home%20page%20desktop.png" alt="main game selection">
-</p>
+Do not commit `infra/.env`.
 
-<p float="left">
-<img src="screenshots/hardware autocomplete.png" width="48%" alt="main game selection">
-<img src="screenshots/best FPS case.png" width="48%" alt="best fps case">
-</p>
+### Development
 
-> Want to see more? [Click here for all screenshots](./screenshots)
+```bash
+docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --build
+```
 
----
--->
+With the template's default ports, open:
 
----
+- Frontend: <http://localhost:3000>
+- API: <http://localhost:4000/api>
+- Swagger: <http://localhost:4000/api/docs>
+- PostgreSQL health: <http://localhost:4000/api/health/postgres>
 
-## 📄 License
-This project is licensed under the Mozilla Public License Version 2.0.<br />
-See the [LICENSE](https://github.com/YuvalAnteby/Can-I-Run-It/blob/main/LICENSE) file for details.
+Follow or stop the development stack with:
 
----
+```bash
+docker compose --env-file infra/.env -f infra/docker-compose.yml logs -f
+docker compose --env-file infra/.env -f infra/docker-compose.yml down
+```
 
-## 🔗 Related
-- [Backend details](https://github.com/YuvalAnteby/Can-I-Run-It/blob/main/backend/README.md)
-- [Frontend details](https://github.com/YuvalAnteby/Can-I-Run-It/blob/main/frontend/README.md)
+### Production
+
+Using the production Compose file is similar to development's compose, using the file `infra/docker-compose.prod.yml` instead of `infra/docker-compose.yml`.
+</br>
+</br>
+Build and restart the production stack with the latest images:
+
+```bash
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --build
+```
+
+The production frontend is built with `VITE_API_URL`, starts only after the API
+is healthy, and the API starts only after PostgreSQL is healthy. Production
+TypeORM schema synchronization is disabled.
+
+### Tests
+
+The isolated test stack initializes PostgreSQL, runs backend unit tests, then
+runs the real database E2E suite, including `POST /api/v1/check`:
+
+```bash
+docker compose -f infra/docker-compose.tests.yml up --build --exit-code-from backend --abort-on-container-exit
+```
+
+## Schema and seed data
+
+The tracked files in `infra/init-scripts/` define the PostgreSQL schema and the
+curated demo seed. PostgreSQL runs them in filename order when it initializes a
+fresh Compose volume. They do not rerun on every container restart.
+
+Development and production use persistent named volumes.
+</br>
+To apply a fresh bootstrap, first back up any data you need, then remove the relevant stack's
+volume with `docker compose --env-file infra/.env -f <compose-file> down -v` and
+start it again. The `-v` operation permanently deletes that stack's database
+volume.
+
+## API
+
+The public compatibility route is `POST /api/v1/check`.
+</br>
+See the [backend guide](backend/README.md) for the request/response contract and API limits.
+</br>
+See the [frontend guide](frontend/README.md) for UI behavior and local
+scripts.
+
+## Current limits and future work
+
+1. The tracked seed is curated, not exhaustive.
+2. Gemini is the only implemented AI provider, uses an eight-second backend timeout, and can be unavailable because of configuration, provider errors, or invalid responses.
+3. The fallback heuristic is deliberately coarse and requires usable game requirements.
+4. The check route's 10 requests per minute limit is in process, so it is not shared across multiple backend replicas.
+
+5. Future work includes:
+   - additional AI providers
+   - provider neutral orchestration
+   - trained ML performance model
+   - broader measured coverage
+
+## License
+
+This project is licensed under the [Mozilla Public License 2.0](LICENSE).

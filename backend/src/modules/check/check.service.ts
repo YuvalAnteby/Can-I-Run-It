@@ -16,7 +16,7 @@ import {
     buildResponseFromRecord,
 } from './check.response-builder';
 import { CheckRequestDto } from './dto/check-request.dto';
-import { CheckResponseDto } from './dto/check-response.dto';
+import { CheckFps, CheckResponseDto } from './dto/check-response.dto';
 import { HardwareDto } from './dto/hardware.dto';
 import { SettingsDto } from './dto/settings.dto';
 
@@ -78,21 +78,49 @@ export class CheckService {
             );
 
         // --- Flow 1: DB lookup ---
-        const record = await this.perfRepo.findOne({
+        const records = await this.perfRepo.find({
             where: {
                 game: { id: game.id },
-                gpu: { id: hardware.gpuId },
                 cpu: { id: hardware.cpuId },
+                gpu: { id: hardware.gpuId },
+                ramGb: hardware.ramGb,
                 resolutionWidth: settings.resolutionWidth,
                 resolutionHeight: settings.resolutionHeight,
                 settings: settings.preset,
-                upscaler: UpscalerType.OFF,
             },
-            order: { verified: 'DESC', createdAt: 'DESC' },
+            relations: ['gpu'],
         });
 
+        const candidates = records.some(({ source }) => source === 'measured')
+            ? records.filter(({ source }) => source === 'measured')
+            : records;
+        const preference = (record: PerformanceRecord) =>
+            Number(
+                settings.upscaler !== undefined &&
+                    record.upscaler === settings.upscaler,
+            ) *
+                2 +
+            Number(
+                settings.upscalerQuality !== undefined &&
+                    record.upscalerQuality === settings.upscalerQuality,
+            );
+        const record = candidates.sort(
+            (a, b) =>
+                preference(b) - preference(a) ||
+                b.createdAt.getTime() - a.createdAt.getTime(),
+        )[0];
+
         if (record) {
-            return buildResponseFromRecord(record, hardware);
+            const requirement =
+                game.requirements?.find(({ tier }) => tier === settings.tier) ??
+                game.requirements?.[0] ??
+                null;
+            return buildResponseFromRecord(
+                record,
+                hardware,
+                requirement,
+                settings.targetFps ?? 60,
+            );
         }
 
         // --- Flow 2: ML model ---
@@ -146,7 +174,7 @@ export class CheckService {
      * Failures are swallowed - a cache miss is not fatal.
      */
     private async cacheGeminiResult(
-        estimate: { fps: CheckResponseDto['fps']; note: string | null },
+        estimate: { fps: CheckFps; note: string | null },
         game: Game,
         cpu: Cpu,
         gpu: Gpu,
@@ -171,9 +199,12 @@ export class CheckService {
                 resolutionHeight: settings.resolutionHeight,
                 settings: preset,
                 upscaler: UpscalerType.OFF,
+                upscalerQuality: null,
                 fpsAvg: presetToFps[preset],
+                fps1PercentLow: null,
                 verified: false,
-                sourceUrl: 'gemini',
+                source: 'gemini',
+                sourceUrl: null,
             });
 
             await this.perfRepo.save(record);

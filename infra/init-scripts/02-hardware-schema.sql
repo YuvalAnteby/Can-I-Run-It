@@ -33,10 +33,10 @@ CREATE TABLE IF NOT EXISTS gpus (
 );
 
 -- GIN index for fast querying inside JSONB
-CREATE INDEX idx_gpus_benchmarks ON gpus USING GIN (benchmarks);
+CREATE INDEX IF NOT EXISTS idx_gpus_benchmarks ON gpus USING GIN (benchmarks);
  
 -- Trigram index for fuzzy name search (autocomplete)
-CREATE INDEX idx_gpu_name_trgm ON gpus USING GIN (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_gpu_name_trgm ON gpus USING GIN (name gin_trgm_ops);
 
 -- ============================================
 -- CPUS TABLE
@@ -65,7 +65,7 @@ CREATE TABLE IF NOT EXISTS cpus (
 );
 
 -- GIN index for fast querying inside JSONB
-CREATE INDEX idx_cpus_benchmarks ON cpus USING GIN (benchmarks);
+CREATE INDEX IF NOT EXISTS idx_cpus_benchmarks ON cpus USING GIN (benchmarks);
  
 -- Trigram index for fuzzy name search (autocomplete)
-CREATE INDEX idx_cpu_name_trgm ON cpus USING GIN (name gin_trgm_ops);
+CREATE INDEX IF NOT EXISTS idx_cpu_name_trgm ON cpus USING GIN (name gin_trgm_ops);

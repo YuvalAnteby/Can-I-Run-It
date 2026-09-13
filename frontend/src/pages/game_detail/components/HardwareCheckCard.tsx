@@ -1,7 +1,11 @@
 import React from 'react';
 import { HardwareCheckForm } from './HardwareCheckForm';
 import { CompatibilityResult } from './CompatibilityResult';
-import { SettingPreset, CheckResponse } from '../../../@types/check.types';
+import {
+  SettingPreset,
+  CheckResponse,
+  TargetFps,
+} from '../../../@types/check.types';
 import { ClientCpuDto } from '../../../@types/cpu.types';
 import { ClientGpuDto } from '../../../@types/gpu.types';
 
@@ -35,6 +39,8 @@ interface HardwareCheckCardProps {
   onStorageChange: (storage: string) => void;
   selectedPreset: SettingPreset;
   onPresetChange: (preset: SettingPreset) => void;
+  selectedTargetFps: TargetFps;
+  onTargetFpsChange: (targetFps: TargetFps) => void;
   selectedResolutionKey: string;
   onResolutionKeyChange: (key: string) => void;
   customWidth: number;
@@ -46,6 +52,7 @@ interface HardwareCheckCardProps {
   hasAttemptedSubmit: boolean;
   isChecking: boolean;
   checkResult: CheckResponse | undefined;
+  checkError: string | undefined;
   isFormValid: boolean;
 
   // Handlers
@@ -71,6 +78,8 @@ export const HardwareCheckCard: React.FC<HardwareCheckCardProps> = ({
   onStorageChange,
   selectedPreset,
   onPresetChange,
+  selectedTargetFps,
+  onTargetFpsChange,
   selectedResolutionKey,
   onResolutionKeyChange,
   customWidth,
@@ -80,6 +89,7 @@ export const HardwareCheckCard: React.FC<HardwareCheckCardProps> = ({
   hasAttemptedSubmit,
   isChecking,
   checkResult,
+  checkError,
   isFormValid,
   onCheck,
 }) => {
@@ -116,6 +126,8 @@ export const HardwareCheckCard: React.FC<HardwareCheckCardProps> = ({
         onStorageChange={onStorageChange}
         selectedPreset={selectedPreset}
         onPresetChange={onPresetChange}
+        selectedTargetFps={selectedTargetFps}
+        onTargetFpsChange={onTargetFpsChange}
         selectedResolutionKey={selectedResolutionKey}
         onResolutionKeyChange={onResolutionKeyChange}
         customWidth={customWidth}
@@ -139,6 +151,16 @@ export const HardwareCheckCard: React.FC<HardwareCheckCardProps> = ({
       >
         {isChecking ? 'Checking...' : 'Check Compatibility'}
       </button>
+
+      {checkError && (
+        <p
+          role="alert"
+          aria-live="polite"
+          className="mt-3 rounded-md bg-red-500/10 p-3 text-sm text-red-300"
+        >
+          {checkError}
+        </p>
+      )}
 
       {checkResult && (
         <CompatibilityResult

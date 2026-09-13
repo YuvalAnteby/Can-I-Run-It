@@ -1,3 +1,5 @@
+import { NavLink } from 'react-router-dom';
+
 interface FooterLink {
   label: string;
   href: string;
@@ -17,8 +19,7 @@ const FOOTER_LINK_GROUPS: FooterLinkGroup[] = [
       { label: 'Games', href: '#', comingSoon: true },
       // TODO: Point to /hardware-rank once the Hardware Rank page exists
       { label: 'Hardware Rank', href: '#', comingSoon: true },
-      // TODO: Point to /about once the About page exists
-      { label: 'About', href: '#', comingSoon: true },
+      { label: 'About', href: '/about' },
     ],
   },
   {
@@ -50,7 +51,7 @@ export const MainFooter = (): React.ReactElement => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
           {FOOTER_LINK_GROUPS.map((group) => (
             <section key={group.title}>
-              <h3 className="m-0 mb-2 text-[0.85rem] text-gray-400 uppercase tracking-[0.05em]">
+              <h3 className="m-0 mb-2 text-[0.85rem] text-gray-300 uppercase tracking-[0.05em]">
                 {group.title}
               </h3>
 
@@ -67,10 +68,18 @@ export const MainFooter = (): React.ReactElement => {
                       >
                         {link.label}
                       </button>
+                    ) : link.href.startsWith('/') ||
+                      link.href.startsWith('http') ? (
+                      <NavLink
+                        to={link.href}
+                        className="inline-flex items-center rounded-sm no-underline text-gray-400 transition-colors duration-200 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1115]"
+                      >
+                        {link.label}
+                      </NavLink>
                     ) : (
                       <a
                         href={link.href}
-                        className="inline-flex items-center no-underline text-inherit transition-colors duration-200 hover:text-gray-400"
+                        className="inline-flex items-center no-underline text-inherit transition-colors duration-200 text-gray-400 hover:text-gray-300"
                         target="_blank"
                         rel="noreferrer"
                       >
@@ -84,9 +93,16 @@ export const MainFooter = (): React.ReactElement => {
           ))}
         </div>
 
-        <div className="mt-5 pt-4 border-t border-gray-800 flex flex-col justify-center items-center gap-[0.35rem]">
+        <div className="mt-5 pt-4 border-t border-gray-800 text-gray-300 flex flex-col justify-center items-center gap-[0.35rem]">
           <p className="m-0">&copy; 2026 Can I Run It? Project</p>
-          <p className="m-0">Built by Yuval Anteby</p>
+          <a
+            className="m-0 text-gray-400"
+            target="_blank"
+            rel="noopener noreferrer"
+            href="https://yuvalanteby.github.io/portfolio/"
+          >
+            Built by Yuval Anteby
+          </a>
         </div>
       </div>
     </footer>

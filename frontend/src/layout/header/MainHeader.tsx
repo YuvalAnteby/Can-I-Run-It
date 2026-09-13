@@ -21,8 +21,7 @@ const NAV_ITEMS: NavItem[] = [
   { label: 'Games', to: '#', comingSoon: true },
   // TODO: Change to '/hardware-rank' and remove comingSoon once Hardware Rank page is created
   { label: 'Hardware Rank', to: '#', comingSoon: true },
-  // TODO: Change to '/about' and remove comingSoon once the About page is created
-  { label: 'About', to: '#', comingSoon: true },
+  { label: 'About', to: '/about', comingSoon: false },
 ];
 
 export const MainHeader = (): React.ReactElement => {
@@ -30,8 +29,8 @@ export const MainHeader = (): React.ReactElement => {
 
   const getDesktopLinkClass = ({ isActive }: { isActive: boolean }): string =>
     isActive
-      ? 'text-sm font-medium text-blue-500 bg-transparent border-0 p-0 cursor-pointer transition-colors duration-150'
-      : 'text-sm font-medium text-gray-300 bg-transparent border-0 p-0 cursor-pointer transition-colors duration-150 hover:text-blue-500';
+      ? 'rounded-sm text-sm font-medium text-blue-500 bg-transparent border-0 p-0 cursor-pointer transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-4 focus-visible:ring-offset-[#161b22]'
+      : 'rounded-sm text-sm font-medium text-gray-300 bg-transparent border-0 p-0 cursor-pointer transition-colors duration-150 hover:text-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-4 focus-visible:ring-offset-[#161b22]';
 
   return (
     <>
@@ -134,8 +133,8 @@ export const MainHeader = (): React.ReactElement => {
                   to={item.to}
                   className={({ isActive }) =>
                     isActive
-                      ? 'flex items-center gap-2 py-3 px-2 text-base font-medium text-blue-500 bg-blue-500/10 no-underline w-full rounded-md'
-                      : 'flex items-center gap-2 py-3 px-2 text-base font-medium text-gray-300 bg-transparent no-underline w-full rounded-md transition-colors duration-150 hover:bg-blue-500/[0.08] hover:text-white'
+                      ? 'flex items-center gap-2 py-3 px-2 text-base font-medium text-blue-500 bg-blue-500/10 no-underline w-full rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400'
+                      : 'flex items-center gap-2 py-3 px-2 text-base font-medium text-gray-300 bg-transparent no-underline w-full rounded-md transition-colors duration-150 hover:bg-blue-500/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400'
                   }
                   onClick={() => setMobileOpen(false)}
                 >

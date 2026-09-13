@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 
@@ -58,8 +59,16 @@ const validGeminiPayload = {
 describe('GeminiService', () => {
     let service: GeminiService;
     let fetchSpy: jest.SpyInstance;
+    let errorSpy: jest.SpyInstance;
+    let debugSpy: jest.SpyInstance;
 
     beforeEach(async () => {
+        errorSpy = jest
+            .spyOn(Logger.prototype, 'error')
+            .mockImplementation(() => {});
+        debugSpy = jest
+            .spyOn(Logger.prototype, 'debug')
+            .mockImplementation(() => {});
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 GeminiService,
@@ -82,6 +91,7 @@ describe('GeminiService', () => {
     });
 
     afterEach(() => {
+        jest.useRealTimers();
         jest.restoreAllMocks();
     });
 
@@ -90,7 +100,6 @@ describe('GeminiService', () => {
     it('returns fps estimate and null note on a valid response', async () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
-            headers: new Headers(),
             headers: new Headers(),
             json: () => Promise.resolve(validGeminiPayload),
         } as Response);
@@ -225,6 +234,158 @@ describe('GeminiService', () => {
     });
 
     // --- Malformed response parsing ---
+
+    describe.each(['low', 'med', 'high', 'ultra'])(
+        '%s FPS validation',
+        (key) => {
+            it.each(['-1', '0', '0.1', '1e400', '-1e400', 'null', '"60"'])(
+                'returns null for %s',
+                async (value) => {
+                    const fps = { low: 95, med: 72, high: 55, ultra: 38 };
+                    const fields = Object.entries(fps).map(
+                        ([name, valid]) =>
+                            `"${name}":${name === key ? value : valid}`,
+                    );
+                    fetchSpy.mockResolvedValueOnce(
+                        new Response(
+                            JSON.stringify({
+                                candidates: [
+                                    {
+                                        content: {
+                                            parts: [
+                                                {
+                                                    text: `{"fps":{${fields.join(',')}}}`,
+                                                },
+                                            ],
+                                        },
+                                    },
+                                ],
+                            }),
+                        ),
+                    );
+                    expect(
+                        await service.estimate(
+                            mockGame,
+                            mockCpu,
+                            mockGpu,
+                            mockRamGb,
+                            mockSettings,
+                        ),
+                    ).toBeNull();
+                },
+            );
+        },
+    );
+
+    it.each(['null', '[]', '{"fps":null}', '{"fps":[]}'])(
+        'returns null for invalid response shape %s',
+        async (text) => {
+            fetchSpy.mockResolvedValueOnce(
+                new Response(
+                    JSON.stringify({
+                        candidates: [{ content: { parts: [{ text }] } }],
+                    }),
+                ),
+            );
+            expect(
+                await service.estimate(
+                    mockGame,
+                    mockCpu,
+                    mockGpu,
+                    mockRamGb,
+                    mockSettings,
+                ),
+            ).toBeNull();
+        },
+    );
+
+    it('returns null at eight seconds when the provider never responds', async () => {
+        jest.useFakeTimers();
+        let signal: AbortSignal | null | undefined;
+        fetchSpy.mockImplementation((_url: unknown, options?: RequestInit) => {
+            signal = options?.signal;
+            return new Promise<Response>(() => {});
+        });
+        let result: unknown = 'pending';
+        const estimate = service
+            .estimate(mockGame, mockCpu, mockGpu, mockRamGb, mockSettings)
+            .then((value) => {
+                result = value;
+            });
+        await jest.advanceTimersByTimeAsync(7_999);
+        expect(result).toBe('pending');
+        await jest.advanceTimersByTimeAsync(1);
+        expect(result).toBeNull();
+        expect(signal?.aborted).toBe(true);
+        await estimate;
+        expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('clears its deadline after a successful response', async () => {
+        jest.useFakeTimers();
+        fetchSpy.mockResolvedValueOnce(
+            new Response(JSON.stringify(validGeminiPayload)),
+        );
+        expect(
+            await service.estimate(
+                mockGame,
+                mockCpu,
+                mockGpu,
+                mockRamGb,
+                mockSettings,
+            ),
+        ).not.toBeNull();
+        expect(jest.getTimerCount()).toBe(0);
+    });
+
+    it('does not log provider errors, credentials, or stack traces', async () => {
+        fetchSpy.mockRejectedValueOnce(
+            new Error('provider-secret test-api-key'),
+        );
+        expect(
+            await service.estimate(
+                mockGame,
+                mockCpu,
+                mockGpu,
+                mockRamGb,
+                mockSettings,
+            ),
+        ).toBeNull();
+        expect(errorSpy).toHaveBeenCalledWith('Gemini API call failed');
+    });
+
+    it('does not log raw malformed provider output', async () => {
+        fetchSpy.mockResolvedValueOnce(
+            new Response(
+                JSON.stringify({
+                    candidates: [
+                        {
+                            content: {
+                                parts: [
+                                    { text: 'provider-secret test-api-key' },
+                                ],
+                            },
+                        },
+                    ],
+                }),
+            ),
+        );
+        expect(
+            await service.estimate(
+                mockGame,
+                mockCpu,
+                mockGpu,
+                mockRamGb,
+                mockSettings,
+            ),
+        ).toBeNull();
+        expect(errorSpy).toHaveBeenCalledWith(
+            'Failed to parse Gemini response',
+        );
+        expect(JSON.stringify(debugSpy.mock.calls)).not.toContain(
+            'provider-secret',
+        );
+    });
 
     it('returns null when Gemini returns invalid JSON', async () => {
         fetchSpy.mockResolvedValueOnce({

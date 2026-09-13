@@ -1,6 +1,7 @@
 import { http, HttpResponse } from 'msw';
 
 import type { ClientCpuDto, CpuManufacturer } from '../@types/cpu.types';
+import type { CheckRequest, CheckResponse } from '../@types/check.types';
 import type { ClientGameDto } from '../@types/game.types';
 import type { ClientGpuDto, GpuManufacturer } from '../@types/gpu.types';
 
@@ -153,5 +154,27 @@ export const handlers = [
     ].filter((g) => g.name.toLowerCase().includes(q.toLowerCase()));
 
     return HttpResponse.json(results);
+  }),
+
+  http.post(`${BASE}/v1/check`, async ({ request }) => {
+    const body = (await request.json()) as CheckRequest;
+    const response: CheckResponse = {
+      state: 'can',
+      verdict: 'Can run',
+      sub: `Recorded performance at ${body.settings.preset} settings meets your selected target.`,
+      source: 'measured',
+      provider: null,
+      confidence: 'high',
+      targetFps: body.settings.targetFps ?? 60,
+      fps: { low: 110, med: 96, high: 78, ultra: 62 },
+      gpuPass: true,
+      cpuPass: true,
+      ramPass: true,
+      vramPass: true,
+      ssdPass: true,
+      notes: [],
+    };
+
+    return HttpResponse.json(response);
   }),
 ];

@@ -1,9 +1,9 @@
 {
   "scripts": {
-    "docker:dev": "docker compose -f infra/docker-compose.yml up -d --build",
-    "docker:prod": "docker compose -f infra/docker-compose.prod.yml up -d --build",
-    "docker:down": "docker compose -f infra/docker-compose.yml down",
-    "docker:logs": "docker compose -f infra/docker-compose.yml logs -f",
+    "docker:dev": "docker compose --env-file infra/.env -f infra/docker-compose.yml up -d --build",
+    "docker:prod": "docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --build",
+    "docker:down": "docker compose --env-file infra/.env -f infra/docker-compose.yml down",
+    "docker:logs": "docker compose --env-file infra/.env -f infra/docker-compose.yml logs -f",
     "format": "npm run format --prefix backend && npm run format --prefix frontend",
     "lint": "npm run lint --prefix backend && npm run lint --prefix frontend",
     "test": "npm run test --prefix backend && npm run test --prefix frontend",
