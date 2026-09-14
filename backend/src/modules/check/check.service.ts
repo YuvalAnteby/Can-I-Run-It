@@ -53,7 +53,7 @@ export class CheckService {
 
         const [game, userCpu, userGpu] = await Promise.all([
             this.gameRepo.findOne({
-                where: { slug: gameSlug },
+                where: { slug: gameSlug, status: 'published' },
                 relations: [
                     'requirements',
                     'requirements.cpu',

@@ -20,9 +20,10 @@ export class TypeOrmGamesRepository implements IGamesRepository {
         const { search, limit = 10, page = 1, sortBy, sortOrder } = filterDto;
 
         const queryBuilder = this.repo.createQueryBuilder('game');
+        queryBuilder.where('game.status = :status', { status: 'published' });
 
         if (search) {
-            queryBuilder.where('game.name ILIKE :search', {
+            queryBuilder.andWhere('game.name ILIKE :search', {
                 search: `%${search}%`,
             });
         }
@@ -52,7 +53,7 @@ export class TypeOrmGamesRepository implements IGamesRepository {
 
     async findBySlug(slug: string): Promise<Game | null> {
         return await this.repo.findOne({
-            where: { slug },
+            where: { slug, status: 'published' },
             relations: [
                 'gameEngine',
                 'requirements',
