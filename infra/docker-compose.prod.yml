@@ -13,6 +13,7 @@ services:
       - PORT=${BACKEND_PORT}
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
+      - RABBITMQ_URL=${RABBITMQ_URL:?RABBITMQ_URL must be set}
     env_file:
       - .env
     ports:
@@ -77,8 +78,28 @@ services:
       retries: 5
       start_period: 10s
 
+  # RabbitMQ broker (production, no host ports)
+  rabbitmq:
+    image: rabbitmq:4.3.5-alpine@sha256:3486d98205df3d6395ed70e7924baa13b561cbac54116c0ddae5b0b7382bbabd
+    container_name: ciri-rabbitmq-prod
+    restart: always
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER must be set}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS must be set}
+    volumes:
+      - rabbitmqdata-prod:/var/lib/rabbitmq
+    networks:
+      - ciri-net-prod
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 volumes:
   pgdata-prod:
+  rabbitmqdata-prod:
 
 networks:
   ciri-net-prod:
