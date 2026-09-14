@@ -9,7 +9,9 @@ services:
       dockerfile: ../infra/Dockerfile.backend
       target: prod
     environment:
-      - REACT_URL=${REACT_URL:-}
+      - REACT_URL=${REACT_URL:?REACT_URL must be set}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:?ADMIN_USERNAME must be set}
+      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH must be set}
       - PORT=${BACKEND_PORT}
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
@@ -59,8 +61,6 @@ services:
     # TODO: remove port exposing
     ports:
       - "${POSTGRES_PORT}:5432"
-    env_file:
-      - ./.env
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}

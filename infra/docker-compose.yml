@@ -11,6 +11,8 @@ services:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
       - REACT_URL=${REACT_URL:-http://react}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-}
+      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH:-}
     env_file:
       - .env
     ports:
@@ -34,9 +36,8 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - VITE_API_URL=http://${API_DOMAIN:-localhost}:${BACKEND_PORT}/api
-    env_file:
-      - .env
+      - REACT_PORT=${REACT_PORT:-3000}
+      - VITE_API_URL=http://${API_DOMAIN:-localhost}:${BACKEND_PORT:-4000}/api
     ports:
       - "${REACT_PORT:-3000}:${REACT_PORT:-3000}"
     networks:
@@ -52,8 +53,6 @@ services:
     restart: unless-stopped
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
-    env_file:
-      - .env
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-username}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
