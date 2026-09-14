@@ -6,6 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
+    "hash:admin-password": "ts-node scripts/hash-admin-password.ts",
     "seed:postgres": "ts-node src/database/seed-db.ts",
     "build": "nest build",
     "typecheck": "tsc --noEmit",
