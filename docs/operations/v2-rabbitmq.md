@@ -89,3 +89,47 @@ env BACKEND_PORT=4000 REACT_PORT=3000 POSTGRES_PORT=5432 \
   docker compose --env-file infra/.env.example \
   -f infra/docker-compose.prod.yml config --quiet
 ```
+
+## Disposable broker smoke and restart probe
+
+Run the foundation E2E checks only against the isolated test stack. The
+backend container uses the service name `rabbitmq`; it does not need a host
+AMQP port or a Docker socket:
+
+```sh
+docker compose -f infra/docker-compose.tests.yml up --build -d postgres rabbitmq
+docker compose -f infra/docker-compose.tests.yml run --rm backend \
+  npm run test:e2e -- --runInBand rabbitmq
+```
+
+For the restart probe, start the probe in one terminal. It prints a ready
+marker after confirming a durable message with publisher confirms:
+
+```sh
+docker compose -f infra/docker-compose.tests.yml run --rm backend \
+  npx ts-node test/rabbitmq-restart.integration.ts
+```
+
+While it waits for the marker, restart only the disposable test broker from a
+second terminal:
+
+```sh
+docker compose -f infra/docker-compose.tests.yml restart rabbitmq
+```
+
+The probe has a 60-second deadline, waits for an observed disconnect and
+reconnect, then reads and acknowledges the message. During the restart,
+`/api/health/rabbitmq` should be 503 while PostgreSQL health and local catalog
+requests remain available; after reconnect it should return 200 and the
+channel setup should have recreated the test queue. Tear down only the
+disposable stack after the probe:
+
+```sh
+docker compose -f infra/docker-compose.tests.yml down -v --remove-orphans
+```
+
+Persistent messages, durable queues, and publisher confirms are required
+together. A future producer must persist its PostgreSQL job before sending,
+retain it until confirmation, and safely retry uncertain deliveries. A future
+consumer must acknowledge only after its database commit and tolerate duplicate
+messages; this foundation does not claim exactly-once delivery.
