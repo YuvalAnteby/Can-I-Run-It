@@ -6,6 +6,7 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
+    app.enableShutdownHooks();
 
     // Global Prefix
     app.setGlobalPrefix('api');
