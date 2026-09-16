@@ -7,14 +7,12 @@ factory.
 
 ## Images and networks
 
-The Compose files use the multi-architecture RabbitMQ 4.3.5 Alpine release,
-pinned by tag and manifest digest:
+The Compose files use versioned RabbitMQ 4.3.5 Alpine image tags:
 
-- Dev: `rabbitmq:4.3.5-management-alpine@sha256:b3b8b7f95f5382a19f9ea33540e604f30aad081d37ad9aba72255135765373a1`
-- Production and tests: `rabbitmq:4.3.5-alpine@sha256:3486d98205df3d6395ed70e7924baa13b561cbac54116c0ddae5b0b7382bbabd`
+- Dev: `rabbitmq:4.3.5-management-alpine`
+- Production and tests: `rabbitmq:4.3.5-alpine`
 
-The selected manifests support the deployment architectures used by the
-official image. Recheck the release and digest together when upgrading.
+Check the image release notes when upgrading the tags.
 
 The backend connects to `rabbitmq:5672` over the existing Compose network.
 Dev exposes only the management UI at `127.0.0.1:15672` by default; AMQP is
