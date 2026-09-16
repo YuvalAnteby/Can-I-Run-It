@@ -3,9 +3,11 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
+import { installAdminLoginNoStoreMiddleware } from './modules/admin-auth/admin-login-no-store.middleware';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
+    installAdminLoginNoStoreMiddleware(app);
 
     // Global Prefix
     app.setGlobalPrefix('api');
