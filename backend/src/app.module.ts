@@ -5,6 +5,7 @@ import { TerminusModule } from '@nestjs/terminus';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { DatabaseModule } from './database/database.module';
+import { AdminAuthModule } from './modules/admin-auth/admin-auth.module';
 import { CheckModule } from './modules/check/check.module';
 import { CpuModule } from './modules/cpu/cpu.module';
 import { GamesModule } from './modules/games/games.module';
@@ -23,6 +24,7 @@ import { HealthModule } from './modules/health/health.module';
         GpuModule,
         GamesModule,
         CheckModule,
+        AdminAuthModule,
     ],
     controllers: [AppController],
     providers: [AppService],

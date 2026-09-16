@@ -28,6 +28,9 @@ services:
         condition: service_healthy
     environment:
       - NODE_ENV=test
+      - REACT_URL=http://localhost:3000
+      - ADMIN_USERNAME=test-admin
+      - ADMIN_PASSWORD_HASH=scrypt:16384:8:1:000102030405060708090a0b0c0d0e0f:d7590aca2c9801cf06eeba772a69dc31ce3862591d96522ac4e6bba6ad1f31a52d6f736f2b85adaa6262335eb112e56f014f417a37d74be0def7669b2c51c29e
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=username
       - POSTGRES_PASSWORD=changeme
