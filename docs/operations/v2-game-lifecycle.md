@@ -23,7 +23,14 @@ existing rows as `published`. Apply the upgrade in this order:
 
 The migration command is:
 
+`DATABASE_URL` is not defined by this repository. Set it to the PostgreSQL
+connection string for the intended existing V1 database, using that
+deployment's host, port, database, and credentials. Run these commands where
+that host is reachable; the Compose service name `postgres` is not a hostname
+for a shell running outside the Docker network.
+
 ```sh
+: "${DATABASE_URL:?Set DATABASE_URL to the intended V1 PostgreSQL database}"
 pg_dump --format=custom "$DATABASE_URL" > ciri-before-v2-game-lifecycle.dump
 psql -v ON_ERROR_STOP=1 "$DATABASE_URL" \
   -f infra/migrations/001-v2-game-lifecycle.sql
@@ -104,6 +111,12 @@ Metadata provenance keys are persisted field paths, for example:
   }
 }
 ```
+
+For each field, RAWG supplies the initial value; technical sources such as
+PCGamingWiki fill only genuinely absent values. Explicit admin edits override
+both and must never be overwritten by later imports or enrichment. Writers
+recheck admin ownership when persisting changes. If no source supplies evidence,
+the field remains absent or at its placeholder default.
 
 Consumers allowlist supported field paths; arbitrary paths are not treated as
 database columns. Gemini extraction is distinct from the underlying evidence
