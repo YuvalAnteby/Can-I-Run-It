@@ -197,6 +197,19 @@ describe('Admin authentication (e2e)', () => {
         }
     });
 
+    it('rejects a credential object with a non-callable toString as 400', async () => {
+        const response = await request(app.getHttpServer() as Server)
+            .post('/api/v1/admin/auth/login')
+            .set('Origin', TEST_ADMIN_ORIGIN)
+            .send({
+                username: TEST_ADMIN_USERNAME,
+                password: { toString: null },
+            })
+            .expect(400);
+
+        expect(response.headers['cache-control']).toBe('no-store');
+    });
+
     it('marks authentication guard and origin failures as no-store', async () => {
         const missingSession = await request(app.getHttpServer() as Server)
             .get('/api/v1/admin/auth/session')
