@@ -4,11 +4,15 @@ import {
     VersioningType,
 } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
+import * as fs from 'fs';
 import { Server } from 'net';
+import * as path from 'path';
 import request from 'supertest';
 import { DataSource } from 'typeorm';
 
 import { AppModule } from '../src/app.module';
+import { Game } from '../src/modules/games/entities/game.entity';
+import { GameEnrichmentJob } from '../src/modules/games/entities/game-enrichment-job.entity';
 
 interface GamesListResponse {
     data: Array<{ slug: string }>;
@@ -224,6 +228,175 @@ describe('Game lifecycle (e2e)', () => {
                 [gameId],
             ),
         ).resolves.toBe('23505');
+    });
+
+    it('saves and reloads missing fields through the SQL column', async () => {
+        const gameId = await insertGame({
+            slug: 'lifecycle-missing-fields-game',
+        });
+        const game = await dataSource
+            .getRepository(Game)
+            .findOneByOrFail({ id: gameId });
+        const jobs = dataSource.getRepository(GameEnrichmentJob);
+        const missingFields = ['name', 'requirements.minimum.ramGb'];
+
+        const savedJob = await jobs.save(jobs.create({ game, missingFields }));
+        const reloadedJob = await jobs.findOne({
+            where: { id: savedJob.id },
+            relations: ['game'],
+        });
+
+        expect(reloadedJob?.missingFields).toEqual(missingFields);
+        expect(reloadedJob?.game.id).toBe(gameId);
+    });
+
+    it('keeps the enrichment job game relation nonnullable in TypeORM and SQL', async () => {
+        const relation = dataSource
+            .getMetadata(GameEnrichmentJob)
+            .relations.find(({ propertyName }) => propertyName === 'game');
+        expect(relation?.isNullable).toBe(false);
+
+        const [column] = await dataSource.query<{ is_nullable: string }[]>(`
+            SELECT is_nullable
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = 'game_enrichment_jobs'
+              AND column_name = 'game_id'
+        `);
+        expect(column.is_nullable).toBe('NO');
+    });
+
+    it('rejects blank, tab, and newline-only rejection reasons', async () => {
+        const rejectionCheck = dataSource
+            .getMetadata(Game)
+            .checks.find(({ name }) => name === 'games_rejection_reason_check');
+        expect(String(rejectionCheck?.expression)).toContain(
+            "regexp_replace(rejection_reason, '[[:space:]]', '', 'g')",
+        );
+
+        const reasons = ['', '   ', '\t', '\n', '\r\n \t'];
+
+        for (const [index, reason] of reasons.entries()) {
+            await expect(
+                queryErrorCode(
+                    `INSERT INTO games (slug, name, status, rejection_reason)
+                     VALUES ($1, $2, 'rejected', $3)`,
+                    [
+                        `lifecycle-whitespace-reason-${index}`,
+                        'Whitespace reason fixture',
+                        reason,
+                    ],
+                ),
+            ).resolves.toBe('23514');
+        }
+    });
+
+    it('upgrades a V1 schema while preserving game IDs, performance rows, and constraints', async () => {
+        const runner = dataSource.createQueryRunner();
+        const schema = `lifecycle_upgrade_${process.pid}`;
+        let connected = false;
+        let migrationStarted = false;
+        let migrationCommitted = false;
+
+        try {
+            await runner.connect();
+            connected = true;
+            await runner.query(`CREATE SCHEMA "${schema}"`);
+            await runner.query(`SET search_path TO "${schema}"`);
+            await runner.query(`
+                CREATE TABLE games (
+                    id SERIAL PRIMARY KEY,
+                    slug VARCHAR(100) UNIQUE NOT NULL,
+                    name VARCHAR(200) NOT NULL
+                )
+            `);
+            await runner.query(`
+                CREATE TABLE performance_records (
+                    id SERIAL PRIMARY KEY,
+                    game_id INTEGER NOT NULL REFERENCES games(id),
+                    fps_avg INTEGER NOT NULL
+                )
+            `);
+            const insertedGames = (
+                (await runner.query(
+                    `INSERT INTO games (slug, name) VALUES
+                    ('upgrade-game-one', 'Upgrade Game One'),
+                    ('upgrade-game-two', 'Upgrade Game Two')
+                 RETURNING id`,
+                )) as { id: number }[]
+            ).sort(({ id: firstId }, { id: secondId }) => firstId - secondId);
+            await runner.query(
+                'INSERT INTO performance_records (game_id, fps_avg) VALUES ($1, $2)',
+                [insertedGames[0].id, 60],
+            );
+
+            const migrationPath = path.resolve(
+                __dirname,
+                '../../infra/migrations/001-v2-game-lifecycle.sql',
+            );
+            migrationStarted = true;
+            await runner.query(fs.readFileSync(migrationPath, 'utf8'));
+            migrationCommitted = true;
+
+            const upgradedGames = (await runner.query(
+                'SELECT id, status FROM games ORDER BY id',
+            )) as { id: number; status: string }[];
+            expect(upgradedGames).toEqual(
+                insertedGames.map(({ id }) => ({ id, status: 'published' })),
+            );
+
+            const [performanceCount] = (await runner.query(
+                'SELECT COUNT(*)::int AS count FROM performance_records',
+            )) as { count: number }[];
+            expect(performanceCount.count).toBe(1);
+
+            const foreignKeys = (await runner.query(`
+                SELECT conname
+                FROM pg_constraint
+                WHERE conrelid = 'performance_records'::regclass
+                  AND contype = 'f'
+                  AND conname = 'performance_records_game_id_fkey'
+            `)) as { conname: string }[];
+            expect(foreignKeys).toHaveLength(1);
+
+            const [gameIdColumn] = (await runner.query(`
+                SELECT is_nullable
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = 'game_enrichment_jobs'
+                  AND column_name = 'game_id'
+            `)) as { is_nullable: string }[];
+            expect(gameIdColumn.is_nullable).toBe('NO');
+
+            for (const [index, reason] of [
+                '',
+                '   ',
+                '\t',
+                '\n',
+                '\r\n \t',
+            ].entries()) {
+                await expect(
+                    runner.query(
+                        `INSERT INTO games (slug, name, status, rejection_reason)
+                         VALUES ($1, $2, 'rejected', $3)`,
+                        [
+                            `upgrade-whitespace-reason-${index}`,
+                            'Upgrade whitespace reason fixture',
+                            reason,
+                        ],
+                    ),
+                ).rejects.toMatchObject({ code: '23514' });
+            }
+        } finally {
+            if (connected) {
+                if (migrationStarted && !migrationCommitted) {
+                    await runner.query('ROLLBACK').catch(() => undefined);
+                }
+                await runner.query('SET search_path TO public');
+                await runner.query(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+                await runner.release();
+            }
+        }
     });
 
     it('does not expose pending or rejected games through public listing, search, detail, or check', async () => {

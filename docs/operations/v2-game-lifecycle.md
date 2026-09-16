@@ -11,8 +11,17 @@ updated game table and the `game_enrichment_jobs` table are created by
 `03-games-schema.sql` and `06-enrichment-schema.sql`; `05-seed.sql` marks every
 curated game as `published`.
 
-For an existing V1 database, take a verified backup and run the one-time
-transactional upgrade against the intended database:
+For an existing V1 database, keep the backend stopped until the migration has
+completed. Development TypeORM schema synchronization is disabled, so it
+cannot add the new defaulted `status` column before the migration backfills
+existing rows as `published`. Apply the upgrade in this order:
+
+1. Stop the backend and take a verified backup.
+2. Run the one-time transactional migration against the intended database.
+3. Verify the retained data and constraints.
+4. Start the backend only after the migration and verification succeed.
+
+The migration command is:
 
 ```sh
 pg_dump --format=custom "$DATABASE_URL" > ciri-before-v2-game-lifecycle.dump
@@ -25,6 +34,12 @@ do not apply it to a database that already has the lifecycle columns or table.
 It is not a production upgrade procedure to execute casually from a developer
 machine; use the deployment process for the intended database and retain the
 backup until post-upgrade checks finish.
+
+Fresh databases follow the numbered init order instead: `03-games-schema.sql`
+creates the lifecycle columns, `05-seed.sql` inserts curated games as
+`published`, and `06-enrichment-schema.sql` creates the current-job table. Do
+not use fresh-init scripts against an existing volume; they do not replace a
+one-time upgrade and deleting the volume would discard data.
 
 Post-upgrade, verify the retained data and key constraints:
 

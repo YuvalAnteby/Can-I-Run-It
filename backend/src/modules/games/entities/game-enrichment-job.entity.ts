@@ -29,7 +29,7 @@ export class GameEnrichmentJob {
     })
     id: number;
 
-    @ManyToOne(() => Game, { onDelete: 'RESTRICT' })
+    @ManyToOne(() => Game, { nullable: false, onDelete: 'RESTRICT' })
     @JoinColumn({ name: 'game_id' })
     @ApiProperty({ type: () => Game })
     game: Game;
@@ -44,6 +44,7 @@ export class GameEnrichmentJob {
     @Column({
         type: 'text',
         array: true,
+        name: 'missing_fields',
         default: () => "'{}'::text[]",
     })
     @ApiProperty({

@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS games (
     jsonb_typeof(metadata_provenance) = 'object'
   ),
   CONSTRAINT games_rejection_reason_check CHECK (
-    (status = 'rejected' AND rejection_reason IS NOT NULL AND length(btrim(rejection_reason)) > 0)
+    (status = 'rejected' AND rejection_reason IS NOT NULL AND length(regexp_replace(rejection_reason, '[[:space:]]', '', 'g')) > 0)
     OR (status <> 'rejected' AND rejection_reason IS NULL)
   )
 );

@@ -15,7 +15,7 @@ ALTER TABLE games
     ADD CONSTRAINT games_rawg_payload_check CHECK (rawg_payload IS NULL OR jsonb_typeof(rawg_payload) = 'object'),
     ADD CONSTRAINT games_metadata_provenance_check CHECK (jsonb_typeof(metadata_provenance) = 'object'),
     ADD CONSTRAINT games_rejection_reason_check CHECK (
-        (status = 'rejected' AND rejection_reason IS NOT NULL AND length(btrim(rejection_reason)) > 0)
+        (status = 'rejected' AND rejection_reason IS NOT NULL AND length(regexp_replace(rejection_reason, '[[:space:]]', '', 'g')) > 0)
         OR (status <> 'rejected' AND rejection_reason IS NULL)
     );
 

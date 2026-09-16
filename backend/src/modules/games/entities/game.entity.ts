@@ -36,7 +36,7 @@ import { GameRequirement } from './game-requirement.entity';
 )
 @Check(
     'games_rejection_reason_check',
-    `(status = 'rejected' AND rejection_reason IS NOT NULL AND length(btrim(rejection_reason)) > 0)
+    `(status = 'rejected' AND rejection_reason IS NOT NULL AND length(regexp_replace(rejection_reason, '[[:space:]]', '', 'g')) > 0)
      OR (status <> 'rejected' AND rejection_reason IS NULL)`,
 )
 export class Game {
