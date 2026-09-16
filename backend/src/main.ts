@@ -7,6 +7,7 @@ import { installAdminLoginNoStoreMiddleware } from './modules/admin-auth/admin-l
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
+    app.enableShutdownHooks();
     installAdminLoginNoStoreMiddleware(app);
 
     // Global Prefix

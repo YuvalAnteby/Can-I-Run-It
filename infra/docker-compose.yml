@@ -13,6 +13,7 @@ services:
       - REACT_URL=${REACT_URL:-http://localhost:3000}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-}
       - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH:-}
+      - RABBITMQ_URL=${RABBITMQ_URL:?RABBITMQ_URL must be set}
     env_file:
       - .env
     ports:
@@ -73,8 +74,32 @@ services:
       retries: 5
       start_period: 10s
 
+  # RabbitMQ broker (development with management UI)
+  rabbitmq:
+    image: rabbitmq:4.3.5-management-alpine
+    hostname: rabbitmq
+    container_name: ciri-rabbitmq
+    restart: unless-stopped
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER must be set}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS must be set}
+      - RABBITMQ_NODENAME=rabbit@rabbitmq
+    ports:
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmqdata:/var/lib/rabbitmq
+    networks:
+      - ciri-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 volumes:
   pgdata:
+  rabbitmqdata:
 
 networks:
   ciri-net:
