@@ -84,6 +84,11 @@ export class RabbitMqService implements OnApplicationShutdown {
             setup: setup as SetupFunc,
         });
         this.channels.add(channel);
+        channel.on('error', () =>
+            this.logger.warn(
+                'RabbitMQ channel error; channel will recover on reconnect',
+            ),
+        );
         channel.once('close', () => this.channels.delete(channel));
         return channel;
     }

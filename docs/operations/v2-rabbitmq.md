@@ -18,8 +18,10 @@ official image. Recheck the release and digest together when upgrading.
 
 The backend connects to `rabbitmq:5672` over the existing Compose network.
 Dev exposes only the management UI at `127.0.0.1:15672` by default; AMQP is
-not published. Production publishes neither AMQP nor management ports. Tests
-use a separate `ciri-net-tests` network and an in-memory broker data directory.
+not published. Production publishes neither AMQP nor management ports. Each
+broker uses the stable hostname `rabbitmq` and node name `rabbit@rabbitmq`.
+Tests use a separate `ciri-net-tests` network and a disposable named volume;
+the volume survives a broker restart so confirmed messages can be recovered.
 
 ## Environment
 
@@ -48,6 +50,11 @@ that a publication will succeed.
 Changing `RABBITMQ_DEFAULT_USER` or `RABBITMQ_DEFAULT_PASS` does not rotate
 credentials on an already initialized RabbitMQ volume. Do not delete the
 volume to fix credentials.
+
+The dev and production named volumes survive container recreation, so keep
+them when updating images or recreating containers. The test volume is also
+kept across the documented restart probe and is removed only by the final
+`docker compose ... down -v` teardown.
 
 For a user rotation in the dev stack, add the replacement user and grant it
 the same permissions before changing the application URL:
@@ -107,7 +114,8 @@ marker after confirming a durable message with publisher confirms:
 
 ```sh
 docker compose -f infra/docker-compose.tests.yml run --rm backend \
-  npx ts-node test/rabbitmq-restart.integration.ts
+  npx ts-node -r tsconfig-paths/register \
+  test/rabbitmq-restart.integration.ts
 ```
 
 While it waits for the marker, restart only the disposable test broker from a
@@ -117,8 +125,9 @@ second terminal:
 docker compose -f infra/docker-compose.tests.yml restart rabbitmq
 ```
 
-The probe has a 60-second deadline, waits for an observed disconnect and
-reconnect, then reads and acknowledges the message. During the restart,
+The probe has a 60-second deadline for channel readiness, waits for an
+observed disconnect and reconnect, then reads and acknowledges the message.
+During the restart,
 `/api/health/rabbitmq` should be 503 while PostgreSQL health and local catalog
 requests remain available; after reconnect it should return 200 and the
 channel setup should have recreated the test queue. Tear down only the

@@ -60,8 +60,6 @@ services:
     # TODO: remove port exposing
     ports:
       - "${POSTGRES_PORT}:5432"
-    env_file:
-      - ./.env
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
@@ -81,11 +79,13 @@ services:
   # RabbitMQ broker (production, no host ports)
   rabbitmq:
     image: rabbitmq:4.3.5-alpine@sha256:3486d98205df3d6395ed70e7924baa13b561cbac54116c0ddae5b0b7382bbabd
+    hostname: rabbitmq
     container_name: ciri-rabbitmq-prod
     restart: always
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER must be set}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS must be set}
+      - RABBITMQ_NODENAME=rabbit@rabbitmq
     volumes:
       - rabbitmqdata-prod:/var/lib/rabbitmq
     networks:

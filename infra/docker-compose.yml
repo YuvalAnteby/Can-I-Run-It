@@ -52,8 +52,6 @@ services:
     restart: unless-stopped
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
-    env_file:
-      - .env
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-username}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
@@ -77,11 +75,13 @@ services:
   # RabbitMQ broker (development with management UI)
   rabbitmq:
     image: rabbitmq:4.3.5-management-alpine@sha256:b3b8b7f95f5382a19f9ea33540e604f30aad081d37ad9aba72255135765373a1
+    hostname: rabbitmq
     container_name: ciri-rabbitmq
     restart: unless-stopped
     environment:
       - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER must be set}
       - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS must be set}
+      - RABBITMQ_NODENAME=rabbit@rabbitmq
     ports:
       - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
     volumes:

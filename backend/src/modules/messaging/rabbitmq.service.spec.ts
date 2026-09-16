@@ -1,3 +1,5 @@
+import { EventEmitter } from 'node:events';
+
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type {
@@ -114,6 +116,7 @@ describe('RabbitMqService', () => {
     it('creates tracked confirm JSON channels with the supplied setup', () => {
         const once = jest.fn();
         const wrapper = {
+            on: jest.fn(),
             once,
             close: jest.fn().mockResolvedValue(undefined),
         } as unknown as ChannelWrapper;
@@ -132,6 +135,33 @@ describe('RabbitMqService', () => {
             setup,
         });
         expect(once).toHaveBeenCalledWith('close', expect.any(Function));
+    });
+
+    it('handles ChannelWrapper setup errors without crashing or leaking credentials', () => {
+        const wrapper = Object.assign(new EventEmitter(), {
+            close: jest.fn().mockResolvedValue(undefined),
+        }) as unknown as ChannelWrapper;
+        manager.createChannel.mockReturnValue(wrapper);
+        const service = new RabbitMqService(
+            config as unknown as ConfigService,
+            logger as unknown as Logger,
+        );
+
+        service.createConfirmChannel(() => Promise.resolve(undefined));
+
+        expect(() =>
+            wrapper.emit(
+                'error',
+                new Error(
+                    'amqp://ciri:secret@rabbitmq:5672/ciri setup rejected',
+                ),
+                { name: 'foundation-test' },
+            ),
+        ).not.toThrow();
+        expect(logger.warn).toHaveBeenCalledWith(
+            'RabbitMQ channel error; channel will recover on reconnect',
+        );
+        expect(JSON.stringify(logger.warn.mock.calls)).not.toContain('secret');
     });
 
     it('logs connection failures without the broker URL', () => {
@@ -158,11 +188,13 @@ describe('RabbitMqService', () => {
     it('closes created channels before the manager and only once', async () => {
         const firstClose = jest.fn().mockResolvedValue(undefined);
         const firstWrapper = {
+            on: jest.fn(),
             once: jest.fn(),
             close: firstClose,
         } as unknown as ChannelWrapper;
         const secondClose = jest.fn().mockResolvedValue(undefined);
         const secondWrapper = {
+            on: jest.fn(),
             once: jest.fn(),
             close: secondClose,
         } as unknown as ChannelWrapper;

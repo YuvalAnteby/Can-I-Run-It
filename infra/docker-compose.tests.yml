@@ -20,11 +20,13 @@ services:
 
   rabbitmq:
     image: rabbitmq:4.3.5-alpine@sha256:3486d98205df3d6395ed70e7924baa13b561cbac54116c0ddae5b0b7382bbabd
+    hostname: rabbitmq
     environment:
       - RABBITMQ_DEFAULT_USER=ciri-test
       - RABBITMQ_DEFAULT_PASS=ciri-test-password
-    tmpfs:
-      - /var/lib/rabbitmq
+      - RABBITMQ_NODENAME=rabbit@rabbitmq
+    volumes:
+      - rabbitmqdata-test:/var/lib/rabbitmq
     networks:
       - ciri-net-tests
     healthcheck:
@@ -60,3 +62,6 @@ services:
 
 networks:
   ciri-net-tests:
+
+volumes:
+  rabbitmqdata-test:

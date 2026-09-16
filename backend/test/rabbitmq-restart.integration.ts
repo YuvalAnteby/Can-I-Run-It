@@ -40,16 +40,22 @@ async function run(): Promise<void> {
         console.log(`RABBITMQ_RESTART_PROBE_READY queue=${queue}`);
         const deadline = Date.now() + 60_000;
         let sawDisconnect = false;
+        let channelReady = false;
         while (Date.now() < deadline) {
             const connected = service.isConnected();
             sawDisconnect ||= !connected;
             if (sawDisconnect && connected) {
+                await withTimeout(
+                    channel.waitForConnect(),
+                    Math.max(1, deadline - Date.now()),
+                );
+                channelReady = true;
                 break;
             }
             await sleep(250);
         }
 
-        if (!sawDisconnect || !service.isConnected()) {
+        if (!sawDisconnect || !channelReady) {
             throw new Error('RabbitMQ did not complete a disconnect/reconnect');
         }
 

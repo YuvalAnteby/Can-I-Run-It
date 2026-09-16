@@ -84,4 +84,32 @@ describe('RabbitMQ foundation (e2e)', () => {
             .get('/api/health/rabbitmq')
             .expect(200);
     });
+
+    it('returns 503 for broker-down health without affecting PostgreSQL', async () => {
+        const connectionState = jest
+            .spyOn(app.get(RabbitMqService), 'isConnected')
+            .mockReturnValue(false);
+
+        try {
+            const rabbitMqResponse = await request(
+                app.getHttpServer() as Server,
+            )
+                .get('/api/health/rabbitmq')
+                .expect(503);
+
+            expect(rabbitMqResponse.body).toMatchObject({
+                status: 'error',
+                error: { rabbitmq: { status: 'down' } },
+            });
+            expect(JSON.stringify(rabbitMqResponse.body)).not.toContain(
+                'amqp://',
+            );
+
+            await request(app.getHttpServer() as Server)
+                .get('/api/health/postgres')
+                .expect(200);
+        } finally {
+            connectionState.mockRestore();
+        }
+    });
 });
