@@ -9,16 +9,22 @@ import { RabbitMqService } from '../src/modules/messaging/rabbitmq.service';
 const sleep = (milliseconds: number): Promise<void> =>
     new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-const withTimeout = async <T>(promise: Promise<T>, milliseconds: number) =>
-    Promise.race([
-        promise,
-        new Promise<never>((_, reject) =>
-            setTimeout(
-                () => reject(new Error('timed out waiting for RabbitMQ')),
-                milliseconds,
-            ),
-        ),
-    ]);
+const withTimeout = async <T>(promise: Promise<T>, milliseconds: number) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+        return await Promise.race([
+            promise,
+            new Promise<never>((_, reject) => {
+                timer = setTimeout(
+                    () => reject(new Error('timed out waiting for RabbitMQ')),
+                    milliseconds,
+                );
+            }),
+        ]);
+    } finally {
+        clearTimeout(timer);
+    }
+};
 
 async function run(): Promise<void> {
     const app = await NestFactory.createApplicationContext(AppModule);
