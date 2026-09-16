@@ -1,7 +1,7 @@
 -- ============================================
 -- SEED DATA — CIRI
 -- Rebuilt from hand-verified source CSVs
--- Run order: 01-enums → 02-hardware → 03-games → 04-performance → 05-seed
+-- Run order: 01-enums → 02-hardware → 03-games → 04-performance → 05-seed → 06-enrichment
 -- ============================================
 
 
@@ -100,21 +100,21 @@ INSERT INTO cpus (slug, name, manufacturer, cores, threads, base_clock_ghz, boos
 -- ============================================
 
 INSERT INTO games (
-  slug, name, publisher, developer, release_date,
+  slug, name, status, publisher, developer, release_date,
   genre, description, tags,
   supports_ray_tracing, supports_dlss, supports_fsr, supports_xess,
   cover_image_url, is_trending, trending_rank
 ) VALUES
-  ('kingdom-come-deliverance-2', 'Kingdom Come Deliverance 2', 'Deep Silver', 'Warhorse Studios', '2025-02-11', 'Action RPG', 'A realistic open-world RPG set in medieval Bohemia. The sequel to the acclaimed Kingdom Come: Deliverance.', ARRAY['open-world', 'realistic', 'cpu-heavy', 'dlss', 'fsr'], true, true, true, false, 'https://imgur.com/TqcyNA9.jpg', true, 1),
-  ('god-of-war-2018', 'God of War (2018)', 'Sony Interactive Entertainment', 'Santa Monica Studio', '2018-04-20', 'Action Adventure', 'Kratos and his son Atreus journey through the Norse realms. A masterpiece of storytelling and combat.', ARRAY['story-rich', 'action', 'dlss'], false, true, true, false, 'https://imgur.com/TxGGC6O.jpg', false, NULL),
-  ('god-of-war-ragnarok', 'God of War Ragnarök', 'Sony Interactive Entertainment', 'Santa Monica Studio', '2022-11-09', 'Action Adventure', 'The epic conclusion to the Norse saga. Kratos and Atreus must prevent Ragnarök.', ARRAY['story-rich', 'action', 'dlss'], false, true, true, false, 'https://imgur.com/CyHn5T3.jpg', false, NULL),
-  ('kingdom-come-deliverance', 'Kingdom Come: Deliverance', 'Deep Silver', 'Warhorse Studios', '2018-02-13', 'Action RPG', 'A story-driven open-world RPG in medieval Bohemia. Historically accurate with deep RPG systems.', ARRAY['open-world', 'realistic', 'cpu-heavy'], false, false, false, false, 'https://imgur.com/q1aVXnw.jpg', false, NULL),
-  ('red-dead-redemption-2', 'Red Dead Redemption 2', 'Rockstar Games', 'Rockstar Games', '2019-10-26', 'Action Adventure', 'An epic tale of outlaw life in 1899 America. One of the most detailed open worlds ever created.', ARRAY['open-world', 'story-rich', 'cpu-heavy'], false, true, true, false, 'https://imgur.com/wNcAUoN.jpg', true, 4),
-  ('black-myth-wukong', 'Black Myth: Wukong', 'Game Science', 'Game Science', '2024-08-20', 'Action RPG', 'A visually stunning action RPG based on the classic Chinese novel Journey to the West.', ARRAY['action', 'ray-tracing', 'gpu-heavy', 'dlss', 'fsr'], true, true, true, false, 'https://imgur.com/yWszzjT.jpg', true, 2),
-  ('assassins-creed-shadows', 'Assassin''s Creed Shadows', 'Ubisoft', 'Ubisoft', '2025-02-14', 'Action RPG', 'Explore feudal Japan as dual protagonists in the latest Assassin''s Creed.', ARRAY['open-world', 'action', 'ray-tracing', 'dlss', 'fsr'], true, true, true, false, 'https://imgur.com/U5VoiQL.jpg', true, 3),
-  ('the-last-of-us-part-1', 'The Last of Us Part I', 'PlayStation Publishing LLC', 'Naughty Dog LLC', '2023-03-28', 'Action Adventure', 'A post-apocalyptic survival game following Joel and Ellie across a ravaged United States.', ARRAY['story-rich', 'action', 'dlss'], false, true, true, false, 'https://imgur.com/uztXPuq.jpg', true, 5),
-  ('the-last-of-us-part-2', 'The Last of Us Part II Remastered', 'PlayStation Publishing LLC', 'Naughty Dog LLC', '2024-01-19', 'Action Adventure', 'The harrowing sequel following Ellie on a quest for justice. Remastered with enhanced visuals.', ARRAY['story-rich', 'action', 'dlss'], false, true, true, false, 'https://imgur.com/P6jf9he.jpg', true, 6),
-  ('cyberpunk-2077', 'Cyberpunk 2077', 'CD PROJEKT RED', 'CD PROJEKT RED', '2020-12-10', 'Action RPG', 'An open-world action RPG set in Night City, a megalopolis obsessed with power, glamour and body modification.', ARRAY['open-world', 'ray-tracing', 'gpu-heavy', 'dlss', 'fsr'], true, true, true, false, 'https://imgur.com/VDUcpgp.jpg', false, NULL);
+  ('kingdom-come-deliverance-2', 'Kingdom Come Deliverance 2', 'published', 'Deep Silver', 'Warhorse Studios', '2025-02-11', 'Action RPG', 'A realistic open-world RPG set in medieval Bohemia. The sequel to the acclaimed Kingdom Come: Deliverance.', ARRAY['open-world', 'realistic', 'cpu-heavy', 'dlss', 'fsr'], true, true, true, false, 'https://imgur.com/TqcyNA9.jpg', true, 1),
+  ('god-of-war-2018', 'God of War (2018)', 'published', 'Sony Interactive Entertainment', 'Santa Monica Studio', '2018-04-20', 'Action Adventure', 'Kratos and his son Atreus journey through the Norse realms. A masterpiece of storytelling and combat.', ARRAY['story-rich', 'action', 'dlss'], false, true, true, false, 'https://imgur.com/TxGGC6O.jpg', false, NULL),
+  ('god-of-war-ragnarok', 'God of War Ragnarök', 'published', 'Sony Interactive Entertainment', 'Santa Monica Studio', '2022-11-09', 'Action Adventure', 'The epic conclusion to the Norse saga. Kratos and Atreus must prevent Ragnarök.', ARRAY['story-rich', 'action', 'dlss'], false, true, true, false, 'https://imgur.com/CyHn5T3.jpg', false, NULL),
+  ('kingdom-come-deliverance', 'Kingdom Come: Deliverance', 'published', 'Deep Silver', 'Warhorse Studios', '2018-02-13', 'Action RPG', 'A story-driven open-world RPG in medieval Bohemia. Historically accurate with deep RPG systems.', ARRAY['open-world', 'realistic', 'cpu-heavy'], false, false, false, false, 'https://imgur.com/q1aVXnw.jpg', false, NULL),
+  ('red-dead-redemption-2', 'Red Dead Redemption 2', 'published', 'Rockstar Games', 'Rockstar Games', '2019-10-26', 'Action Adventure', 'An epic tale of outlaw life in 1899 America. One of the most detailed open worlds ever created.', ARRAY['open-world', 'story-rich', 'cpu-heavy'], false, true, true, false, 'https://imgur.com/wNcAUoN.jpg', true, 4),
+  ('black-myth-wukong', 'Black Myth: Wukong', 'published', 'Game Science', 'Game Science', '2024-08-20', 'Action RPG', 'A visually stunning action RPG based on the classic Chinese novel Journey to the West.', ARRAY['action', 'ray-tracing', 'gpu-heavy', 'dlss', 'fsr'], true, true, true, false, 'https://imgur.com/yWszzjT.jpg', true, 2),
+  ('assassins-creed-shadows', 'Assassin''s Creed Shadows', 'published', 'Ubisoft', 'Ubisoft', '2025-02-14', 'Action RPG', 'Explore feudal Japan as dual protagonists in the latest Assassin''s Creed.', ARRAY['open-world', 'action', 'ray-tracing', 'dlss', 'fsr'], true, true, true, false, 'https://imgur.com/U5VoiQL.jpg', true, 3),
+  ('the-last-of-us-part-1', 'The Last of Us Part I', 'published', 'PlayStation Publishing LLC', 'Naughty Dog LLC', '2023-03-28', 'Action Adventure', 'A post-apocalyptic survival game following Joel and Ellie across a ravaged United States.', ARRAY['story-rich', 'action', 'dlss'], false, true, true, false, 'https://imgur.com/uztXPuq.jpg', true, 5),
+  ('the-last-of-us-part-2', 'The Last of Us Part II Remastered', 'published', 'PlayStation Publishing LLC', 'Naughty Dog LLC', '2024-01-19', 'Action Adventure', 'The harrowing sequel following Ellie on a quest for justice. Remastered with enhanced visuals.', ARRAY['story-rich', 'action', 'dlss'], false, true, true, false, 'https://imgur.com/P6jf9he.jpg', true, 6),
+  ('cyberpunk-2077', 'Cyberpunk 2077', 'published', 'CD PROJEKT RED', 'CD PROJEKT RED', '2020-12-10', 'Action RPG', 'An open-world action RPG set in Night City, a megalopolis obsessed with power, glamour and body modification.', ARRAY['open-world', 'ray-tracing', 'gpu-heavy', 'dlss', 'fsr'], true, true, true, false, 'https://imgur.com/VDUcpgp.jpg', false, NULL);
 
 
 -- ============================================

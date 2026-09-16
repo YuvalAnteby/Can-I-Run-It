@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS games (
   id SERIAL PRIMARY KEY,
   slug VARCHAR(100) UNIQUE NOT NULL,   -- 'cyberpunk-2077', used in URLs
   name VARCHAR(200) NOT NULL,
+  status VARCHAR(20) NOT NULL DEFAULT 'pending_approval',
+  rawg_id INTEGER,
+  rawg_payload JSONB,
+  metadata_provenance JSONB NOT NULL DEFAULT '{}'::jsonb,
+  rejection_reason TEXT,
 
   -- Relations
   game_engine_id INTEGER REFERENCES game_engines(id),
@@ -45,7 +50,23 @@ CREATE TABLE IF NOT EXISTS games (
   trending_rank INTEGER,         -- Lower = higher on the list, NULL = not trending
 
   created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  updated_at TIMESTAMP DEFAULT NOW(),
+
+  CONSTRAINT games_status_check CHECK (
+    status IN ('pending_approval', 'published', 'rejected')
+  ),
+  CONSTRAINT games_rawg_id_key UNIQUE (rawg_id),
+  CONSTRAINT games_rawg_id_check CHECK (rawg_id IS NULL OR rawg_id > 0),
+  CONSTRAINT games_rawg_payload_check CHECK (
+    rawg_payload IS NULL OR jsonb_typeof(rawg_payload) = 'object'
+  ),
+  CONSTRAINT games_metadata_provenance_check CHECK (
+    jsonb_typeof(metadata_provenance) = 'object'
+  ),
+  CONSTRAINT games_rejection_reason_check CHECK (
+    (status = 'rejected' AND rejection_reason IS NOT NULL AND length(regexp_replace(rejection_reason, '[[:space:]]', '', 'g')) > 0)
+    OR (status <> 'rejected' AND rejection_reason IS NULL)
+  )
 );
 
 -- ============================================

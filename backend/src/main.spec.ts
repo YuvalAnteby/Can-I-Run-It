@@ -5,6 +5,7 @@ describe('bootstrap', () => {
         const enableShutdownHooks = jest.fn();
         const app = {
             enableShutdownHooks,
+            use: jest.fn(),
             setGlobalPrefix: jest.fn(),
             enableCors: jest.fn(),
             enableVersioning: jest.fn(),
