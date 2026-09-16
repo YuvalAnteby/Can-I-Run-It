@@ -264,4 +264,19 @@ describe('CheckService', () => {
         });
         expect(mockPerfRepo.save).not.toHaveBeenCalled();
     });
+
+    it('limits the game lookup to published games before checking performance or Gemini', async () => {
+        mockGameRepo.findOne.mockResolvedValue(null);
+
+        await expect(
+            service.checkCompatibility(validRequest()),
+        ).rejects.toThrow('Game with slug "test-game" not found');
+
+        expect(mockGameRepo.findOne).toHaveBeenCalledWith({
+            where: { slug: 'test-game', status: 'published' },
+            relations: ['requirements', 'requirements.cpu', 'requirements.gpu'],
+        });
+        expect(mockPerfRepo.find).not.toHaveBeenCalled();
+        expect(mockGeminiService.estimate).not.toHaveBeenCalled();
+    });
 });

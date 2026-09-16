@@ -12,7 +12,7 @@ export const databaseProviders = [
                 password: process.env.POSTGRES_PASSWORD || 'changeme',
                 database: process.env.POSTGRES_DB || 'myciridb',
                 entities: [__dirname + '/../**/*.entity.{js,ts}'],
-                synchronize: process.env.NODE_ENV === 'development',
+                synchronize: false,
             });
 
             return dataSource.initialize();

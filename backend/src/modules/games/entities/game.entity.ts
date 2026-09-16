@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
+    Check,
     Column,
     CreateDateColumn,
     Entity,
@@ -7,13 +8,37 @@ import {
     ManyToOne,
     OneToMany,
     PrimaryGeneratedColumn,
+    Unique,
     UpdateDateColumn,
 } from 'typeorm';
 
+import type {
+    GameStatus,
+    MetadataProvenance,
+} from '../game-lifecycle.contract';
 import { GameEngine } from './game-engine.entity';
 import { GameRequirement } from './game-requirement.entity';
 
 @Entity('games')
+@Unique('games_rawg_id_key', ['rawgId'])
+@Check(
+    'games_status_check',
+    `status IN ('pending_approval', 'published', 'rejected')`,
+)
+@Check('games_rawg_id_check', 'rawg_id IS NULL OR rawg_id > 0')
+@Check(
+    'games_rawg_payload_check',
+    `rawg_payload IS NULL OR jsonb_typeof(rawg_payload) = 'object'`,
+)
+@Check(
+    'games_metadata_provenance_check',
+    `jsonb_typeof(metadata_provenance) = 'object'`,
+)
+@Check(
+    'games_rejection_reason_check',
+    `(status = 'rejected' AND rejection_reason IS NOT NULL AND length(regexp_replace(rejection_reason, '[[:space:]]', '', 'g')) > 0)
+     OR (status <> 'rejected' AND rejection_reason IS NULL)`,
+)
 export class Game {
     @PrimaryGeneratedColumn()
     @ApiProperty({
@@ -35,6 +60,52 @@ export class Game {
         example: 'Cyberpunk 2077',
     })
     name: string;
+
+    @Column({ type: 'varchar', length: 20, default: 'pending_approval' })
+    @ApiProperty({
+        description: 'The publication status of the game',
+        example: 'published',
+    })
+    status: GameStatus;
+
+    @Column({ type: 'integer', name: 'rawg_id', nullable: true })
+    @ApiProperty({
+        description: 'The retained RAWG identity, when known',
+        example: 3498,
+        nullable: true,
+    })
+    rawgId: number | null;
+
+    @Column({ type: 'jsonb', name: 'rawg_payload', nullable: true })
+    @ApiProperty({
+        description: 'The private raw provider payload',
+        nullable: true,
+    })
+    rawgPayload: Record<string, unknown> | null;
+
+    @Column({
+        type: 'jsonb',
+        name: 'metadata_provenance',
+        default: {},
+    })
+    @ApiProperty({
+        description: 'Evidence ownership by persisted metadata field path',
+        example: {
+            name: {
+                source: 'rawg',
+                sourceUrl: 'https://rawg.io/games/3498',
+                extractedBy: null,
+            },
+        },
+    })
+    metadataProvenance: MetadataProvenance;
+
+    @Column({ type: 'text', name: 'rejection_reason', nullable: true })
+    @ApiProperty({
+        description: 'The required reason when the game is rejected',
+        nullable: true,
+    })
+    rejectionReason: string | null;
 
     @ManyToOne(() => GameEngine, { nullable: true })
     @JoinColumn({ name: 'game_engine_id' })

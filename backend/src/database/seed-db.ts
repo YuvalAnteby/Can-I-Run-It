@@ -2,6 +2,7 @@ import * as dotenv from 'dotenv';
 import * as fs from 'fs';
 import * as path from 'path';
 import { DataSource } from 'typeorm';
+import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 
 import { Cpu } from '../modules/cpu/entities/cpu.entity';
 import { Game } from '../modules/games/entities/game.entity';
@@ -64,7 +65,10 @@ async function seed() {
             });
             if (existing) {
                 console.log(`   - Updating Game: ${game.name}`);
-                await gameRepository.update(existing.id, game);
+                await gameRepository.update(
+                    existing.id,
+                    game as QueryDeepPartialEntity<Game>,
+                );
             } else {
                 console.log(`   - Creating Game: ${game.name}`);
                 await gameRepository.save(game);

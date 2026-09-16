@@ -12,8 +12,10 @@ create a separate backend environment file. Start from `infra/.env.example` and
 keep database credentials and `GEMINI_API_KEY` out of version control.
 
 Within Compose, PostgreSQL is available to NestJS as `postgres:5432`.
-Production schema synchronization is disabled; tracked SQL in
-`infra/init-scripts/` creates and seeds a fresh PostgreSQL volume.
+Schema synchronization is disabled in every environment; tracked SQL in
+`infra/init-scripts/` creates and seeds a fresh PostgreSQL volume. Apply the
+documented one-time migration before starting the backend against an existing
+V1 volume.
 
 ## Public compatibility API
 
