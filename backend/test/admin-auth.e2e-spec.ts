@@ -97,6 +97,7 @@ function authConfig(overrides: Record<string, string> = {}): ConfigService {
 describe('Admin authentication (e2e)', () => {
     let app: INestApplication;
     let rateApp: INestApplication;
+    let originRateApp: INestApplication;
     let cookie: string;
     let expiresAt: string;
 
@@ -114,9 +115,17 @@ describe('Admin authentication (e2e)', () => {
         rateApp = rateModule.createNestApplication();
         configureApp(rateApp);
         await rateApp.init();
+
+        const originRateModule = await Test.createTestingModule({
+            imports: [AuthOnlyTestModule],
+        }).compile();
+        originRateApp = originRateModule.createNestApplication();
+        configureApp(originRateApp);
+        await originRateApp.init();
     });
 
     afterAll(async () => {
+        if (originRateApp) await originRateApp.close();
         if (rateApp) await rateApp.close();
         if (!app) return;
 
@@ -172,6 +181,45 @@ describe('Admin authentication (e2e)', () => {
         expect(response.body).not.toHaveProperty('token');
     });
 
+    it('rejects non-string login credentials with 400 and no-store', async () => {
+        const server = app.getHttpServer() as Server;
+        for (const payload of [
+            { username: 123, password: TEST_ADMIN_PASSWORD },
+            { username: TEST_ADMIN_USERNAME, password: { value: 'password' } },
+        ]) {
+            const response = await request(server)
+                .post('/api/v1/admin/auth/login')
+                .set('Origin', TEST_ADMIN_ORIGIN)
+                .send(payload)
+                .expect(400);
+
+            expect(response.headers['cache-control']).toBe('no-store');
+        }
+    });
+
+    it('marks authentication guard and origin failures as no-store', async () => {
+        const missingSession = await request(app.getHttpServer() as Server)
+            .get('/api/v1/admin/auth/session')
+            .expect(401);
+        expect(missingSession.headers['cache-control']).toBe('no-store');
+
+        const invalidOriginLogin = await request(app.getHttpServer() as Server)
+            .post('/api/v1/admin/auth/login')
+            .set('Origin', 'https://evil.example')
+            .send({
+                username: TEST_ADMIN_USERNAME,
+                password: TEST_ADMIN_PASSWORD,
+            })
+            .expect(403);
+        expect(invalidOriginLogin.headers['cache-control']).toBe('no-store');
+
+        const invalidOriginLogout = await request(app.getHttpServer() as Server)
+            .post('/api/v1/admin/auth/logout')
+            .set('Origin', 'https://evil.example')
+            .expect(403);
+        expect(invalidOriginLogout.headers['cache-control']).toBe('no-store');
+    });
+
     it('uses the same unauthorized response for invalid and unknown credentials', async () => {
         const invalidPassword = await request(app.getHttpServer() as Server)
             .post('/api/v1/admin/auth/login')
@@ -185,6 +233,8 @@ describe('Admin authentication (e2e)', () => {
             .expect(401);
 
         expect(unknownUsername.body).toEqual(invalidPassword.body);
+        expect(invalidPassword.headers['cache-control']).toBe('no-store');
+        expect(unknownUsername.headers['cache-control']).toBe('no-store');
     });
 
     it('rejects missing or mismatched origins on login and protected mutations', async () => {
@@ -341,6 +391,25 @@ describe('Admin authentication (e2e)', () => {
         expect(clearCookie).not.toContain('Max-Age');
     });
 
+    it('does not charge invalid-origin login posts against the valid-origin quota', async () => {
+        const server = originRateApp.getHttpServer() as Server;
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+            await request(server)
+                .post('/api/v1/admin/auth/login')
+                .set('Origin', 'https://evil.example')
+                .send({ username: 'wrong', password: 'wrong' })
+                .expect(403);
+        }
+
+        const validOriginAttempt = await request(server)
+            .post('/api/v1/admin/auth/login')
+            .set('Origin', TEST_ADMIN_ORIGIN)
+            .send({ username: 'wrong', password: 'wrong' })
+            .expect(401);
+
+        expect(validOriginAttempt.headers['cache-control']).toBe('no-store');
+    });
+
     it('returns 429 on the eleventh login attempt in a fresh rate-limit store', async () => {
         const server = rateApp.getHttpServer() as Server;
         for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -357,5 +426,6 @@ describe('Admin authentication (e2e)', () => {
             .send({ username: 'wrong', password: 'wrong' })
             .expect(429);
         expect(throttled.headers['retry-after']).toBeDefined();
+        expect(throttled.headers['cache-control']).toBe('no-store');
     });
 });

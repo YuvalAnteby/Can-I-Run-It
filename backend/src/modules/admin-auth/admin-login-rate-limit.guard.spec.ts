@@ -1,10 +1,16 @@
-import { ExecutionContext, HttpStatus } from '@nestjs/common';
+import {
+    ExecutionContext,
+    ForbiddenException,
+    HttpStatus,
+} from '@nestjs/common';
 
 import { CheckRateLimitGuard } from '../../common/guards/check-rate-limit.guard';
+import type { AdminAuthService } from './admin-auth.service';
 import { AdminLoginRateLimitGuard } from './admin-login-rate-limit.guard';
 
 function contextFor(request: {
     ip: string;
+    headers?: { origin?: string };
     res: { setHeader: jest.Mock };
 }): ExecutionContext {
     return {
@@ -25,8 +31,14 @@ describe('AdminLoginRateLimitGuard', () => {
     });
 
     it('allows ten login attempts and rejects the eleventh with Retry-After', () => {
-        const guard = new AdminLoginRateLimitGuard();
-        const request = { ip: '203.0.113.10', res: { setHeader: jest.fn() } };
+        const guard = new AdminLoginRateLimitGuard({
+            assertOrigin: jest.fn(),
+        } as unknown as AdminAuthService);
+        const request = {
+            ip: '203.0.113.10',
+            headers: { origin: 'http://localhost:3000' },
+            res: { setHeader: jest.fn() },
+        };
         const context = contextFor(request);
 
         for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -40,13 +52,47 @@ describe('AdminLoginRateLimitGuard', () => {
     });
 
     it('keeps login counters independent from the public check guard', () => {
-        const loginGuard = new AdminLoginRateLimitGuard();
+        const loginGuard = new AdminLoginRateLimitGuard({
+            assertOrigin: jest.fn(),
+        } as unknown as AdminAuthService);
         const checkGuard = new CheckRateLimitGuard();
-        const request = { ip: '203.0.113.10', res: { setHeader: jest.fn() } };
+        const request = {
+            ip: '203.0.113.10',
+            headers: { origin: 'http://localhost:3000' },
+            res: { setHeader: jest.fn() },
+        };
 
         for (let attempt = 0; attempt < 10; attempt += 1) {
             expect(loginGuard.canActivate(contextFor(request))).toBe(true);
         }
         expect(checkGuard.canActivate(contextFor(request))).toBe(true);
+    });
+
+    it('validates Origin before charging the login quota', () => {
+        const service = {
+            assertOrigin: jest.fn((origin?: string) => {
+                if (origin !== 'http://localhost:3000') {
+                    throw new ForbiddenException('Invalid origin');
+                }
+            }),
+        };
+        const guard = new AdminLoginRateLimitGuard(
+            service as unknown as AdminAuthService,
+        );
+        const request = {
+            ip: '203.0.113.10',
+            headers: { origin: 'https://evil.example' },
+            res: { setHeader: jest.fn() },
+        };
+
+        for (let attempt = 0; attempt < 10; attempt += 1) {
+            expect(() => guard.canActivate(contextFor(request))).toThrow(
+                ForbiddenException,
+            );
+        }
+
+        request.headers.origin = 'http://localhost:3000';
+        expect(guard.canActivate(contextFor(request))).toBe(true);
+        expect(service.assertOrigin).toHaveBeenCalledTimes(11);
     });
 });

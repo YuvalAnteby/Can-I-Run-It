@@ -10,7 +10,7 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - REACT_URL=${REACT_URL:-http://react}
+      - REACT_URL=${REACT_URL:-http://localhost:3000}
       - ADMIN_USERNAME=${ADMIN_USERNAME:-}
       - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH:-}
     env_file:

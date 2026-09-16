@@ -17,10 +17,14 @@ const session: AdminSession = {
     expiresAt: new Date(1_800_000).toISOString(),
 };
 
-function contextFor(request: AdminRequest): ExecutionContext {
+function contextFor(
+    request: AdminRequest,
+    response: { setHeader: jest.Mock } = { setHeader: jest.fn() },
+): ExecutionContext {
     return {
         switchToHttp: () => ({
             getRequest: () => request,
+            getResponse: () => response,
         }),
     } as unknown as ExecutionContext;
 }
@@ -73,6 +77,22 @@ describe('AdminGuard', () => {
         );
         expect(service.getSession).toHaveBeenCalledWith(undefined);
         expect(request.admin).toBeUndefined();
+    });
+
+    it('marks rejected session responses as no-store', () => {
+        service.getSession.mockImplementation(() => {
+            throw new UnauthorizedException('Invalid session');
+        });
+        const request = requestFor('GET');
+        const response = { setHeader: jest.fn() };
+
+        expect(() => guard.canActivate(contextFor(request, response))).toThrow(
+            UnauthorizedException,
+        );
+        expect(response.setHeader).toHaveBeenCalledWith(
+            'Cache-Control',
+            'no-store',
+        );
     });
 
     it('propagates missing, unknown, and expired session failures', () => {

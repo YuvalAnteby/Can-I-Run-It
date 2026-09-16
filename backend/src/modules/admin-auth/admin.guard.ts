@@ -1,4 +1,5 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import type { Response } from 'express';
 
 import { readAdminSessionToken } from './admin-auth.cookies';
 import { AdminAuthService } from './admin-auth.service';
@@ -11,7 +12,9 @@ export class AdminGuard implements CanActivate {
     constructor(private readonly adminAuthService: AdminAuthService) {}
 
     canActivate(context: ExecutionContext): boolean {
-        const request = context.switchToHttp().getRequest<AdminRequest>();
+        const http = context.switchToHttp();
+        http.getResponse<Response>().setHeader('Cache-Control', 'no-store');
+        const request = http.getRequest<AdminRequest>();
         request.admin = undefined;
 
         if (MUTATING_METHODS.has(request.method.toUpperCase())) {

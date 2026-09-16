@@ -18,7 +18,10 @@ async function bootstrap() {
                 ? frontendUrl
                     ? [frontendUrl]
                     : []
-                : [frontendUrl || 'http://react', 'http://localhost:3000'],
+                : [
+                      frontendUrl || 'http://localhost:3000',
+                      'http://localhost:3000',
+                  ],
         credentials: true,
     });
 

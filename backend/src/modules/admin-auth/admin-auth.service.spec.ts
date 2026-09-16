@@ -124,6 +124,27 @@ describe('AdminAuthService', () => {
         );
     });
 
+    it('rejects a noncanonical frontend origin with a trailing slash', () => {
+        expect(
+            () => new AdminAuthService(config({ REACT_URL: `${origin}/` })),
+        ).toThrow(/REACT_URL/);
+    });
+
+    it('accepts a 100-character admin username but rejects longer values', () => {
+        expect(
+            () =>
+                new AdminAuthService(
+                    config({ ADMIN_USERNAME: 'a'.repeat(100) }),
+                ),
+        ).not.toThrow();
+        expect(
+            () =>
+                new AdminAuthService(
+                    config({ ADMIN_USERNAME: 'a'.repeat(101) }),
+                ),
+        ).toThrow(/ADMIN_USERNAME/);
+    });
+
     it('fails closed when required configuration is missing or insecure in production', () => {
         expect(
             () =>

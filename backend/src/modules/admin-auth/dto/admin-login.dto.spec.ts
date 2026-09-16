@@ -24,3 +24,19 @@ it('rejects missing, empty, and oversized login fields', async () => {
         expect.arrayContaining(['username', 'password']),
     );
 });
+
+it.each([
+    [{ username: 123, password: 'password' }, 'username'],
+    [{ username: 'admin', password: { value: 'password' } }, 'password'],
+])(
+    'rejects non-string %s credentials even when implicit conversion is enabled',
+    async (credentials, property) => {
+        const dto = plainToInstance(AdminLoginDto, credentials, {
+            enableImplicitConversion: true,
+        });
+
+        const properties = (await validate(dto)).map((error) => error.property);
+
+        expect(properties).toContain(property);
+    },
+);

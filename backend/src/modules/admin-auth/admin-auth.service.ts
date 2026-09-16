@@ -62,6 +62,7 @@ function parseFrontendOrigin(value: string, production: boolean): string {
     if (
         !['http:', 'https:'].includes(url.protocol) ||
         url.origin === 'null' ||
+        value !== url.origin ||
         url.username ||
         url.password ||
         url.pathname !== '/' ||
@@ -99,6 +100,9 @@ export class AdminAuthService {
             throw new Error(
                 `Missing admin auth configuration: ${missing.join(', ')}`,
             );
+        }
+        if (username.length > 100) {
+            throw invalidConfiguration('ADMIN_USERNAME');
         }
 
         const parsedHash = parsePasswordHash(passwordHash);
