@@ -1,11 +1,16 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { MemoryRouter, useLocation } from 'react-router-dom';
+import { http, HttpResponse } from 'msw';
+import { describe, expect, it, vi } from 'vitest';
 
+import { server } from '../../mocks/server';
 import { HeroSearch } from './HeroSearch';
+
+const DISCOVER_URL = 'http://localhost:4000/api/v2/games/discover';
+const SELECT_URL = 'http://localhost:4000/api/v2/games/rawg/3498/select';
 
 /**
  * Each test gets its own QueryClient so cached results never leak between cases.
@@ -17,6 +22,25 @@ function makeWrapper(): ({ children }: { children: ReactNode }) => ReactNode {
     <QueryClientProvider client={qc}>
       <MemoryRouter>{children}</MemoryRouter>
     </QueryClientProvider>
+  );
+}
+
+function LocationProbe(): ReactNode {
+  const location = useLocation();
+  return <output data-testid="location">{location.pathname}</output>;
+}
+
+function renderWithLocation(): ReturnType<typeof render> {
+  const qc = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={qc}>
+      <MemoryRouter>
+        <HeroSearch />
+        <LocationProbe />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -116,5 +140,209 @@ describe('HeroSearch', () => {
     userEvent.click(screen.getByRole('button', { name: /^check$/i }));
 
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+  });
+
+  it('labels local and RAWG results distinctly and renders the backend attribution as an active link', async () => {
+    server.use(
+      http.get(DISCOVER_URL, () =>
+        HttpResponse.json({
+          rawgAvailable: true,
+          data: [
+            {
+              source: 'local',
+              id: 7,
+              slug: 'local-game',
+              name: 'Same Title',
+              coverImageUrl: null,
+            },
+            {
+              source: 'rawg',
+              rawgId: 3498,
+              name: 'Same Title',
+              coverImageUrl: null,
+              rawgUrl: 'https://rawg.io/games/same-title',
+            },
+          ],
+        }),
+      ),
+    );
+
+    render(<HeroSearch />, { wrapper: makeWrapper() });
+    userEvent.type(
+      screen.getByRole('textbox', { name: /search for a game/i }),
+      'Same Title',
+    );
+
+    expect(await screen.findAllByText('Same Title')).toHaveLength(2);
+    expect(screen.getByText(/local/i)).toBeInTheDocument();
+    const rawgLink = screen.getByRole('link', { name: /RAWG/i });
+    expect(rawgLink).toHaveAttribute(
+      'href',
+      'https://rawg.io/games/same-title',
+    );
+    expect(rawgLink).toHaveAttribute('target', '_blank');
+    expect(rawgLink).toHaveAttribute(
+      'rel',
+      expect.stringContaining('noopener'),
+    );
+  });
+
+  it('keeps local results usable when RAWG is unavailable', async () => {
+    server.use(
+      http.get(DISCOVER_URL, () =>
+        HttpResponse.json({
+          rawgAvailable: false,
+          data: [
+            {
+              source: 'local',
+              id: 7,
+              slug: 'local-game',
+              name: 'Local Only Game',
+              coverImageUrl: null,
+            },
+          ],
+        }),
+      ),
+    );
+
+    render(<HeroSearch />, { wrapper: makeWrapper() });
+    userEvent.type(
+      screen.getByRole('textbox', { name: /search for a game/i }),
+      'Local Only',
+    );
+
+    expect(await screen.findByText('Local Only Game')).toBeInTheDocument();
+    expect(screen.getByText(/RAWG unavailable/i)).toBeInTheDocument();
+    expect(screen.queryByText(/something went wrong/i)).not.toBeInTheDocument();
+  });
+
+  it('navigates local results directly to their published slug', async () => {
+    server.use(
+      http.get(DISCOVER_URL, () =>
+        HttpResponse.json({
+          rawgAvailable: true,
+          data: [
+            {
+              source: 'local',
+              id: 7,
+              slug: 'local-game',
+              name: 'Local Navigation Game',
+              coverImageUrl: null,
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderWithLocation();
+    userEvent.type(
+      screen.getByRole('textbox', { name: /search for a game/i }),
+      'Local Navigation',
+    );
+    userEvent.click(
+      await screen.findByRole('button', { name: /local navigation game/i }),
+    );
+
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/games/local-game',
+    );
+  });
+
+  it('disables repeated RAWG selection clicks until the POST resolves, then navigates to the pending page', async () => {
+    let resolveSelection: ((response: Response) => void) | undefined;
+    const selectRequest = vi.fn();
+    server.use(
+      http.get(DISCOVER_URL, () =>
+        HttpResponse.json({
+          rawgAvailable: true,
+          data: [
+            {
+              source: 'rawg',
+              rawgId: 3498,
+              name: 'Selectable RAWG Game',
+              coverImageUrl: null,
+              rawgUrl: 'https://rawg.io/games/selectable-rawg-game',
+            },
+          ],
+        }),
+      ),
+      http.post(SELECT_URL, ({ request }) => {
+        selectRequest(request);
+        return new Promise<Response>((resolve) => {
+          resolveSelection = resolve;
+        });
+      }),
+    );
+
+    renderWithLocation();
+    userEvent.type(
+      screen.getByRole('textbox', { name: /search for a game/i }),
+      'Selectable',
+    );
+    const selectButton = await screen.findByRole('button', {
+      name: /select.*selectable rawg game/i,
+    });
+
+    userEvent.click(selectButton);
+    await waitFor(() => expect(selectRequest).toHaveBeenCalledTimes(1));
+    expect(selectButton).toBeDisabled();
+    userEvent.click(selectButton);
+    await waitFor(() => expect(selectRequest).toHaveBeenCalledTimes(1));
+
+    resolveSelection?.(
+      new Response(
+        JSON.stringify({
+          id: 42,
+          slug: 'selectable-rawg-game',
+          status: 'pending_approval',
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.getByTestId('location')).toHaveTextContent(
+        '/pending-games/42',
+      ),
+    );
+  });
+
+  it('shows a retryable selection error and does not navigate when the POST fails', async () => {
+    server.use(
+      http.get(DISCOVER_URL, () =>
+        HttpResponse.json({
+          rawgAvailable: true,
+          data: [
+            {
+              source: 'rawg',
+              rawgId: 3498,
+              name: 'Broken RAWG Game',
+              coverImageUrl: null,
+              rawgUrl: 'https://rawg.io/games/broken-rawg-game',
+            },
+          ],
+        }),
+      ),
+      http.post(SELECT_URL, () =>
+        HttpResponse.json(
+          { message: 'private provider error' },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    renderWithLocation();
+    userEvent.type(
+      screen.getByRole('textbox', { name: /search for a game/i }),
+      'Broken',
+    );
+    userEvent.click(
+      await screen.findByRole('button', { name: /select.*broken rawg game/i }),
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(/try again/i);
+    expect(screen.getByTestId('location')).toHaveTextContent('/');
+    expect(
+      screen.queryByText(/private provider error/i),
+    ).not.toBeInTheDocument();
   });
 });

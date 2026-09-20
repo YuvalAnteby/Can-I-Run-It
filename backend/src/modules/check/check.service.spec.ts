@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { Game } from '../games/entities/game.entity';
 import { GeminiService } from '../gemini/gemini.service';
 import {
     PerformanceRecord,
@@ -8,6 +9,9 @@ import {
     UpscalerType,
 } from '../performance/entities/performance-record.entity';
 import { CheckService } from './check.service';
+
+const containing = <T extends object>(value: T): T =>
+    expect.objectContaining(value) as T;
 
 describe('CheckService', () => {
     let service: CheckService;
@@ -42,6 +46,7 @@ describe('CheckService', () => {
     const mockGpuRepo = { findOneBy: jest.fn() };
     const mockPerfRepo = {
         find: jest.fn(),
+        findOne: jest.fn(),
         create: jest.fn(),
         save: jest.fn(),
     };
@@ -116,9 +121,20 @@ describe('CheckService', () => {
         mockCpuRepo.findOneBy.mockResolvedValue(userCpu);
         mockGpuRepo.findOneBy.mockResolvedValue(userGpu);
         mockPerfRepo.find.mockResolvedValue([]);
+        mockPerfRepo.findOne.mockResolvedValue(null);
         mockPerfRepo.create.mockReturnValue({});
         mockGeminiService.estimate.mockResolvedValue(null);
     });
+
+    const checkPending = (gameId: number, request: Record<string, unknown>) =>
+        (
+            service as unknown as {
+                checkPendingCompatibility(
+                    id: number,
+                    dto: Record<string, unknown>,
+                ): Promise<unknown>;
+            }
+        ).checkPendingCompatibility(gameId, request);
 
     it('uses measured data before provider data and only the six core fields as identity', async () => {
         mockPerfRepo.find.mockResolvedValue([
@@ -276,6 +292,173 @@ describe('CheckService', () => {
             where: { slug: 'test-game', status: 'published' },
             relations: ['requirements', 'requirements.cpu', 'requirements.gpu'],
         });
+        expect(mockPerfRepo.find).not.toHaveBeenCalled();
+        expect(mockGeminiService.estimate).not.toHaveBeenCalled();
+    });
+
+    it('checks a pending game by internal id using only an exact cached Gemini row', async () => {
+        const pendingGame = {
+            ...game,
+            status: 'pending_approval',
+            requirements: [],
+        } as unknown as Game;
+        mockGameRepo.findOne.mockResolvedValue(pendingGame);
+        mockPerfRepo.findOne.mockResolvedValue(
+            record({
+                game: pendingGame,
+                source: 'gemini',
+                upscaler: UpscalerType.DLSS,
+                upscalerQuality: UpscalerQualityMode.QUALITY,
+                fpsAvg: 58,
+            }),
+        );
+
+        const result = await checkPending(1, {
+            hardware: {
+                cpuId: 2,
+                gpuId: 2,
+                ramGb: 16,
+                isSsd: true,
+            },
+            settings: {
+                resolutionWidth: 1920,
+                resolutionHeight: 1080,
+                tier: 'minimum',
+                preset: SettingPreset.HIGH,
+                targetFps: 60,
+                upscaler: UpscalerType.DLSS,
+                upscalerQuality: UpscalerQualityMode.QUALITY,
+            },
+        });
+
+        expect(result).toMatchObject({ source: 'ai', provider: 'gemini' });
+        expect(mockGameRepo.findOne).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: { id: 1, status: 'pending_approval' },
+            }),
+        );
+        expect(mockPerfRepo.findOne).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: containing({
+                    game: { id: 1 },
+                    cpu: { id: 2 },
+                    gpu: { id: 2 },
+                    ramGb: 16,
+                    resolutionWidth: 1920,
+                    resolutionHeight: 1080,
+                    settings: SettingPreset.HIGH,
+                    upscaler: UpscalerType.DLSS,
+                    upscalerQuality: UpscalerQualityMode.QUALITY,
+                    source: 'gemini',
+                }),
+                order: { createdAt: 'DESC' },
+            }),
+        );
+        expect(mockPerfRepo.find).not.toHaveBeenCalled();
+        expect(mockGeminiService.estimate).not.toHaveBeenCalled();
+    });
+
+    it('caches a pending Gemini estimate with the request identity and no 1%-low value', async () => {
+        const pendingGame = {
+            ...game,
+            status: 'pending_approval',
+            requirements: [],
+        } as unknown as Game;
+        mockGameRepo.findOne.mockResolvedValue(pendingGame);
+        mockGeminiService.estimate.mockResolvedValue({
+            fps: { low: 80, med: 70, high: 60, ultra: 45 },
+            note: null,
+        });
+
+        await checkPending(1, {
+            hardware: {
+                cpuId: 2,
+                gpuId: 2,
+                ramGb: 16,
+                isSsd: true,
+            },
+            settings: {
+                resolutionWidth: 1920,
+                resolutionHeight: 1080,
+                preset: SettingPreset.HIGH,
+                targetFps: 60,
+                upscaler: UpscalerType.DLSS,
+                upscalerQuality: UpscalerQualityMode.BALANCED,
+            },
+        });
+
+        expect(mockPerfRepo.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                game: pendingGame,
+                cpu: userCpu,
+                gpu: userGpu,
+                ramGb: 16,
+                resolutionWidth: 1920,
+                resolutionHeight: 1080,
+                settings: SettingPreset.HIGH,
+                upscaler: UpscalerType.DLSS,
+                upscalerQuality: UpscalerQualityMode.BALANCED,
+                fpsAvg: 60,
+                fps1PercentLow: null,
+                source: 'gemini',
+            }),
+        );
+        expect(mockPerfRepo.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps pending fallback insufficient when RAWG has no structured requirements', async () => {
+        mockGameRepo.findOne.mockResolvedValue({
+            ...game,
+            status: 'pending_approval',
+            requirements: [],
+        });
+
+        const result = await checkPending(1, {
+            hardware: {
+                cpuId: 2,
+                gpuId: 2,
+                ramGb: 16,
+                isSsd: true,
+            },
+            settings: {
+                resolutionWidth: 1920,
+                resolutionHeight: 1080,
+                preset: SettingPreset.HIGH,
+                targetFps: 120,
+            },
+        });
+
+        expect(result).toMatchObject({
+            state: 'insufficient',
+            verdict: 'Insufficient data',
+        });
+        expect(mockPerfRepo.find).not.toHaveBeenCalled();
+        expect(mockGeminiService.estimate).toHaveBeenCalledTimes(1);
+        expect(mockPerfRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('validates CPU and GPU IDs for pending checks before provider or performance work', async () => {
+        mockGameRepo.findOne.mockResolvedValue({
+            ...game,
+            status: 'pending_approval',
+        });
+        mockCpuRepo.findOneBy.mockResolvedValue(null);
+
+        await expect(
+            checkPending(1, {
+                hardware: {
+                    cpuId: 0,
+                    gpuId: 2,
+                    ramGb: 16,
+                    isSsd: true,
+                },
+                settings: {
+                    resolutionWidth: 1920,
+                    resolutionHeight: 1080,
+                    preset: SettingPreset.HIGH,
+                },
+            }),
+        ).rejects.toThrow('CPU with ID');
         expect(mockPerfRepo.find).not.toHaveBeenCalled();
         expect(mockGeminiService.estimate).not.toHaveBeenCalled();
     });

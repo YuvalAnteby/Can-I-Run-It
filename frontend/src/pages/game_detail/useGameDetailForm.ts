@@ -50,11 +50,19 @@ export function useGameDetailForm(
     isPending: isChecking,
     error: checkError,
     reset: resetCheck,
-  } = useHardwareCheck();
+  } = useHardwareCheck(
+    game
+      ? {
+          gameId: game.id,
+          status: game.status,
+          slug,
+        }
+      : undefined,
+  );
 
   // Initialize active tier (e.g., "minimum") when game data first arrives
   useEffect(() => {
-    if (game?.requirements?.length && !activeTier) {
+    if (game?.requirements.length && !activeTier) {
       setActiveTier(game.requirements[0].tier);
     }
   }, [game, activeTier]);
@@ -62,15 +70,16 @@ export function useGameDetailForm(
   // Derived state for the currently viewed requirement tier (tabs)
   const currentReq = useMemo(() => {
     return (
-      game?.requirements?.find((r) => r.tier === activeTier) ||
-      game?.requirements?.[0]
+      game?.requirements.find((r) => r.tier === activeTier) ||
+      game?.requirements[0]
     );
   }, [game, activeTier]);
 
   const handleCheck = () => {
     setHasAttemptedSubmit(true);
 
-    if (!selectedGpu || !selectedCpu || !slug) {
+    const isPending = game?.status === 'pending_approval';
+    if (!selectedGpu || !selectedCpu || (!slug && !isPending)) {
       return;
     }
 
@@ -87,7 +96,7 @@ export function useGameDetailForm(
     }
 
     runCheck({
-      gameSlug: slug,
+      ...(isPending ? {} : { gameSlug: slug }),
       hardware: {
         gpuId: parseInt(selectedGpu, 10),
         cpuId: parseInt(selectedCpu, 10),

@@ -1,5 +1,5 @@
 import React from 'react';
-import { useParams } from 'react-router-dom';
+import { Navigate, useLocation, useParams } from 'react-router-dom';
 import { useGameDetail } from './useGameDetail';
 import { useGameDetailForm } from './useGameDetailForm';
 import GameHero from './components/GameHero';
@@ -8,8 +8,19 @@ import { TechFeatures } from './components/TechFeatures';
 import { HardwareCheckCard } from './components/HardwareCheckCard';
 
 export default function GameDetailPage(): React.ReactElement {
-  const { slug } = useParams<{ slug: string }>();
-  const { data: game, isLoading, isError } = useGameDetail(slug);
+  const { slug, id } = useParams<{ slug?: string; id?: string }>();
+  const location = useLocation();
+  const pendingId = id
+    ? Number(id)
+    : Number(location.pathname.match(/^\/pending-games\/(\d+)$/)?.[1]);
+  const resolvedPendingId = Number.isFinite(pendingId) ? pendingId : undefined;
+  const {
+    data: game,
+    isLoading,
+    isError,
+  } = useGameDetail(
+    resolvedPendingId !== undefined ? { pendingId: resolvedPendingId } : slug,
+  );
 
   const {
     // Search
@@ -57,6 +68,7 @@ export default function GameDetailPage(): React.ReactElement {
     handleGpuSelect,
     handleCpuSelect,
   } = useGameDetailForm(game, slug);
+
   if (isLoading)
     return (
       <div className="text-center py-20 text-gray-300">
@@ -69,6 +81,9 @@ export default function GameDetailPage(): React.ReactElement {
         Failed to load game.
       </div>
     );
+  if (resolvedPendingId && game.status === 'published') {
+    return <Navigate to={`/games/${game.slug}`} replace />;
+  }
 
   return (
     <div className="bg-[#0f0f13] text-[#e8e8e8] min-h-screen font-sans pb-20">
@@ -83,7 +98,7 @@ export default function GameDetailPage(): React.ReactElement {
             System Requirements
           </p>
 
-          {game.requirements && game.requirements.length > 0 ? (
+          {game.requirements.length > 0 ? (
             <>
               {/* Tab navigation for different requirement tiers (min, rec, ultra) */}
               <div className="flex gap-1 mb-5 overflow-x-auto">
@@ -107,7 +122,7 @@ export default function GameDetailPage(): React.ReactElement {
             </>
           ) : (
             <p className="text-sm text-gray-400 font-medium">
-              No system requirements available for this game.
+              Requirements not available yet.
             </p>
           )}
 

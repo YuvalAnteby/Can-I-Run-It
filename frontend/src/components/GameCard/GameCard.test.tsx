@@ -9,6 +9,7 @@ const mockGame: ClientGameDto = {
   id: 1,
   slug: 'test-game',
   name: 'Test Game',
+  status: 'published',
   coverImageUrl: null,
   releaseDate: '2024-01-01',
   developer: 'Test Dev',
@@ -22,6 +23,7 @@ const mockGame: ClientGameDto = {
   supportsXeSS: false,
   isTrending: false,
   trendingRank: null,
+  requirements: [],
 };
 
 describe('GameCard', () => {

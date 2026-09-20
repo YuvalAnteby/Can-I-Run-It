@@ -1,13 +1,27 @@
 import { useMutation } from '@tanstack/react-query';
 import axios from 'axios';
-import { CheckRequest, CheckResponse } from '../../@types/check.types';
+import type { CheckRequest, CheckResponse } from '../../@types/check.types';
+import type { GameStatus } from '../../@types/game.types';
 import { nestClient } from '../../api/nestClient';
 
-export function useHardwareCheck() {
+export interface HardwareCheckTarget {
+  gameId: number;
+  status: GameStatus;
+  slug?: string;
+}
+
+export function useHardwareCheck(target?: HardwareCheckTarget) {
   return useMutation<CheckResponse, Error, CheckRequest>({
     mutationFn: async (req: CheckRequest) => {
       try {
-        const response = await nestClient.post<CheckResponse>('/v1/check', req);
+        const isPending = target?.status === 'pending_approval';
+        const path = isPending
+          ? `/v2/check/pending/${target.gameId}`
+          : '/v1/check';
+        const body = isPending
+          ? { hardware: req.hardware, settings: req.settings }
+          : { ...req, gameSlug: target?.slug ?? req.gameSlug };
+        const response = await nestClient.post<CheckResponse>(path, body);
         return response.data;
       } catch (error: unknown) {
         if (axios.isAxiosError(error)) {

@@ -1,5 +1,8 @@
 import { TypeOrmGamesRepository } from './games.typeorm.repository';
 
+const containing = <T extends object>(value: T): T =>
+    expect.objectContaining(value) as T;
+
 describe('TypeOrmGamesRepository', () => {
     const queryBuilder = {
         where: jest.fn().mockReturnThis(),
@@ -12,6 +15,7 @@ describe('TypeOrmGamesRepository', () => {
     const gameRepo = {
         createQueryBuilder: jest.fn(() => queryBuilder),
         findOne: jest.fn(),
+        findOneBy: jest.fn(),
     };
     const dataSource = {
         getRepository: jest.fn(() => gameRepo),
@@ -56,5 +60,43 @@ describe('TypeOrmGamesRepository', () => {
                 'requirements.gpu',
             ],
         });
+    });
+
+    it('finds pending or newly published pages by internal id but never rejected rows', async () => {
+        gameRepo.findOne.mockResolvedValue(null);
+
+        await (
+            repository as unknown as {
+                findPendingPageById(id: number): Promise<unknown>;
+            }
+        ).findPendingPageById(42);
+
+        expect(gameRepo.findOne).toHaveBeenCalledWith(
+            containing({
+                where: containing({
+                    id: 42,
+                    status: containing({
+                        _value: ['pending_approval', 'published'],
+                    }),
+                }),
+                relations: [
+                    'requirements',
+                    'requirements.cpu',
+                    'requirements.gpu',
+                ],
+            }),
+        );
+    });
+
+    it('looks up RAWG identity without merging on a matching title or slug', async () => {
+        await (
+            repository as unknown as {
+                findByRawgId(rawgId: number): Promise<unknown>;
+            }
+        ).findByRawgId(3498);
+
+        expect(gameRepo.findOne).toHaveBeenCalledWith(
+            expect.objectContaining({ where: { rawgId: 3498 } }),
+        );
     });
 });

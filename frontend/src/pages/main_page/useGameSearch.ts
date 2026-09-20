@@ -2,20 +2,19 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import type {
-  ClientGameDto,
-  PaginatedGamesResult,
+  GameDiscoveryResponse,
+  GameSearchResult,
 } from '../../@types/game.types';
 import { nestClient } from '../../api/nestClient';
 
-const fetchGameSearch = (q: string): Promise<ClientGameDto[]> =>
+const fetchGameSearch = (q: string): Promise<GameDiscoveryResponse> =>
   nestClient
-    .get<PaginatedGamesResult>('/v2/games', {
-      params: { search: q, limit: 8 },
-    })
-    .then((r) => r.data.data);
+    .get<GameDiscoveryResponse>('/v2/games/discover', { params: { q } })
+    .then((r) => r.data);
 
 interface UseGameSearchResult {
-  results: ClientGameDto[];
+  results: GameSearchResult[];
+  rawgAvailable: boolean;
   isLoading: boolean;
   isError: boolean;
 }
@@ -36,12 +35,17 @@ export function useGameSearch(rawQuery: string): UseGameSearchResult {
 
   const trimmed = debouncedQuery.trim();
 
-  const { data, isLoading, isError } = useQuery<ClientGameDto[]>({
+  const { data, isLoading, isError } = useQuery<GameDiscoveryResponse>({
     queryKey: ['games', 'search', trimmed] as const,
     queryFn: () => fetchGameSearch(trimmed),
     enabled: trimmed.length > 0,
     staleTime: 30_000,
   });
 
-  return { results: data ?? [], isLoading, isError };
+  return {
+    results: data?.data ?? [],
+    rawgAvailable: data?.rawgAvailable ?? true,
+    isLoading,
+    isError,
+  };
 }

@@ -1,5 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 
 import { FilterGameDto } from './dto/filter-game.dto';
 import { Game } from './entities/game.entity';
@@ -61,5 +61,24 @@ export class TypeOrmGamesRepository implements IGamesRepository {
                 'requirements.gpu',
             ],
         });
+    }
+
+    async findPendingPageById(id: number): Promise<Game | null> {
+        return await this.repo.findOne({
+            where: {
+                id,
+                status: In(['pending_approval', 'published']),
+            },
+            relations: ['requirements', 'requirements.cpu', 'requirements.gpu'],
+        });
+    }
+
+    async findByRawgId(rawgId: number): Promise<Game | null> {
+        return await this.repo.findOne({ where: { rawgId } });
+    }
+
+    async findByRawgIds(rawgIds: number[]): Promise<Game[]> {
+        if (rawgIds.length === 0) return [];
+        return await this.repo.find({ where: { rawgId: In(rawgIds) } });
     }
 }

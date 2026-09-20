@@ -13,6 +13,7 @@ const MOCK_GAMES: ClientGameDto[] = [
     id: 10,
     slug: 'cyberpunk-2077',
     name: 'Cyberpunk 2077',
+    status: 'published',
     coverImageUrl: 'https://imgur.com/VDUcpgp.jpg',
     releaseDate: '2020-12-10',
     developer: 'CD PROJEKT RED',
@@ -27,11 +28,13 @@ const MOCK_GAMES: ClientGameDto[] = [
     supportsXeSS: true,
     isTrending: true,
     trendingRank: 1,
+    requirements: [],
   },
   {
     id: 6,
     slug: 'black-myth-wukong',
     name: 'Black Myth: Wukong',
+    status: 'published',
     coverImageUrl: 'https://imgur.com/yWszzjT.jpg',
     releaseDate: '2024-08-20',
     developer: 'Game Science',
@@ -46,8 +49,70 @@ const MOCK_GAMES: ClientGameDto[] = [
     supportsXeSS: true,
     isTrending: true,
     trendingRank: 2,
+    requirements: [],
   },
 ];
+
+type DiscoveryResult =
+  | {
+      source: 'local';
+      id: number;
+      slug: string;
+      name: string;
+      coverImageUrl: string | null;
+    }
+  | {
+      source: 'rawg';
+      rawgId: number;
+      name: string;
+      coverImageUrl: string | null;
+      rawgUrl: string;
+    };
+
+const MOCK_DISCOVERY_RESULTS: DiscoveryResult[] = [
+  ...MOCK_GAMES.map((game) => ({
+    source: 'local' as const,
+    id: game.id,
+    slug: game.slug,
+    name: game.name,
+    coverImageUrl: game.coverImageUrl,
+  })),
+  {
+    source: 'rawg' as const,
+    rawgId: 910099,
+    name: 'Issue 66 RAWG Game',
+    coverImageUrl: null,
+    rawgUrl: 'https://rawg.io/games/issue-66-rawg-game',
+  },
+];
+
+const MOCK_PENDING_GAME = {
+  id: 42,
+  slug: 'issue-66-pending',
+  name: 'Issue 66 Pending Game',
+  status: 'pending_approval' as const,
+  coverImageUrl: null,
+  releaseDate: null,
+  developer: null,
+  publisher: null,
+  genre: null,
+  description: null,
+  tags: [],
+  supportsRayTracing: false,
+  supportsDlss: false,
+  supportsFsr: false,
+  supportsXeSS: false,
+  isTrending: false,
+  trendingRank: null,
+  requirements: [],
+  attributions: [
+    {
+      source: 'rawg' as const,
+      label: 'RAWG' as const,
+      url: 'https://rawg.io/games/issue-66-pending',
+    },
+  ],
+};
 
 /**
  * MSW request handlers for unit / integration tests.
@@ -91,6 +156,30 @@ export const handlers = [
         lastPage: Math.ceil(filtered.length / limit),
       },
     });
+  }),
+
+  http.get(`${BASE}/v2/games/discover`, ({ request }) => {
+    const q = new URL(request.url).searchParams.get('q')?.trim() ?? '';
+    const data = MOCK_DISCOVERY_RESULTS.filter((game) =>
+      game.name.toLowerCase().includes(q.toLowerCase()),
+    );
+    return HttpResponse.json({ data, rawgAvailable: true });
+  }),
+
+  http.post(`${BASE}/v2/games/rawg/:rawgId/select`, ({ params }) => {
+    const rawgId = Number(params.rawgId);
+    return HttpResponse.json({
+      id: rawgId === 910099 ? 42 : 43,
+      slug: rawgId === 910099 ? 'issue-66-pending' : 'selected-rawg-game',
+      status: 'pending_approval',
+    });
+  }),
+
+  http.get(`${BASE}/v2/games/pending/:id`, ({ params }) => {
+    if (params.id !== String(MOCK_PENDING_GAME.id)) {
+      return new HttpResponse(null, { status: 404 });
+    }
+    return HttpResponse.json(MOCK_PENDING_GAME);
   }),
 
   http.get(`${BASE}/v2/games/:slug`, ({ params }) => {
@@ -176,5 +265,25 @@ export const handlers = [
     };
 
     return HttpResponse.json(response);
+  }),
+
+  http.post(`${BASE}/v2/check/pending/:gameId`, async ({ request }) => {
+    const body = (await request.json()) as CheckRequest;
+    return HttpResponse.json({
+      state: 'can',
+      verdict: 'Likely can run',
+      sub: `AI-predicted performance at ${body.settings.preset} settings meets your selected target.`,
+      source: 'ai',
+      provider: 'gemini',
+      confidence: 'medium',
+      targetFps: body.settings.targetFps ?? 60,
+      fps: { low: 80, med: 70, high: 60, ultra: 45 },
+      gpuPass: true,
+      cpuPass: true,
+      ramPass: true,
+      vramPass: true,
+      ssdPass: true,
+      notes: [],
+    });
   }),
 ];
