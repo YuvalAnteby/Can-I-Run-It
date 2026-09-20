@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { IsNull } from 'typeorm';
 
 import { Game } from '../games/entities/game.entity';
 import { GeminiService } from '../gemini/gemini.service';
@@ -150,7 +151,7 @@ describe('CheckService', () => {
         expect(result.verdict).toBe('Can run');
         expect(mockPerfRepo.find).toHaveBeenCalledWith(
             expect.objectContaining({
-                where: {
+                where: containing({
                     game: { id: 1 },
                     cpu: { id: 2 },
                     gpu: { id: 2 },
@@ -158,24 +159,49 @@ describe('CheckService', () => {
                     resolutionWidth: 1920,
                     resolutionHeight: 1080,
                     settings: SettingPreset.HIGH,
-                },
+                    upscaler: UpscalerType.OFF,
+                    upscalerQuality: IsNull(),
+                }),
             }),
         );
     });
 
-    it('uses quality preference within the preferred upscaler and source group', async () => {
+    it('does not use a published record from another normalized upscaler or quality', async () => {
+        const mismatchedRecord = record({
+            upscaler: UpscalerType.DLSS,
+            upscalerQuality: UpscalerQualityMode.QUALITY,
+            fpsAvg: 144,
+        });
+        mockPerfRepo.find.mockImplementation(
+            (options: { where: Record<string, unknown> }) =>
+                Promise.resolve(
+                    options.where.upscaler === UpscalerType.OFF
+                        ? []
+                        : [mismatchedRecord],
+                ),
+        );
+
+        const result = await service.checkCompatibility(validRequest());
+
+        expect(result.source).toBe('estimate');
+        expect(result.sub).toContain('Expect ~');
+        expect(mockPerfRepo.find).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: containing({
+                    upscaler: UpscalerType.OFF,
+                    upscalerQuality: IsNull(),
+                }),
+            }),
+        );
+    });
+
+    it('selects the newest measured row among exact upscaler and quality matches', async () => {
         mockPerfRepo.find.mockResolvedValue([
             record({
                 source: 'gemini',
                 upscaler: UpscalerType.DLSS,
                 upscalerQuality: UpscalerQualityMode.QUALITY,
                 fpsAvg: 120,
-            }),
-            record({
-                upscaler: UpscalerType.DLSS,
-                upscalerQuality: UpscalerQualityMode.PERFORMANCE,
-                fpsAvg: 60,
-                createdAt: new Date('2026-09-12T00:00:00.000Z'),
             }),
             record({
                 upscaler: UpscalerType.DLSS,
@@ -192,23 +218,6 @@ describe('CheckService', () => {
         );
 
         expect(result.source).toBe('measured');
-        expect(result.sub).toContain('70fps');
-    });
-
-    it('accepts another upscaler and chooses the newest row when no preference matches', async () => {
-        mockPerfRepo.find.mockResolvedValue([
-            record({ fpsAvg: 60 }),
-            record({
-                upscaler: UpscalerType.DLSS,
-                fpsAvg: 70,
-                createdAt: new Date('2026-09-12T00:00:00.000Z'),
-            }),
-        ]);
-
-        const result = await service.checkCompatibility(
-            validRequest({ upscaler: UpscalerType.FSR }),
-        );
-
         expect(result.sub).toContain('70fps');
     });
 

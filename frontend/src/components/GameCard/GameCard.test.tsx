@@ -48,6 +48,28 @@ describe('GameCard', () => {
     expect(screen.getByRole('img', { name: 'Test Game' })).toBeInTheDocument();
   });
 
+  it('renders a visible RAWG attribution for imported catalog cards', () => {
+    render(
+      <GameCard
+        game={{
+          ...mockGame,
+          attributions: [
+            {
+              source: 'rawg',
+              label: 'RAWG',
+              url: 'https://rawg.io/games/test-game',
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: /RAWG/i })).toHaveAttribute(
+      'href',
+      'https://rawg.io/games/test-game',
+    );
+  });
+
   it('calls onClick with the game object when clicked', () => {
     const handleClick = vi.fn();
     render(<GameCard game={mockGame} onClick={handleClick} />);

@@ -101,14 +101,45 @@ describe('HeroSearch', () => {
     expect(await screen.findByText('Cyberpunk 2077')).toBeInTheDocument();
   });
 
-  it('shows "No games found" message for an unmatched query', () => {
+  it('hides A results and reports loading while the B query is debouncing', async () => {
+    server.use(
+      http.get(DISCOVER_URL, ({ request }) => {
+        const query = new URL(request.url).searchParams.get('q');
+        return HttpResponse.json({
+          rawgAvailable: true,
+          data: [
+            {
+              source: 'local',
+              id: query === 'Alpha' ? 1 : 2,
+              slug: query === 'Alpha' ? 'alpha-game' : 'beta-game',
+              name: query === 'Alpha' ? 'Alpha Game' : 'Beta Game',
+              coverImageUrl: null,
+            },
+          ],
+        });
+      }),
+    );
+
+    render(<HeroSearch />, { wrapper: makeWrapper() });
+    const input = screen.getByRole('textbox', { name: /search for a game/i });
+    userEvent.type(input, 'Alpha');
+    expect(await screen.findByText('Alpha Game')).toBeInTheDocument();
+
+    userEvent.clear(input);
+    userEvent.type(input, 'Beta');
+
+    expect(
+      screen.queryByRole('button', { name: /alpha game/i }),
+    ).not.toBeInTheDocument();
+    expect(screen.getAllByRole('presentation')).toHaveLength(3);
+  });
+
+  it('shows loading instead of a stale empty state before an unmatched query settles', () => {
     render(<HeroSearch />, { wrapper: makeWrapper() });
     const input = screen.getByRole('textbox', { name: /search for a game/i });
     userEvent.type(input, 'xyzzy_not_a_real_game');
 
-    // Before the debounce fires, results = [] and isLoading = false
-    // so the "no games found" message is rendered immediately.
-    expect(screen.getByText(/no games found/i)).toBeInTheDocument();
+    expect(screen.getAllByRole('presentation')).toHaveLength(3);
   });
 
   // ── Selecting a result ───────────────────────────────────────────────────
@@ -184,6 +215,44 @@ describe('HeroSearch', () => {
     expect(rawgLink).toHaveAttribute(
       'rel',
       expect.stringContaining('noopener'),
+    );
+  });
+
+  it('renders a RAWG attribution for an imported local search result', async () => {
+    server.use(
+      http.get(DISCOVER_URL, () =>
+        HttpResponse.json({
+          rawgAvailable: true,
+          data: [
+            {
+              source: 'local',
+              id: 7,
+              slug: 'same-title',
+              name: 'Imported Local Game',
+              coverImageUrl: 'https://images.example/imported.jpg',
+              attributions: [
+                {
+                  source: 'rawg',
+                  label: 'RAWG',
+                  url: 'https://rawg.io/games/imported-local-game',
+                },
+              ],
+            },
+          ],
+        }),
+      ),
+    );
+
+    render(<HeroSearch />, { wrapper: makeWrapper() });
+    userEvent.type(
+      screen.getByRole('textbox', { name: /search for a game/i }),
+      'Imported Local',
+    );
+
+    expect(await screen.findByText('Imported Local Game')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /RAWG/i })).toHaveAttribute(
+      'href',
+      'https://rawg.io/games/imported-local-game',
     );
   });
 

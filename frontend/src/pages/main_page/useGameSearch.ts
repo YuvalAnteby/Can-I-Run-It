@@ -26,26 +26,26 @@ interface UseGameSearchResult {
  * the v2 games search function on the backend.
  */
 export function useGameSearch(rawQuery: string): UseGameSearchResult {
-  const [debouncedQuery, setDebouncedQuery] = useState<string>(rawQuery);
+  const normalizedQuery = rawQuery.trim();
+  const [debouncedQuery, setDebouncedQuery] = useState<string>(normalizedQuery);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(rawQuery), 300);
+    const timer = setTimeout(() => setDebouncedQuery(normalizedQuery), 300);
     return () => clearTimeout(timer);
-  }, [rawQuery]);
-
-  const trimmed = debouncedQuery.trim();
+  }, [normalizedQuery]);
 
   const { data, isLoading, isError } = useQuery<GameDiscoveryResponse>({
-    queryKey: ['games', 'search', trimmed] as const,
-    queryFn: () => fetchGameSearch(trimmed),
-    enabled: trimmed.length > 0,
+    queryKey: ['games', 'search', debouncedQuery] as const,
+    queryFn: () => fetchGameSearch(debouncedQuery),
+    enabled: debouncedQuery.length > 0,
     staleTime: 30_000,
   });
+  const isDebouncing = normalizedQuery !== debouncedQuery;
 
   return {
-    results: data?.data ?? [],
-    rawgAvailable: data?.rawgAvailable ?? true,
-    isLoading,
-    isError,
+    results: isDebouncing ? [] : (data?.data ?? []),
+    rawgAvailable: isDebouncing ? true : (data?.rawgAvailable ?? true),
+    isLoading: isDebouncing || isLoading,
+    isError: !isDebouncing && isError,
   };
 }

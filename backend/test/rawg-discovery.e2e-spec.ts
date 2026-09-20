@@ -93,12 +93,14 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
     let localFixtureId: number;
     const selectedRawgIds: number[] = [];
     const prefix = `ciri-issue-66-${Date.now()}`;
+    let selectionRequestIp = 1;
 
     const api = () => request(app.getHttpServer() as Server);
 
     const select = async (rawgId: number) =>
         api()
             .post(`/api/v2/games/rawg/${rawgId}/select`)
+            .set('X-Forwarded-For', `198.51.100.${selectionRequestIp++}`)
             .expect((response) => {
                 expect([200, 201]).toContain(response.status);
             });
@@ -138,6 +140,10 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
             .compile();
 
         app = moduleFixture.createNestApplication();
+        const expressApp = app.getHttpAdapter().getInstance() as {
+            set(setting: string, value: boolean): void;
+        };
+        expressApp.set('trust proxy', true);
         app.setGlobalPrefix('api');
         app.enableVersioning({
             type: VersioningType.URI,

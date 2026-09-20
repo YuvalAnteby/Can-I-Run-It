@@ -222,6 +222,19 @@ export const HeroSearch = (): ReactElement => {
                         RAWG
                       </a>
                     )}
+                    {game.source === 'local' &&
+                      game.attributions?.map((attribution) => (
+                        <a
+                          key={attribution.source}
+                          href={attribution.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`${attribution.label} source`}
+                          className="text-xs text-blue-300 underline shrink-0"
+                        >
+                          Source: {attribution.label}
+                        </a>
+                      ))}
                   </li>
                 ))}
             </ul>

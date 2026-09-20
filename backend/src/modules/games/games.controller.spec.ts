@@ -1,6 +1,7 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { GameDiscoveryService } from './game-discovery.service';
 import { MOCK_GAMES } from './games.constants';
 import { GamesController } from './games.controller';
 import { GamesService } from './games.service';
@@ -13,6 +14,17 @@ describe('GamesController', () => {
         findAll: jest.fn(),
         findBySlug: jest.fn(),
     };
+    const mockGameDiscoveryService = {
+        discover: jest.fn(),
+        selectRawgGame: jest.fn(),
+    };
+    const mockGamesService = {
+        getMockGames: jest.fn(),
+        searchMockGames: jest.fn(),
+        findPaged: jest.fn(),
+        findBySlug: jest.fn(),
+        findPendingPageById: jest.fn(),
+    };
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
@@ -22,6 +34,10 @@ describe('GamesController', () => {
                 {
                     provide: IGamesRepositoryToken,
                     useValue: mockGamesRepository,
+                },
+                {
+                    provide: GameDiscoveryService,
+                    useValue: mockGameDiscoveryService,
                 },
             ],
         }).compile();
@@ -44,6 +60,15 @@ describe('GamesController', () => {
         expect(result[0].name).toContain('Cyberpunk');
     });
 
+    it('requires both service dependencies in Nest wiring', async () => {
+        const module = Test.createTestingModule({
+            controllers: [GamesController],
+            providers: [{ provide: GamesService, useValue: mockGamesService }],
+        });
+
+        await expect(module.compile()).rejects.toThrow();
+    });
+
     describe('RAWG discovery routes', () => {
         type DiscoveryController = GamesController & {
             discoverGames(input: { q: string }): Promise<unknown>;
@@ -58,6 +83,7 @@ describe('GamesController', () => {
         const discoveryController = (): DiscoveryController =>
             new GamesController(
                 discoveryService as never,
+                mockGamesService as never,
             ) as DiscoveryController;
 
         beforeEach(() => {

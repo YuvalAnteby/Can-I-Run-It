@@ -76,6 +76,11 @@ export class CheckService {
                 resolutionWidth: settings.resolutionWidth,
                 resolutionHeight: settings.resolutionHeight,
                 settings: settings.preset,
+                upscaler: settings.upscaler ?? UpscalerType.OFF,
+                upscalerQuality:
+                    settings.upscalerQuality === undefined
+                        ? IsNull()
+                        : settings.upscalerQuality,
             },
             relations: ['gpu'],
         });
@@ -83,20 +88,8 @@ export class CheckService {
         const candidates = records.some(({ source }) => source === 'measured')
             ? records.filter(({ source }) => source === 'measured')
             : records;
-        const preference = (record: PerformanceRecord) =>
-            Number(
-                settings.upscaler !== undefined &&
-                    record.upscaler === settings.upscaler,
-            ) *
-                2 +
-            Number(
-                settings.upscalerQuality !== undefined &&
-                    record.upscalerQuality === settings.upscalerQuality,
-            );
         const record = candidates.sort(
-            (a, b) =>
-                preference(b) - preference(a) ||
-                b.createdAt.getTime() - a.createdAt.getTime(),
+            (a, b) => b.createdAt.getTime() - a.createdAt.getTime(),
         )[0];
 
         if (record) {

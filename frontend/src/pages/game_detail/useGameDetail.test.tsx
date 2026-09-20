@@ -60,4 +60,44 @@ describe('useGameDetail pending route', () => {
       slug: 'issue-66-pending',
     });
   });
+
+  it('refetches pending detail on remount while the cached response is fresh', async () => {
+    let requestCount = 0;
+    server.use(
+      http.get('http://localhost:4000/api/v2/games/pending/42', () => {
+        requestCount += 1;
+        return HttpResponse.json(
+          requestCount === 1
+            ? pendingGame
+            : {
+                ...pendingGame,
+                slug: 'issue-66-published',
+                status: 'published',
+              },
+        );
+      }),
+    );
+
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    const wrapper = ({ children }: { children: ReactNode }): ReactNode => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    );
+    const hook = useGameDetail as unknown as (target: {
+      pendingId: number;
+    }) => ReturnType<typeof useGameDetail>;
+
+    const first = renderHook(() => hook({ pendingId: 42 }), { wrapper });
+    await waitFor(() =>
+      expect(first.result.current.data?.status).toBe('pending_approval'),
+    );
+    first.unmount();
+
+    const second = renderHook(() => hook({ pendingId: 42 }), { wrapper });
+    await waitFor(() =>
+      expect(second.result.current.data?.status).toBe('published'),
+    );
+    expect(requestCount).toBe(2);
+  });
 });

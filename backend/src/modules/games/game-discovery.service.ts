@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { DataSource } from 'typeorm';
 
+import type { PublicAttributionDto } from './dto/client-game.dto';
 import { EnrichmentPublisher } from './enrichment-publisher.service';
 import { Game } from './entities/game.entity';
 import { GameEnrichmentJob } from './entities/game-enrichment-job.entity';
@@ -23,6 +24,7 @@ export type GameDiscoveryResult =
           slug: string;
           name: string;
           coverImageUrl: string | null;
+          attributions?: PublicAttributionDto[];
       }
     | {
           source: 'rawg';
@@ -56,6 +58,26 @@ const safeCoverImage = (value: unknown): string | null => {
     } catch {
         return null;
     }
+};
+
+const rawgAttribution = (game: Game): PublicAttributionDto | undefined => {
+    const payload = game.rawgPayload;
+    if (
+        !Number.isInteger(game.rawgId) ||
+        (game.rawgId ?? 0) <= 0 ||
+        !payload ||
+        payload.id !== game.rawgId ||
+        typeof payload.slug !== 'string' ||
+        !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(payload.slug)
+    ) {
+        return undefined;
+    }
+
+    return {
+        source: 'rawg',
+        label: 'RAWG',
+        url: `https://rawg.io/games/${payload.slug}`,
+    };
 };
 
 const stringValue = (value: unknown): string | null =>
@@ -134,13 +156,17 @@ export class GameDiscoveryService {
 
         return {
             data: [
-                ...localGames.map((game) => ({
-                    source: 'local' as const,
-                    id: game.id,
-                    slug: game.slug,
-                    name: game.name,
-                    coverImageUrl: game.coverImageUrl ?? null,
-                })),
+                ...localGames.map((game) => {
+                    const attribution = rawgAttribution(game);
+                    return {
+                        source: 'local' as const,
+                        id: game.id,
+                        slug: game.slug,
+                        name: game.name,
+                        coverImageUrl: game.coverImageUrl ?? null,
+                        ...(attribution ? { attributions: [attribution] } : {}),
+                    };
+                }),
                 ...rawgResult.results
                     .filter(({ rawgId }) => !hiddenRawgIds.has(rawgId))
                     .map((result) => ({ source: 'rawg' as const, ...result })),

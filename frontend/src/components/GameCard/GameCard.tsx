@@ -56,6 +56,20 @@ export const GameCard = ({ game, onClick }: GameCardProps): ReactElement => {
         <span className="text-[0.7rem] text-blue-500 font-medium">
           Can I Run It?
         </span>
+        {game.attributions?.map((attribution) => (
+          <a
+            key={attribution.source}
+            href={attribution.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`${attribution.label} source for ${name}`}
+            className="text-[0.7rem] text-blue-300 underline"
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={(event) => event.stopPropagation()}
+          >
+            Source: {attribution.label}
+          </a>
+        ))}
       </div>
     </div>
   );

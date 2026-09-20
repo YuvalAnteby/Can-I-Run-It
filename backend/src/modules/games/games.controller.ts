@@ -2,16 +2,17 @@ import {
     BadRequestException,
     Controller,
     Get,
-    Optional,
     Param,
     ParseIntPipe,
     Post,
     Query,
+    UseGuards,
     Version,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 
 import { PaginatedResult } from '../../common/dto/paginated-result.dto';
+import { CheckRateLimitGuard } from '../../common/guards/check-rate-limit.guard';
 import { ClientGameDto } from './dto/client-game.dto';
 import { DiscoverGamesDto } from './dto/discover-games.dto';
 import { FilterGameDto } from './dto/filter-game.dto';
@@ -26,9 +27,8 @@ import { GamesService } from './games.service';
 @Controller('games')
 export class GamesController {
     constructor(
-        @Optional()
-        private readonly gameDiscoveryService?: GameDiscoveryService,
-        @Optional() private readonly gamesService?: GamesService,
+        private readonly gameDiscoveryService: GameDiscoveryService,
+        private readonly gamesService: GamesService,
     ) {}
 
     /* ── V1 Endpoints (Mock) ─────────────────────────────────── */
@@ -42,7 +42,7 @@ export class GamesController {
     })
     @ApiOkResponse({ type: [ClientGameDto] })
     async getMockGames(): Promise<ClientGameDto[]> {
-        return this.gamesService!.getMockGames();
+        return this.gamesService.getMockGames();
     }
 
     @Get('mock/search')
@@ -54,7 +54,7 @@ export class GamesController {
     })
     @ApiOkResponse({ type: [ClientGameDto] })
     async searchMockGames(@Query('q') q: string): Promise<ClientGameDto[]> {
-        return this.gamesService!.searchMockGames(q || '');
+        return this.gamesService.searchMockGames(q || '');
     }
 
     /* ── V2 Endpoints (Database) ─────────────────────────────── */
@@ -66,11 +66,12 @@ export class GamesController {
     async getGames(
         @Query() filterDto: FilterGameDto,
     ): Promise<PaginatedResult<ClientGameDto>> {
-        return this.gamesService!.findPaged(filterDto);
+        return this.gamesService.findPaged(filterDto);
     }
 
     @Get('discover')
     @Version('2')
+    @UseGuards(CheckRateLimitGuard)
     @ApiOperation({ summary: 'Discover local and RAWG games' })
     @ApiOkResponse({ description: 'Mixed local and RAWG search results' })
     async discoverGames(
@@ -82,17 +83,18 @@ export class GamesController {
                 'Search query must be between 1 and 100 characters',
             );
         }
-        return this.gameDiscoveryService!.discover(query);
+        return this.gameDiscoveryService.discover(query);
     }
 
     @Post('rawg/:rawgId/select')
     @Version('2')
+    @UseGuards(CheckRateLimitGuard)
     @ApiOperation({ summary: 'Select a RAWG game for enrichment' })
     @ApiOkResponse({ description: 'Selected game identity' })
     async selectRawgGame(
         @Param('rawgId', ParseIntPipe) rawgId: number,
     ): Promise<SelectedRawgGame> {
-        return this.gameDiscoveryService!.selectRawgGame(rawgId);
+        return this.gameDiscoveryService.selectRawgGame(rawgId);
     }
 
     @Get(':slug')
@@ -100,7 +102,7 @@ export class GamesController {
     @ApiOperation({ summary: 'Get a single game by slug' })
     @ApiOkResponse({ type: ClientGameDto })
     async getGameBySlug(@Param('slug') slug: string): Promise<ClientGameDto> {
-        return this.gamesService!.findBySlug(slug);
+        return this.gamesService.findBySlug(slug);
     }
 
     @Get('pending/:id')
@@ -113,6 +115,6 @@ export class GamesController {
         if (id <= 0) {
             throw new BadRequestException('Game ID must be a positive integer');
         }
-        return this.gamesService!.findPendingPageById(id);
+        return this.gamesService.findPendingPageById(id);
     }
 }

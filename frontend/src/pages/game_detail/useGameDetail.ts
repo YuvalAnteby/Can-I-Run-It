@@ -27,5 +27,6 @@ export function useGameDetail(target: GameDetailTarget) {
     },
     enabled: Boolean(slug || pendingId),
     staleTime: 5 * 60 * 1000, // 5 minutes
+    refetchOnMount: pendingId !== undefined ? 'always' : undefined,
   });
 }

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 
+import { CheckRateLimitGuard } from '../../common/guards/check-rate-limit.guard';
 import { DatabaseModule } from '../../database/database.module';
 import { MessagingModule } from '../messaging/messaging.module';
 import { EnrichmentPublisher } from './enrichment-publisher.service';
@@ -14,6 +15,7 @@ import { RawgService } from './rawg.service';
     imports: [DatabaseModule, MessagingModule],
     controllers: [GamesController],
     providers: [
+        CheckRateLimitGuard,
         GamesService,
         RawgService,
         EnrichmentPublisher,

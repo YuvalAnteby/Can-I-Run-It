@@ -163,6 +163,54 @@ describe('GameDiscoveryService', () => {
         expect(JSON.stringify(result)).not.toContain('metadataProvenance');
     });
 
+    it('carries a sanitized RAWG attribution for imported local results', async () => {
+        gamesRepository.findAll.mockResolvedValue([
+            [
+                localGame({
+                    rawgId: 3498,
+                    rawgPayload: {
+                        id: 3498,
+                        slug: 'cyberpunk-2077',
+                        private_field: 'must not leak',
+                    },
+                    metadataProvenance: {
+                        name: {
+                            source: 'rawg',
+                            sourceUrl: 'https://rawg.io/games/cyberpunk-2077',
+                            extractedBy: null,
+                        },
+                    },
+                }),
+            ],
+            1,
+        ]);
+        rawgService.search.mockResolvedValue({
+            available: false,
+            results: [],
+        });
+
+        const result = (await callDiscover('cyberpunk')) as {
+            data: Array<Record<string, unknown>>;
+        };
+
+        expect(result.data[0]).toEqual({
+            source: 'local',
+            id: 7,
+            slug: 'cyberpunk-2077',
+            name: 'Cyberpunk 2077',
+            coverImageUrl: 'https://img.example/cyberpunk.jpg',
+            attributions: [
+                {
+                    source: 'rawg',
+                    label: 'RAWG',
+                    url: 'https://rawg.io/games/cyberpunk-2077',
+                },
+            ],
+        });
+        expect(JSON.stringify(result)).not.toContain('private_field');
+        expect(JSON.stringify(result)).not.toContain('metadataProvenance');
+    });
+
     it('does not attach a RAWG hit to a published or rejected local identity', async () => {
         gamesRepository.findAll.mockResolvedValue([[localGame()], 1]);
         rawgService.search.mockResolvedValue({

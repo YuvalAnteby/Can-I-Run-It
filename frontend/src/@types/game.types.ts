@@ -15,6 +15,7 @@ export interface LocalGameSearchResult {
   slug: string;
   name: string;
   coverImageUrl: string | null;
+  attributions?: PublicAttributionDto[];
 }
 
 export interface RawgGameSearchResult {
