@@ -100,6 +100,15 @@ describe('enrichment values', () => {
             expect(values).toEqual({});
         });
 
+        it('omits an invalid calendar release date instead of creating a candidate', () => {
+            const values = extractRawg(
+                { id: 12, name: 'Elden Ring', released: '2022-99-99' },
+                12,
+            );
+
+            expect(values.releaseDate).toBeUndefined();
+        });
+
         it('reads Windows requirement text without requiring a platforms array', () => {
             const values = extractRawg(
                 {

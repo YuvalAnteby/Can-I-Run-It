@@ -1,12 +1,18 @@
 import {
     ambiguousQueryResponse,
+    errorParseResponse,
+    errorQueryResponse,
     exactParseResponse,
     exactQueryResponse,
+    malformedParseResponse,
+    malformedQueryResponse,
     mismatchedQueryResponse,
     nestedParseResponse,
     noPageQueryResponse,
     noWindowsRequirementsParseResponse,
+    otherThenWindowsRequirementsParseResponse,
     redirectQueryResponse,
+    windowsThenOtherRequirementsParseResponse,
 } from './__fixtures__/pcgamingwiki.fixtures';
 import {
     PcGamingWikiProviderError,
@@ -166,6 +172,63 @@ describe('PcGamingWikiService', () => {
         expect(result).not.toHaveProperty('recommended');
     });
 
+    it('omits an invalid Windows release date instead of returning it as metadata', async () => {
+        fetchSpy
+            .mockResolvedValueOnce(jsonResponse(exactQueryResponse))
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    parse: {
+                        title: 'Elden Ring',
+                        wikitext:
+                            '{{Infobox game/row/date|Windows|2022-99-99}}\n' +
+                            '{{System requirements|OSfamily=Windows|minram=8 GB}}',
+                    },
+                }),
+            );
+
+        const result = await service.findExact('Elden Ring');
+
+        expect(result.kind).toBe('matched');
+        if (result.kind !== 'matched') return;
+        expect(result.metadata.releaseDate).toBeUndefined();
+    });
+
+    it.each([
+        ['an API error envelope', errorQueryResponse],
+        ['a missing pages collection', malformedQueryResponse],
+    ])(
+        'throws a sanitized retryable failure for %s in a status-200 query response',
+        async (_caseName, response) => {
+            fetchSpy.mockResolvedValueOnce(jsonResponse(response));
+
+            const rejection = service.findExact('Elden Ring');
+            await expect(rejection).rejects.toMatchObject({ code: 'http_5xx' });
+            await rejection.catch((error: unknown) => {
+                expect(String(error)).not.toContain('provider-secret');
+            });
+            expect(fetchSpy).toHaveBeenCalledTimes(1);
+        },
+    );
+
+    it.each([
+        ['an API error envelope', errorParseResponse],
+        ['missing wikitext data', malformedParseResponse],
+    ])(
+        'throws a sanitized retryable failure for %s in a status-200 parse response',
+        async (_caseName, response) => {
+            fetchSpy
+                .mockResolvedValueOnce(jsonResponse(exactQueryResponse))
+                .mockResolvedValueOnce(jsonResponse(response));
+
+            const rejection = service.findExact('Elden Ring');
+            await expect(rejection).rejects.toMatchObject({ code: 'http_5xx' });
+            await rejection.catch((error: unknown) => {
+                expect(String(error)).not.toContain('provider-secret');
+            });
+            expect(fetchSpy).toHaveBeenCalledTimes(2);
+        },
+    );
+
     it('parses nested real-shape templates and minHD/recHD storage aliases', async () => {
         fetchSpy
             .mockResolvedValueOnce(jsonResponse(exactQueryResponse))
@@ -185,6 +248,35 @@ describe('PcGamingWikiService', () => {
         expect(result.recommended).toContain('Storage: 80 GB');
         expect(result.warnings).toEqual([]);
     });
+
+    it.each([
+        [
+            'Windows before Linux/macOS',
+            windowsThenOtherRequirementsParseResponse,
+        ],
+        [
+            'Linux/macOS before Windows',
+            otherThenWindowsRequirementsParseResponse,
+        ],
+    ])(
+        'accepts only the Windows System requirements template when templates appear in %s order',
+        async (_order, parseResponse) => {
+            fetchSpy
+                .mockResolvedValueOnce(jsonResponse(exactQueryResponse))
+                .mockResolvedValueOnce(jsonResponse(parseResponse));
+
+            const result = await service.findExact('Elden Ring');
+
+            expect(result.kind).toBe('matched');
+            if (result.kind !== 'matched') return;
+            expect(result.minimum).toContain('12 GB');
+            expect(result.minimum).toContain('Windows CPU');
+            expect(result.minimum).not.toContain('4 GB');
+            expect(result.minimum).not.toContain('6 GB');
+            expect(result.minimum).not.toContain('Linux CPU');
+            expect(result.minimum).not.toContain('macOS CPU');
+        },
+    );
 
     it.each([
         [403, 'http_403'],

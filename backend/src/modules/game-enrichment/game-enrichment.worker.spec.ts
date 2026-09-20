@@ -44,6 +44,7 @@ type WorkerStore = {
 
 type HarnessOptions = {
     completionGate?: Deferred<void>;
+    deliveryChannel?: FakeChannel;
     jobOverrides?: Partial<GameEnrichmentJob>;
 };
 
@@ -52,6 +53,7 @@ type WorkerHarness = {
     module: TestingModule;
     store: WorkerStore;
     channel: FakeChannel;
+    deliveryChannel: FakeChannel;
     wiki: { findExact: jest.Mock };
     gemini: { interpret: jest.Mock };
     dataSource: DataSource;
@@ -187,6 +189,13 @@ const makeRepository = (
 
     const save = jest.fn().mockImplementation((entity: unknown) => {
         callOrder.push(`${kind}.save`);
+        if (
+            kind === 'requirement' &&
+            entity instanceof GameRequirement &&
+            !store.requirementRows.includes(entity)
+        ) {
+            store.requirementRows.push(entity);
+        }
         return entity;
     });
 
@@ -197,6 +206,16 @@ const makeRepository = (
 
     return { findOne, find, save, upsert };
 };
+
+const makeFakeChannel = (): FakeChannel => ({
+    assertQueue: jest.fn().mockResolvedValue(undefined),
+    prefetch: jest.fn().mockResolvedValue(undefined),
+    consume: jest.fn(),
+    ack: jest.fn(),
+    nack: jest.fn(),
+    sendToQueue: jest.fn().mockResolvedValue(true),
+    close: jest.fn().mockResolvedValue(undefined),
+});
 
 const createHarness = async (
     options: HarnessOptions = {},
@@ -233,18 +252,11 @@ const createHarness = async (
         getRepository: tx.getRepository,
     } as unknown as DataSource;
 
-    const channel: FakeChannel = {
-        assertQueue: jest.fn().mockResolvedValue(undefined),
-        prefetch: jest.fn().mockResolvedValue(undefined),
-        consume: jest.fn(),
-        ack: jest.fn(),
-        nack: jest.fn(),
-        sendToQueue: jest.fn().mockResolvedValue(true),
-        close: jest.fn().mockResolvedValue(undefined),
-    };
+    const channel = makeFakeChannel();
+    const deliveryChannel = options.deliveryChannel ?? channel;
     let messageHandler: FakeMessageHandler | undefined;
     let setupPromise: Promise<unknown> | undefined;
-    channel.consume.mockImplementation(
+    deliveryChannel.consume.mockImplementation(
         (_queue: string, handler: FakeMessageHandler) => {
             messageHandler = handler;
             return Promise.resolve({ consumerTag: 'enrichment-test' });
@@ -256,7 +268,7 @@ const createHarness = async (
             .fn()
             .mockImplementation(
                 (setup: (amqpChannel: unknown) => Promise<unknown>) => {
-                    setupPromise = setup(channel);
+                    setupPromise = setup(deliveryChannel);
                     return channel;
                 },
             ),
@@ -313,6 +325,7 @@ const createHarness = async (
         module,
         store,
         channel,
+        deliveryChannel,
         wiki,
         gemini,
         dataSource,
@@ -350,6 +363,25 @@ describe('GameEnrichmentWorker', () => {
         expect(
             harness.channel.prefetch.mock.invocationCallOrder[0],
         ).toBeLessThan(harness.channel.consume.mock.invocationCallOrder[0]);
+    });
+
+    it('settles delivery on the originating channel and never on a replacement after close', async () => {
+        const deliveryChannel = makeFakeChannel();
+        const harness = await createHarness({ deliveryChannel });
+        let closedDuringWork = false;
+        deliveryChannel.ack.mockImplementation(() => {
+            if (closedDuringWork) throw new Error('originating channel closed');
+        });
+        harness.wiki.findExact.mockImplementation(() => {
+            closedDuringWork = true;
+            return matchedLookup;
+        });
+
+        await harness.deliver({ gameId: 42 });
+
+        expect(deliveryChannel.ack).toHaveBeenCalledTimes(1);
+        expect(harness.channel.ack).not.toHaveBeenCalled();
+        expect(harness.channel.nack).not.toHaveBeenCalled();
     });
 
     it.each([
@@ -542,6 +574,48 @@ describe('GameEnrichmentWorker', () => {
         expect(harness.gemini.interpret).not.toHaveBeenCalled();
     });
 
+    it('skips PCGamingWiki when retained RAWG data fills every wiki-capable field', async () => {
+        const harness = await createHarness();
+        harness.store.game!.rawgPayload = {
+            id: 12,
+            name: 'Elden Ring',
+            released: '2022-02-25',
+            developers: [{ name: 'FromSoftware' }],
+            publishers: [{ name: 'Bandai Namco Entertainment' }],
+            genres: [{ name: 'Action RPG' }],
+            platforms: [
+                {
+                    platform: { slug: 'windows' },
+                    requirements: {
+                        minimum:
+                            'OS: Windows 10\nRAM: 8 GB\nVRAM: 4 GB\nStorage: 60 GB\nCPU: Intel Core i5-8400\nGPU: NVIDIA GeForce GTX 1060\nSSD required',
+                        recommended:
+                            'OS: Windows 10\nRAM: 16 GB\nVRAM: 8 GB\nStorage: 60 GB\nCPU: Intel Core i7-8700K\nGPU: NVIDIA GeForce GTX 1070\nSSD required',
+                    },
+                },
+            ],
+        };
+
+        await harness.deliver({ gameId: 42 });
+
+        expect(harness.wiki.findExact).not.toHaveBeenCalled();
+        expect(harness.store.job?.status).toBe('completed');
+    });
+
+    it('omits an invalid provider release date without retrying the job', async () => {
+        const harness = await createHarness();
+        harness.wiki.findExact.mockResolvedValue({
+            ...matchedLookup,
+            metadata: { releaseDate: '2022-99-99' },
+        });
+
+        await harness.deliver({ gameId: 42 });
+
+        expect(harness.store.game?.releaseDate).toBeNull();
+        expect(harness.store.job?.status).toBe('completed');
+        expect(harness.channel.sendToQueue).not.toHaveBeenCalled();
+    });
+
     it('persists PCGamingWiki requirement provenance without coercing it to RAWG', async () => {
         const harness = await createHarness();
 
@@ -550,6 +624,74 @@ describe('GameEnrichmentWorker', () => {
         expect(
             harness.store.game?.metadataProvenance[
                 'requirements.minimum.ramGb'
+            ],
+        ).toEqual({
+            source: 'pcgamingwiki',
+            sourceUrl: 'https://www.pcgamingwiki.com/wiki/Elden_Ring',
+            extractedBy: null,
+        });
+    });
+
+    it('preserves an existing admin-authored requirement note unchanged', async () => {
+        const harness = await createHarness();
+        const existingNote = 'Keep this review note exactly';
+        harness.store.requirementRows.push(
+            Object.assign(new GameRequirement(), {
+                game: harness.store.game,
+                tier: 'minimum',
+                ramGb: 8,
+                vramGb: null,
+                storageGb: null,
+                requiresSsd: false,
+                resolutionWidth: 1920,
+                resolutionHeight: 1080,
+                targetFps: 30,
+                cpu: null,
+                gpu: null,
+                notes: existingNote,
+            }),
+        );
+        harness.store.game!.metadataProvenance = {
+            'requirements.minimum.notes': {
+                source: 'admin',
+                sourceUrl: null,
+                extractedBy: null,
+            },
+        };
+        harness.wiki.findExact.mockResolvedValue({
+            ...matchedLookup,
+            minimum: 'RAM: 8 GB\nCPU: Unmatched CPU',
+        });
+
+        await harness.deliver({ gameId: 42 });
+
+        expect(harness.store.requirementRows[0]?.notes).toBe(existingNote);
+        expect(
+            harness.store.game?.metadataProvenance[
+                'requirements.minimum.notes'
+            ],
+        ).toEqual({
+            source: 'admin',
+            sourceUrl: null,
+            extractedBy: null,
+        });
+    });
+
+    it('records source provenance for notes synthesized from unmatched hardware text', async () => {
+        const harness = await createHarness();
+        harness.wiki.findExact.mockResolvedValue({
+            ...matchedLookup,
+            minimum: 'RAM: 8 GB\nCPU: Unmatched CPU\nGPU: Unmatched GPU',
+        });
+
+        await harness.deliver({ gameId: 42 });
+
+        expect(harness.store.requirementRows[0]?.notes).toBe(
+            'CPU: Unmatched CPU; GPU: Unmatched GPU',
+        );
+        expect(
+            harness.store.game?.metadataProvenance[
+                'requirements.minimum.notes'
             ],
         ).toEqual({
             source: 'pcgamingwiki',

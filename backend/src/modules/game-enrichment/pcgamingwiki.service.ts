@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 
+import { isValidCalendarDate } from './enrichment-values';
+
 export type PcGamingWikiWarning =
     | 'PCGamingWiki page not found'
     | 'PCGamingWiki title is ambiguous'
@@ -133,12 +135,26 @@ const balancedTemplates = (wikitext: string): string[] => {
     return templates;
 };
 
-const fullDate = (value: string): boolean =>
-    /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
-
 const parseRequirements = (
     parts: string[],
-): { minimum?: string; recommended?: string } => {
+): { minimum?: string; recommended?: string } | undefined => {
+    const osFamily = parts
+        .slice(1)
+        .map((part) => {
+            const separator = part.indexOf('=');
+            return separator < 0
+                ? undefined
+                : {
+                      key: part
+                          .slice(0, separator)
+                          .replace(/\s+/g, '')
+                          .toLowerCase(),
+                      value: part.slice(separator + 1).trim(),
+                  };
+        })
+        .find((part) => part?.key === 'osfamily')?.value;
+    if (normalizedTitle(osFamily ?? '') !== 'windows') return undefined;
+
     const lines: Record<'minimum' | 'recommended', string[]> = {
         minimum: [],
         recommended: [],
@@ -232,13 +248,14 @@ const parseWikitext = (
         } else if (name === 'infobox game/row/date') {
             if (
                 parts[1]?.trim().toLowerCase() === 'windows' &&
-                fullDate(parts[2]?.trim() ?? '')
+                isValidCalendarDate(parts[2]?.trim() ?? '')
             ) {
                 metadata.releaseDate = parts[2].trim();
             }
         } else if (name === 'system requirements') {
-            requirementsFound = true;
             const requirements = parseRequirements(parts);
+            if (!requirements) continue;
+            requirementsFound = true;
             minimum = requirements.minimum;
             recommended = requirements.recommended;
         }
@@ -251,6 +268,12 @@ const warning = (value: PcGamingWikiWarning): PcGamingWikiLookup => ({
     kind: 'unmatched',
     warning: value,
 });
+
+const malformedResponse = (): PcGamingWikiProviderError =>
+    new PcGamingWikiProviderError(
+        'http_5xx',
+        'PCGamingWiki response was invalid',
+    );
 
 @Injectable()
 export class PcGamingWikiService {
@@ -267,11 +290,25 @@ export class PcGamingWikiService {
             titles: requestedTitle,
         }).toString();
         const query = await this.requestJson(queryUrl);
-        const queryRecord =
-            isRecord(query) && isRecord(query.query) ? query.query : undefined;
-        const pages = Array.isArray(queryRecord?.pages)
-            ? queryRecord.pages.filter(isRecord)
-            : [];
+        if (!isRecord(query) || 'error' in query || !isRecord(query.query)) {
+            throw malformedResponse();
+        }
+        const queryRecord = query.query;
+        const pagesValue = queryRecord.pages;
+        if (
+            !Array.isArray(pagesValue) ||
+            pagesValue.length === 0 ||
+            pagesValue.some(
+                (page) =>
+                    !isRecord(page) ||
+                    (page.missing !== true && !nonblank(page.title)),
+            ) ||
+            ('redirects' in queryRecord &&
+                !Array.isArray(queryRecord.redirects))
+        ) {
+            throw malformedResponse();
+        }
+        const pages = pagesValue.filter(isRecord);
         const availablePages = pages.filter((page) => page.missing !== true);
 
         if (availablePages.length === 0) {
@@ -311,25 +348,33 @@ export class PcGamingWikiService {
             page: canonicalTitle,
         }).toString();
         const parsed = await this.requestJson(parseUrl);
-        const parseRecord =
-            isRecord(parsed) && isRecord(parsed.parse)
-                ? parsed.parse
-                : undefined;
-        const parseTitle = nonblank(parseRecord?.title)
-            ? parseRecord.title
-            : canonicalTitle;
+        if (!isRecord(parsed) || 'error' in parsed || !isRecord(parsed.parse)) {
+            throw malformedResponse();
+        }
+        const parseRecord = parsed.parse;
+        const parseTitleValue = parseRecord.title;
+        const wikitextValue = parseRecord.wikitext;
+        if (
+            !nonblank(parseTitleValue) ||
+            !('wikitext' in parseRecord) ||
+            !(
+                typeof wikitextValue === 'string' ||
+                (isRecord(wikitextValue) &&
+                    typeof wikitextValue['*'] === 'string')
+            )
+        ) {
+            throw malformedResponse();
+        }
+        const parseTitle = parseTitleValue;
         if (normalizedTitle(parseTitle) !== normalizedTitle(canonicalTitle)) {
             return warning('PCGamingWiki title did not match');
         }
 
-        const wikitextValue = parseRecord?.wikitext;
         const wikitext =
             typeof wikitextValue === 'string'
                 ? wikitextValue
-                : isRecord(wikitextValue) && nonblank(wikitextValue['*'])
-                  ? wikitextValue['*']
-                  : undefined;
-        const parsedPage = parseWikitext(wikitext ?? '');
+                : (wikitextValue as Record<string, string>)['*'];
+        const parsedPage = parseWikitext(wikitext);
         const warnings: PcGamingWikiWarning[] = parsedPage.requirementsFound
             ? []
             : ['PCGamingWiki Windows requirements missing'];

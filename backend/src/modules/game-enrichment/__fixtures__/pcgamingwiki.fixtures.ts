@@ -22,6 +22,14 @@ export const noPageQueryResponse = {
     },
 };
 
+export const errorQueryResponse = {
+    error: { code: 'internal_api_error', info: 'provider-secret' },
+};
+
+export const malformedQueryResponse = {
+    query: {},
+};
+
 export const ambiguousQueryResponse = {
     query: {
         pages: [
@@ -50,6 +58,7 @@ export const exactParseResponse = {
         wikitext: [
             infobox,
             '{{System requirements',
+            '|OSfamily=Windows',
             '|minwindows=Windows 10',
             '|mincpu=Intel Core i5-8400',
             '|mingpu=NVIDIA GeForce GTX 1060 3GB',
@@ -76,6 +85,7 @@ export const nestedParseResponse = {
                 '|release={{Infobox game/row/date|Windows|2022-02-25}}',
                 '|genre={{Infobox game/taxonomy/genres|Action RPG}}',
                 '|requirements={{System requirements',
+                '|OSfamily=Windows',
                 '|minRAM=12 GB',
                 '|minHD=60 GB',
                 '|recRAM=16 GB',
@@ -91,5 +101,61 @@ export const noWindowsRequirementsParseResponse = {
     parse: {
         title: 'Elden Ring',
         wikitext: infobox,
+    },
+};
+
+export const errorParseResponse = {
+    error: { code: 'internal_api_error', info: 'provider-secret' },
+};
+
+export const malformedParseResponse = {
+    parse: { title: 'Elden Ring' },
+};
+
+const linuxRequirements = [
+    '{{System requirements',
+    '|OSfamily=Linux',
+    '|minram=4 GB',
+    '|mincpu=Linux CPU',
+    '}}',
+].join('\n');
+
+const macRequirements = [
+    '{{System requirements',
+    '|OSfamily=macOS',
+    '|minram=6 GB',
+    '|mincpu=macOS CPU',
+    '}}',
+].join('\n');
+
+const windowsRequirements = [
+    '{{System requirements',
+    '| OSfamily =  windows  ',
+    '|minram=12 GB',
+    '|mincpu=Windows CPU',
+    '}}',
+].join('\n');
+
+export const windowsThenOtherRequirementsParseResponse = {
+    parse: {
+        title: 'Elden Ring',
+        wikitext: [
+            infobox,
+            windowsRequirements,
+            linuxRequirements,
+            macRequirements,
+        ].join('\n'),
+    },
+};
+
+export const otherThenWindowsRequirementsParseResponse = {
+    parse: {
+        title: 'Elden Ring',
+        wikitext: [
+            infobox,
+            linuxRequirements,
+            macRequirements,
+            windowsRequirements,
+        ].join('\n'),
     },
 };
