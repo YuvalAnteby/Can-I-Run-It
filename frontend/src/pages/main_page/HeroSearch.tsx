@@ -152,7 +152,6 @@ export const HeroSearch = (): ReactElement => {
           {dropdownOpen && (
             <ul
               className="absolute top-[calc(100%+6px)] left-0 right-0 z-[100] m-0 py-1.5 list-none bg-[#1c2330] border border-[#30363d] rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden animate-dropdown-fade"
-              role="listbox"
               aria-label="Search results"
             >
               {isLoading &&
@@ -194,8 +193,6 @@ export const HeroSearch = (): ReactElement => {
                         ? `local-${game.id}`
                         : `rawg-${game.rawgId}`
                     }
-                    role="option"
-                    aria-selected={false}
                     className="flex items-center justify-between gap-3 px-4 py-2.5"
                   >
                     <button

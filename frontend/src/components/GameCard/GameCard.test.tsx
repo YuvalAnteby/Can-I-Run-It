@@ -70,6 +70,35 @@ describe('GameCard', () => {
     );
   });
 
+  it('keeps attribution links outside the main card action', () => {
+    render(
+      <GameCard
+        game={{
+          ...mockGame,
+          attributions: [
+            {
+              source: 'rawg',
+              label: 'RAWG',
+              url: 'https://rawg.io/games/test-game',
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('button')).not.toContainElement(
+      screen.getByRole('link', { name: /RAWG/i }),
+    );
+  });
+
+  it('keeps the card heading outside the main button', () => {
+    render(<GameCard game={mockGame} />);
+
+    expect(screen.getByRole('button')).not.toContainElement(
+      screen.getByRole('heading', { name: 'Test Game' }),
+    );
+  });
+
   it('calls onClick with the game object when clicked', () => {
     const handleClick = vi.fn();
     render(<GameCard game={mockGame} onClick={handleClick} />);

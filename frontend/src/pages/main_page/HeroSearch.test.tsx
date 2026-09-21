@@ -78,7 +78,9 @@ describe('HeroSearch', () => {
 
   it('does not show a dropdown before the user types', () => {
     render(<HeroSearch />, { wrapper: makeWrapper() });
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('list', { name: /search results/i }),
+    ).not.toBeInTheDocument();
   });
 
   // ── Typing interaction ───────────────────────────────────────────────────
@@ -88,7 +90,9 @@ describe('HeroSearch', () => {
     const input = screen.getByRole('textbox', { name: /search for a game/i });
     userEvent.type(input, 'Cyberpunk');
     // dropdownOpen is set to true synchronously via the reducer on SET_QUERY
-    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(
+      screen.getByRole('list', { name: /search results/i }),
+    ).toBeInTheDocument();
   });
 
   it('shows matching results in the dropdown after the debounce settles', async () => {
@@ -154,7 +158,9 @@ describe('HeroSearch', () => {
 
     userEvent.click(screen.getByText('Cyberpunk 2077'));
 
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('list', { name: /search results/i }),
+    ).not.toBeInTheDocument();
     expect(input).toHaveValue('Cyberpunk 2077');
   });
 
@@ -166,11 +172,15 @@ describe('HeroSearch', () => {
     userEvent.type(input, 'Cyberpunk');
 
     // Dropdown is open synchronously after typing
-    expect(screen.getByRole('listbox')).toBeInTheDocument();
+    expect(
+      screen.getByRole('list', { name: /search results/i }),
+    ).toBeInTheDocument();
 
     userEvent.click(screen.getByRole('button', { name: /^check$/i }));
 
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('list', { name: /search results/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('labels local and RAWG results distinctly and renders the backend attribution as an active link', async () => {
@@ -216,6 +226,37 @@ describe('HeroSearch', () => {
       'rel',
       expect.stringContaining('noopener'),
     );
+  });
+
+  it('uses a plain list for rows with separate selection and attribution actions', async () => {
+    server.use(
+      http.get(DISCOVER_URL, () =>
+        HttpResponse.json({
+          rawgAvailable: true,
+          data: [
+            {
+              source: 'rawg',
+              rawgId: 3498,
+              name: 'Accessible RAWG Game',
+              coverImageUrl: null,
+              rawgUrl: 'https://rawg.io/games/accessible-rawg-game',
+            },
+          ],
+        }),
+      ),
+    );
+
+    render(<HeroSearch />, { wrapper: makeWrapper() });
+    userEvent.type(
+      screen.getByRole('textbox', { name: /search for a game/i }),
+      'Accessible',
+    );
+
+    expect(
+      await screen.findByRole('list', { name: /search results/i }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    expect(screen.queryByRole('option')).not.toBeInTheDocument();
   });
 
   it('renders a RAWG attribution for an imported local search result', async () => {

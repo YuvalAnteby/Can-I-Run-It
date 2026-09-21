@@ -102,16 +102,25 @@ export class GeminiService {
         settings: SettingsDto,
     ): string {
         const resLabel = `${settings.resolutionWidth}x${settings.resolutionHeight}`;
-        return [
+        const prompt = [
             `Game: ${game.name}`,
             `GPU: ${gpu.name}`,
             `CPU: ${cpu.name}`,
             `RAM: ${ramGb ?? 16}GB`, // SettingsDto may not carry RAM; default to 16
             `Target resolution: ${resLabel}`,
             `Requested preset: ${settings.preset ?? SettingPreset.HIGH}`,
+        ];
+        if (settings.upscaler != null) {
+            prompt.push(`Upscaler: ${settings.upscaler}`);
+        }
+        if (settings.upscalerQuality != null) {
+            prompt.push(`Upscaler quality: ${settings.upscalerQuality}`);
+        }
+        prompt.push(
             '',
             'Estimate average FPS at all four presets (low, med, high, ultra) for this exact hardware and game.',
-        ].join('\n');
+        );
+        return prompt.join('\n');
     }
 
     private async callGemini(userPrompt: string): Promise<string> {

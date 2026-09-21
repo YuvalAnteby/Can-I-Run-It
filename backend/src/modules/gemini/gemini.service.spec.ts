@@ -6,7 +6,11 @@ import { SettingsDto } from '../check/dto/settings.dto';
 import { Cpu } from '../cpu/entities/cpu.entity';
 import { Game } from '../games/entities/game.entity';
 import { Gpu } from '../gpu/entities/gpu.entity';
-import { SettingPreset } from '../performance/entities/performance-record.entity';
+import {
+    SettingPreset,
+    UpscalerQualityMode,
+    UpscalerType,
+} from '../performance/entities/performance-record.entity';
 import { GeminiService } from './gemini.service';
 
 // ---------------------------------------------------------------------------
@@ -155,6 +159,56 @@ describe('GeminiService', () => {
             mockSettings,
         );
         expect(result?.note).toBe('May stutter during shader compilation');
+    });
+
+    it('includes only available optional upscaler data in the prompt', async () => {
+        const generateContent = jest
+            .spyOn(
+                (
+                    service as unknown as {
+                        genAI: {
+                            models: { generateContent: jest.Mock };
+                        };
+                    }
+                ).genAI.models,
+                'generateContent',
+            )
+            .mockResolvedValue({
+                text: JSON.stringify({
+                    fps: { low: 95, med: 72, high: 55, ultra: 38 },
+                    note: null,
+                }),
+            });
+
+        await service.estimate(mockGame, mockCpu, mockGpu, mockRamGb, {
+            ...mockSettings,
+            upscaler: null,
+            upscalerQuality: null,
+        } as unknown as SettingsDto);
+        const unavailablePrompt = String(
+            (
+                generateContent.mock.calls[0]?.[0] as {
+                    contents: unknown;
+                }
+            ).contents,
+        );
+        expect(unavailablePrompt).not.toContain('Upscaler:');
+        expect(unavailablePrompt).not.toContain('Upscaler quality:');
+
+        await service.estimate(mockGame, mockCpu, mockGpu, mockRamGb, {
+            ...mockSettings,
+            upscaler: UpscalerType.DLSS,
+            upscalerQuality: UpscalerQualityMode.QUALITY,
+        });
+        const availablePrompt = String(
+            (
+                generateContent.mock.calls[1]?.[0] as {
+                    contents: unknown;
+                }
+            ).contents,
+        );
+        expect(availablePrompt).toContain('Upscaler: DLSS');
+        expect(availablePrompt).toContain('Upscaler quality: quality');
     });
 
     // --- No API key ---

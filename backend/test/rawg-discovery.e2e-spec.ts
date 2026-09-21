@@ -382,7 +382,7 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
         send.mockRestore();
     });
 
-    it('uses equivalent shared topology in producer-first and worker-first startup orders', async () => {
+    it('keeps persistent messages across shared-topology channel initialization orders', async () => {
         await drainMainQueue();
         const rabbitMq = app.get(RabbitMqService);
         const producerFirst = rabbitMq.createConfirmChannel(
@@ -399,11 +399,11 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
         );
         expect(queueState.messageCount).toBeGreaterThan(0);
 
-        const workerAfterProducer = rabbitMq.createConfirmChannel(
+        const consumerAfterProducer = rabbitMq.createConfirmChannel(
             assertGameEnrichmentTopology,
         );
-        await workerAfterProducer.waitForConnect();
-        const firstMessage = await workerAfterProducer.get(
+        await consumerAfterProducer.waitForConnect();
+        const firstMessage = await consumerAfterProducer.get(
             GAME_ENRICHMENT_QUEUE,
             {
                 noAck: false,
@@ -414,34 +414,34 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
             expect(JSON.parse(firstMessage.content.toString())).toEqual({
                 gameId: localFixtureId,
             });
-            workerAfterProducer.ack(firstMessage);
+            consumerAfterProducer.ack(firstMessage);
         }
         await producerFirst.close();
-        await workerAfterProducer.close();
+        await consumerAfterProducer.close();
 
         await drainMainQueue();
-        const workerFirst = rabbitMq.createConfirmChannel(
+        const consumerFirst = rabbitMq.createConfirmChannel(
             assertGameEnrichmentTopology,
         );
-        const producerAfterWorker = rabbitMq.createConfirmChannel(
+        const producerAfterConsumer = rabbitMq.createConfirmChannel(
             assertGameEnrichmentTopology,
         );
         await Promise.all([
-            workerFirst.waitForConnect(),
-            producerAfterWorker.waitForConnect(),
+            consumerFirst.waitForConnect(),
+            producerAfterConsumer.waitForConnect(),
         ]);
-        await producerAfterWorker.sendToQueue(
+        await producerAfterConsumer.sendToQueue(
             GAME_ENRICHMENT_QUEUE,
             { gameId: localFixtureId },
             { persistent: true, timeout: 5_000 },
         );
-        const secondMessage = await workerFirst.get(GAME_ENRICHMENT_QUEUE, {
+        const secondMessage = await consumerFirst.get(GAME_ENRICHMENT_QUEUE, {
             noAck: false,
         });
         expect(secondMessage).not.toBe(false);
-        if (secondMessage !== false) workerFirst.ack(secondMessage);
-        await workerFirst.close();
-        await producerAfterWorker.close();
+        if (secondMessage !== false) consumerFirst.ack(secondMessage);
+        await consumerFirst.close();
+        await producerAfterConsumer.close();
     });
 
     it('publishes only queued attempts=0 and leaves claimed retry-owned jobs untouched', async () => {

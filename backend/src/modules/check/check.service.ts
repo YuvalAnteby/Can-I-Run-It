@@ -78,7 +78,7 @@ export class CheckService {
                 settings: settings.preset,
                 upscaler: settings.upscaler ?? UpscalerType.OFF,
                 upscalerQuality:
-                    settings.upscalerQuality === undefined
+                    settings.upscalerQuality == null
                         ? IsNull()
                         : settings.upscalerQuality,
             },
@@ -181,7 +181,7 @@ export class CheckService {
                 settings: settings.preset,
                 upscaler: settings.upscaler ?? UpscalerType.OFF,
                 upscalerQuality:
-                    settings.upscalerQuality === undefined
+                    settings.upscalerQuality == null
                         ? IsNull()
                         : settings.upscalerQuality,
                 source: 'gemini',
@@ -218,7 +218,6 @@ export class CheckService {
                 userGpu,
                 hardware,
                 settings,
-                true,
             );
             return buildResponseFromGemini(
                 geminiEstimate,
@@ -255,7 +254,6 @@ export class CheckService {
         gpu: Gpu,
         hardware: HardwareDto,
         settings: SettingsDto,
-        preserveUpscaler = false,
     ): Promise<void> {
         try {
             const preset = settings.preset ?? SettingPreset.HIGH;
@@ -274,12 +272,8 @@ export class CheckService {
                 resolutionWidth: settings.resolutionWidth,
                 resolutionHeight: settings.resolutionHeight,
                 settings: preset,
-                upscaler: preserveUpscaler
-                    ? (settings.upscaler ?? UpscalerType.OFF)
-                    : UpscalerType.OFF,
-                upscalerQuality: preserveUpscaler
-                    ? (settings.upscalerQuality ?? null)
-                    : null,
+                upscaler: settings.upscaler ?? UpscalerType.OFF,
+                upscalerQuality: settings.upscalerQuality ?? null,
                 fpsAvg: presetToFps[preset],
                 fps1PercentLow: null,
                 verified: false,
