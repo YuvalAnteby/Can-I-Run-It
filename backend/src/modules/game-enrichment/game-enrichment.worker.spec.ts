@@ -593,32 +593,32 @@ describe('GameEnrichmentWorker', () => {
         expect(harness.store.job?.status).toBe('completed');
     });
 
-    it('skips providers when persisted metadata and requirements already fill the paths', async () => {
+    it('skips providers for admin-owned empty metadata in a fully covered game', async () => {
         const harness = await createHarness();
         const game = harness.store.game!;
-        game.publisher = 'Saved publisher';
-        game.developer = 'Saved developer';
-        game.releaseDate = new Date('2022-02-25T00:00:00.000Z');
-        game.genre = 'Saved genre';
+        game.publisher = null;
+        game.developer = '';
+        game.releaseDate = null;
+        game.genre = '';
         game.metadataProvenance = {
             publisher: {
-                source: 'rawg',
-                sourceUrl: 'https://rawg.io/games/12',
+                source: 'admin',
+                sourceUrl: null,
                 extractedBy: null,
             },
             developer: {
-                source: 'rawg',
-                sourceUrl: 'https://rawg.io/games/12',
+                source: 'admin',
+                sourceUrl: null,
                 extractedBy: null,
             },
             releaseDate: {
-                source: 'rawg',
-                sourceUrl: 'https://rawg.io/games/12',
+                source: 'admin',
+                sourceUrl: null,
                 extractedBy: null,
             },
             genre: {
-                source: 'rawg',
-                sourceUrl: 'https://rawg.io/games/12',
+                source: 'admin',
+                sourceUrl: null,
                 extractedBy: null,
             },
         };
@@ -641,6 +641,11 @@ describe('GameEnrichmentWorker', () => {
         expect(harness.wiki.findExact).not.toHaveBeenCalled();
         expect(harness.gemini.interpret).not.toHaveBeenCalled();
         expect(harness.store.job?.status).toBe('completed');
+        expect(game.publisher).toBeNull();
+        expect(game.developer).toBe('');
+        expect(game.releaseDate).toBeNull();
+        expect(game.genre).toBe('');
+        expect(game.metadataProvenance.publisher?.source).toBe('admin');
     });
 
     it('persists stable warnings for unsupported units and skipped requirement tiers', async () => {
@@ -961,6 +966,49 @@ describe('GameEnrichmentWorker', () => {
             ],
         ).toBeUndefined();
     });
+
+    it.each([
+        ['extraction', 'https://rawg.io/games/12', 'gemini'],
+        ['URL', 'https://rawg.io/games/other', null],
+    ] as const)(
+        'omits composite note provenance when same-source components differ by %s',
+        async (_difference, sourceUrl, extractedBy) => {
+            const harness = await createHarness();
+            harness.store.game!.rawgPayload = {
+                id: 12,
+                name: 'Elden Ring',
+                platforms: [
+                    {
+                        platform: { id: 4, slug: 'pc', name: 'PC' },
+                        requirements: { minimum: 'OS: Windows 10\nRAM: 8 GB' },
+                    },
+                ],
+            };
+            harness.wiki.findExact.mockResolvedValue({
+                kind: 'unmatched',
+                warning: 'PCGamingWiki page not found',
+            });
+            harness.gemini.interpret.mockResolvedValue({
+                'requirements.minimum.cpu': {
+                    value: 'Unmatched CPU',
+                    source: 'rawg',
+                    sourceUrl,
+                    extractedBy,
+                },
+            });
+
+            await harness.deliver({ gameId: 42 });
+
+            expect(harness.store.requirementRows[0]?.notes).toBe(
+                'Windows 10; CPU: Unmatched CPU',
+            );
+            expect(
+                harness.store.game?.metadataProvenance[
+                    'requirements.minimum.notes'
+                ],
+            ).toBeUndefined();
+        },
+    );
 
     it('does not ACK until the completion transaction resolves', async () => {
         const gate = deferred<void>();

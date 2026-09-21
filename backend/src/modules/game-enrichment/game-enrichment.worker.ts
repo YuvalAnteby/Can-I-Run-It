@@ -944,23 +944,24 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         ] as const;
         for (const field of fields) {
             const value = (game as unknown as Record<string, unknown>)[field];
+            const entry = provenance[field];
             if (
-                value === null ||
-                value === undefined ||
-                value === '' ||
-                (Array.isArray(value) && value.length === 0) ||
-                (typeof value === 'boolean' &&
-                    value === false &&
-                    !provenance[field])
+                entry?.source !== 'admin' &&
+                (value === null ||
+                    value === undefined ||
+                    value === '' ||
+                    (Array.isArray(value) && value.length === 0) ||
+                    (typeof value === 'boolean' && value === false && !entry))
             ) {
                 continue;
             }
-            const entry = provenance[field];
             values[field] = {
                 value:
-                    value instanceof Date
-                        ? value.toISOString().slice(0, 10)
-                        : (value as string | string[] | boolean),
+                    value == null
+                        ? ''
+                        : value instanceof Date
+                          ? value.toISOString().slice(0, 10)
+                          : (value as string | string[] | boolean),
                 source: sourceFrom(entry?.source),
                 sourceUrl: entry?.sourceUrl ?? null,
                 extractedBy: entry?.extractedBy ?? null,
@@ -1089,16 +1090,19 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             (value): value is { text: string; provenance: CandidateValue } =>
                 value !== undefined,
         );
-        const firstSource = components[0]?.provenance.source;
-        const sameSource =
-            firstSource !== undefined &&
+        const first = components[0]?.provenance;
+        const sameProvenance =
+            first !== undefined &&
             components.every(
-                ({ provenance }) => provenance.source === firstSource,
+                ({ provenance }) =>
+                    provenance.source === first.source &&
+                    provenance.sourceUrl === first.sourceUrl &&
+                    provenance.extractedBy === first.extractedBy,
             );
         return {
             value:
                 unique(components.map(({ text }) => text)).join('; ') || null,
-            ...(sameSource ? { provenance: components[0]?.provenance } : {}),
+            ...(sameProvenance ? { provenance: first } : {}),
         };
     }
 
