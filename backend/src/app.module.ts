@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module';
 import { AdminAuthModule } from './modules/admin-auth/admin-auth.module';
 import { CheckModule } from './modules/check/check.module';
 import { CpuModule } from './modules/cpu/cpu.module';
+import { GameEnrichmentModule } from './modules/game-enrichment/game-enrichment.module';
 import { GamesModule } from './modules/games/games.module';
 import { GpuModule } from './modules/gpu/gpu.module';
 import { HealthModule } from './modules/health/health.module';
@@ -25,6 +26,7 @@ import { HealthModule } from './modules/health/health.module';
         GamesModule,
         CheckModule,
         AdminAuthModule,
+        GameEnrichmentModule,
     ],
     controllers: [AppController],
     providers: [AppService],
