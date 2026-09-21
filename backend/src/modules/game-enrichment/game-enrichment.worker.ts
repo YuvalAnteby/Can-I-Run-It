@@ -32,10 +32,14 @@ import {
     type CandidateValue,
     type CandidateValues,
     extractRawg,
+    extractRawgWithWarnings,
     type FieldPath,
+    isRawgPcPlatform,
     isValidCalendarDate,
     mergeMissing,
-    normalizeRequirements,
+    normalizeRequirementsWithWarnings,
+    providerValueWarning,
+    skippedRequirementTierWarning,
     summarizeMissing,
 } from './enrichment-values';
 import { GeminiRequirementsService } from './gemini-requirements.service';
@@ -239,8 +243,21 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
     private async collect(
         game: Game,
     ): Promise<{ candidates: CandidateValues; warnings: string[] }> {
-        let candidates = extractRawg(game.rawgPayload, game.rawgId ?? 0);
-        const warnings: string[] = [];
+        const existingRequirements = await this.dataSource
+            .getRepository(GameRequirement)
+            .find({
+                where: { game: { id: game.id } },
+                relations: ['cpu', 'gpu'],
+            });
+        const rawg = extractRawgWithWarnings(
+            game.rawgPayload,
+            game.rawgId ?? 0,
+        );
+        const warnings = [...rawg.warnings];
+        let candidates = mergeMissing(
+            this.currentValues(game, existingRequirements),
+            rawg.values,
+        );
         const sources = this.rawgRequirementSources(game.rawgPayload);
         if (summarizeMissing(candidates).some(pcGamingWikiCanFill)) {
             const lookup = await this.wiki.findExact(game.name);
@@ -249,10 +266,19 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                 warnings.push(lookup.warning);
             } else {
                 warnings.push(...lookup.warnings);
-                candidates = mergeMissing(
-                    candidates,
-                    this.metadataCandidates(lookup),
+                const metadata = this.metadataCandidates(lookup);
+                warnings.push(...metadata.warnings);
+                candidates = mergeMissing(candidates, metadata.values);
+                const hasRequirementText = Boolean(
+                    lookup.minimum || lookup.recommended,
                 );
+                if (hasRequirementText) {
+                    for (const tier of ['minimum', 'recommended'] as const) {
+                        if (!lookup[tier]) {
+                            warnings.push(skippedRequirementTierWarning(tier));
+                        }
+                    }
+                }
                 for (const tier of ['minimum', 'recommended'] as const) {
                     const text = lookup[tier];
                     if (text) {
@@ -262,14 +288,16 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                             source: 'pcgamingwiki',
                             sourceUrl: lookup.url,
                         });
+                        const normalized = normalizeRequirementsWithWarnings(
+                            text,
+                            tier,
+                            'pcgamingwiki',
+                            lookup.url,
+                        );
+                        warnings.push(...normalized.warnings);
                         candidates = mergeMissing(
                             candidates,
-                            normalizeRequirements(
-                                text,
-                                tier,
-                                'pcgamingwiki',
-                                lookup.url,
-                            ),
+                            normalized.values,
                         );
                     }
                 }
@@ -307,8 +335,9 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
 
     private metadataCandidates(
         lookup: Extract<PcGamingWikiLookup, { kind: 'matched' }>,
-    ): CandidateValues {
+    ): { values: CandidateValues; warnings: string[] } {
         const values: CandidateValues = {};
+        const warnings: string[] = [];
         for (const [path, value] of Object.entries(lookup.metadata)) {
             if (
                 !value ||
@@ -320,6 +349,14 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             if (path === 'releaseDate' && !isValidCalendarDate(value)) {
                 continue;
             }
+            const providerWarning = providerValueWarning(
+                path as FieldPath,
+                value,
+            );
+            if (providerWarning) {
+                warnings.push(providerWarning);
+                continue;
+            }
             values[path as FieldPath] = {
                 value,
                 source: 'pcgamingwiki',
@@ -327,7 +364,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                 extractedBy: null,
             };
         }
-        return values;
+        return { values, warnings: [...new Set(warnings)] };
     }
 
     private rawgRequirementSources(
@@ -335,12 +372,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
     ): RequirementSource[] {
         if (!isRecord(payload) || !Array.isArray(payload.platforms)) return [];
         const platforms = payload.platforms as unknown[];
-        const windows = platforms.find((entry) => {
-            if (!isRecord(entry) || !isRecord(entry.platform)) return false;
-            return [entry.platform.slug, entry.platform.name]
-                .filter((value): value is string => typeof value === 'string')
-                .some((value) => value.toLowerCase() === 'windows');
-        });
+        const windows = platforms.find(isRawgPcPlatform);
         const requirements = isRecord(windows)
             ? windows.requirements
             : undefined;
@@ -672,15 +704,20 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             const existing = existingRequirements.find(
                 (row) => row.tier === tier,
             );
-            const ramValue = merged[path]?.value;
+            const requirementPathFor = (field: RequirementField): FieldPath =>
+                `requirements.${tier}.${field}`;
+            const isAdminOwned = (field: RequirementField): boolean =>
+                metadataProvenance[requirementPathFor(field)]?.source ===
+                'admin';
+            const ramValue = isAdminOwned('ramGb')
+                ? undefined
+                : merged[path]?.value;
             const ramGb =
                 existing?.ramGb ??
                 (typeof ramValue === 'number' ? ramValue : undefined);
             if (!ramGb || !Number.isFinite(ramGb) || ramGb <= 0) continue;
 
             const row = existing ?? new GameRequirement();
-            const requirementPathFor = (field: RequirementField): FieldPath =>
-                `requirements.${tier}.${field}`;
             const recordCandidateProvenance = (
                 field: RequirementField,
                 accepted: boolean,
@@ -696,26 +733,44 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                 };
                 provenanceChanged = true;
             };
-            const cpu = await this.hardwareMatch(
-                tx,
-                Cpu,
-                merged[`requirements.${tier}.cpu`],
-                existing?.cpu ?? null,
-            );
-            const gpu = await this.hardwareMatch(
-                tx,
-                Gpu,
-                merged[`requirements.${tier}.gpu`],
-                existing?.gpu ?? null,
-            );
-            const notes = this.requirementNotes(
-                existing?.notes ?? null,
-                merged[`requirements.${tier}.notes`],
-                merged[`requirements.${tier}.cpu`],
-                merged[`requirements.${tier}.gpu`],
-                cpu,
-                gpu,
-            );
+            const cpu = isAdminOwned('cpu')
+                ? (existing?.cpu ?? null)
+                : await this.hardwareMatch(
+                      tx,
+                      Cpu,
+                      merged[`requirements.${tier}.cpu`],
+                      existing?.cpu ?? null,
+                  );
+            const gpu = isAdminOwned('gpu')
+                ? (existing?.gpu ?? null)
+                : await this.hardwareMatch(
+                      tx,
+                      Gpu,
+                      merged[`requirements.${tier}.gpu`],
+                      existing?.gpu ?? null,
+                  );
+            const notes = isAdminOwned('notes')
+                ? { value: existing?.notes ?? null }
+                : this.requirementNotes(
+                      existing?.notes ?? null,
+                      merged[`requirements.${tier}.notes`],
+                      merged[`requirements.${tier}.cpu`],
+                      merged[`requirements.${tier}.gpu`],
+                      cpu,
+                      gpu,
+                  );
+            const vram = isAdminOwned('vramGb')
+                ? (existing?.vramGb ?? null)
+                : this.numberValue(
+                      merged[`requirements.${tier}.vramGb`],
+                      existing?.vramGb,
+                  );
+            const storage = isAdminOwned('storageGb')
+                ? (existing?.storageGb ?? null)
+                : this.numberValue(
+                      merged[`requirements.${tier}.storageGb`],
+                      existing?.storageGb,
+                  );
             Object.assign(row, {
                 game,
                 tier,
@@ -723,20 +778,15 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                 cpu,
                 gpu,
                 ramGb: Math.ceil(ramGb),
-                vramGb: this.numberValue(
-                    merged[`requirements.${tier}.vramGb`],
-                    existing?.vramGb,
-                ),
-                storageGb: this.numberValue(
-                    merged[`requirements.${tier}.storageGb`],
-                    existing?.storageGb,
-                ),
-                requiresSsd:
-                    this.booleanValue(
-                        merged[`requirements.${tier}.requiresSsd`],
-                    ) ??
-                    existing?.requiresSsd ??
-                    false,
+                vramGb: vram,
+                storageGb: storage,
+                requiresSsd: isAdminOwned('requiresSsd')
+                    ? (existing?.requiresSsd ?? false)
+                    : (this.booleanValue(
+                          merged[`requirements.${tier}.requiresSsd`],
+                      ) ??
+                      existing?.requiresSsd ??
+                      false),
                 resolutionWidth: existing?.resolutionWidth ?? 1920,
                 resolutionHeight: existing?.resolutionHeight ?? 1080,
                 targetFps: existing?.targetFps ?? 30,
@@ -765,7 +815,11 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                 'requiresSsd',
                 existing?.requiresSsd !== true && row.requiresSsd,
             );
-            if (!existing?.notes?.trim() && notes.provenance) {
+            if (
+                !isAdminOwned('notes') &&
+                !existing?.notes?.trim() &&
+                notes.provenance
+            ) {
                 metadataProvenance[requirementPathFor('notes')] = {
                     source: notes.provenance.source,
                     sourceUrl: notes.provenance.sourceUrl,
@@ -819,9 +873,9 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                         metadataProvenance[`requirements.${tier}.gpu`],
                     );
             }
-            if (row.requiresSsd) {
+            if (row.requiresSsd || isAdminOwned('requiresSsd')) {
                 persisted[`requirements.${tier}.requiresSsd`] = {
-                    value: true,
+                    value: row.requiresSsd,
                     source: tierSource('requiresSsd'),
                     sourceUrl: tierUrl('requiresSsd'),
                     extractedBy:
@@ -829,14 +883,29 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                             ?.extractedBy ?? null,
                 };
             }
-            if (row.notes) {
+            if (row.notes || isAdminOwned('notes')) {
                 persisted[`requirements.${tier}.notes`] = {
-                    value: row.notes,
+                    value: row.notes ?? '',
                     source: tierSource('notes'),
                     sourceUrl: tierUrl('notes'),
                     extractedBy:
                         metadataProvenance[`requirements.${tier}.notes`]
                             ?.extractedBy ?? null,
+                };
+            }
+        }
+
+        for (const [path, provenance] of Object.entries(metadataProvenance)) {
+            if (
+                path.startsWith('requirements.') &&
+                provenance?.source === 'admin' &&
+                !persisted[path as FieldPath]
+            ) {
+                persisted[path as FieldPath] = {
+                    value: '',
+                    source: 'admin',
+                    sourceUrl: provenance.sourceUrl ?? null,
+                    extractedBy: provenance.extractedBy ?? null,
                 };
             }
         }
@@ -945,6 +1014,20 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                     value: row.notes,
                 };
         }
+        for (const [path, entry] of Object.entries(provenance)) {
+            if (
+                path.startsWith('requirements.') &&
+                entry?.source === 'admin' &&
+                !values[path as FieldPath]
+            ) {
+                values[path as FieldPath] = {
+                    value: '',
+                    source: 'admin',
+                    sourceUrl: entry.sourceUrl ?? null,
+                    extractedBy: entry.extractedBy ?? null,
+                };
+            }
+        }
         return values;
     }
 
@@ -985,9 +1068,6 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         matchedGpu: Gpu | null,
     ): { value: string | null; provenance?: CandidateValue } {
         if (existing?.trim()) return { value: existing };
-        if (typeof notes?.value === 'string' && notes.value.trim()) {
-            return { value: notes.value, provenance: notes };
-        }
 
         const unmatched = [
             !matchedCpu && typeof cpu?.value === 'string'
@@ -1000,9 +1080,25 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             (value): value is { text: string; provenance: CandidateValue } =>
                 value !== undefined,
         );
+        const components = [
+            typeof notes?.value === 'string' && notes.value.trim()
+                ? { text: notes.value, provenance: notes }
+                : undefined,
+            ...unmatched,
+        ].filter(
+            (value): value is { text: string; provenance: CandidateValue } =>
+                value !== undefined,
+        );
+        const firstSource = components[0]?.provenance.source;
+        const sameSource =
+            firstSource !== undefined &&
+            components.every(
+                ({ provenance }) => provenance.source === firstSource,
+            );
         return {
-            value: unique(unmatched.map(({ text }) => text)).join('; ') || null,
-            provenance: unmatched[0]?.provenance,
+            value:
+                unique(components.map(({ text }) => text)).join('; ') || null,
+            ...(sameSource ? { provenance: components[0]?.provenance } : {}),
         };
     }
 

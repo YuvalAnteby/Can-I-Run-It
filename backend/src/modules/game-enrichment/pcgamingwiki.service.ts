@@ -367,7 +367,7 @@ export class PcGamingWikiService {
         }
         const parseTitle = parseTitleValue;
         if (normalizedTitle(parseTitle) !== normalizedTitle(canonicalTitle)) {
-            return warning('PCGamingWiki title did not match');
+            throw malformedResponse();
         }
 
         const wikitext =

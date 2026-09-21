@@ -120,6 +120,44 @@ const namedValues = (value: unknown): string[] => {
 const textFor = (value: unknown): string | undefined =>
     nonblank(value) ? value.trim() : undefined;
 
+const PROVIDER_FIELD_LIMITS = {
+    publisher: 200,
+    developer: 200,
+    genre: 100,
+} as const;
+
+export const providerValueWarning = (
+    path: FieldPath,
+    value: unknown,
+): string | undefined => {
+    const limit =
+        PROVIDER_FIELD_LIMITS[path as keyof typeof PROVIDER_FIELD_LIMITS];
+    return typeof limit === 'number' &&
+        typeof value === 'string' &&
+        value.length > limit
+        ? `Provider value exceeds persistence limit: ${path}`
+        : undefined;
+};
+
+export const unsupportedRequirementUnitWarning = (
+    tier: RequirementTier,
+    field: RequirementField,
+): string => `Unsupported requirement unit: requirements.${tier}.${field}`;
+
+export const skippedRequirementTierWarning = (tier: RequirementTier): string =>
+    `Skipped requirement tier: ${tier}`;
+
+export const isRawgPcPlatform = (entry: unknown): boolean => {
+    if (!isRecord(entry) || !isRecord(entry.platform)) return false;
+    const platform = entry.platform;
+    return (
+        platform.id === 4 ||
+        [platform.slug, platform.name]
+            .filter(nonblank)
+            .some((value) => ['pc', 'windows'].includes(value.toLowerCase()))
+    );
+};
+
 const requirementPath = (
     tier: RequirementTier,
     field: RequirementField,
@@ -168,6 +206,13 @@ const hasValue = (
 };
 
 export function extractRawg(payload: unknown, rawgId: number): CandidateValues {
+    return extractRawgWithWarnings(payload, rawgId).values;
+}
+
+export function extractRawgWithWarnings(
+    payload: unknown,
+    rawgId: number,
+): { values: CandidateValues; warnings: string[] } {
     if (!Number.isSafeInteger(rawgId) || rawgId <= 0) {
         throw new Error('RAWG id must be a positive safe integer');
     }
@@ -179,9 +224,16 @@ export function extractRawg(payload: unknown, rawgId: number): CandidateValues {
 
     const sourceUrl = rawgUrl(rawgId);
     const values: CandidateValues = {};
+    const warnings: string[] = [];
     const addText = (path: FieldPath, value: unknown): void => {
         const text = textFor(value);
-        if (text) values[path] = candidate(text, 'rawg', sourceUrl);
+        if (!text) return;
+        const providerWarning = providerValueWarning(path, text);
+        if (providerWarning) {
+            warnings.push(providerWarning);
+            return;
+        }
+        values[path] = candidate(text, 'rawg', sourceUrl);
     };
 
     const releaseDate = textFor(payload.released);
@@ -202,11 +254,13 @@ export function extractRawg(payload: unknown, rawgId: number): CandidateValues {
     for (const [path, raw, kind] of fields) {
         const names = namedValues(raw);
         if (names.length > 0) {
-            values[path] = candidate(
-                kind === 'tags' ? names : names[0],
-                'rawg',
-                sourceUrl,
-            );
+            const value = kind === 'tags' ? names : names[0];
+            const providerWarning = providerValueWarning(path, value);
+            if (providerWarning) {
+                warnings.push(providerWarning);
+            } else {
+                values[path] = candidate(value, 'rawg', sourceUrl);
+            }
         }
     }
 
@@ -222,13 +276,7 @@ export function extractRawg(payload: unknown, rawgId: number): CandidateValues {
 
     if (Array.isArray(payload.platforms)) {
         const platforms = payload.platforms as unknown[];
-        const windows = platforms.find((entry) => {
-            if (!isRecord(entry) || !isRecord(entry.platform)) return false;
-            const platform = entry.platform;
-            return [platform.slug, platform.name]
-                .filter(nonblank)
-                .some((value) => value.trim().toLowerCase() === 'windows');
-        });
+        const windows = platforms.find(isRawgPcPlatform);
         const requirements = isRecord(windows)
             ? windows.requirements
             : undefined;
@@ -236,16 +284,31 @@ export function extractRawg(payload: unknown, rawgId: number): CandidateValues {
             for (const tier of ['minimum', 'recommended'] as const) {
                 const text = textFor(requirements[tier]);
                 if (text) {
-                    Object.assign(
-                        values,
-                        normalizeRequirements(text, tier, 'rawg', sourceUrl),
+                    const normalized = normalizeRequirementsWithWarnings(
+                        text,
+                        tier,
+                        'rawg',
+                        sourceUrl,
                     );
+                    Object.assign(values, normalized.values);
+                    warnings.push(...normalized.warnings);
+                }
+            }
+            if (
+                ['minimum', 'recommended'].some((tier) =>
+                    textFor(requirements[tier]),
+                )
+            ) {
+                for (const tier of ['minimum', 'recommended'] as const) {
+                    if (!textFor(requirements[tier])) {
+                        warnings.push(skippedRequirementTierWarning(tier));
+                    }
                 }
             }
         }
     }
 
-    return values;
+    return { values, warnings: [...new Set(warnings)] };
 }
 
 export function normalizeRequirements(
@@ -254,9 +317,31 @@ export function normalizeRequirements(
     source: 'rawg' | 'pcgamingwiki',
     sourceUrl: string | null,
 ): CandidateValues {
-    if (!nonblank(rawText)) return {};
+    return normalizeRequirementsWithWarnings(rawText, tier, source, sourceUrl)
+        .values;
+}
+
+export function normalizeRequirementsWithWarnings(
+    rawText: string,
+    tier: RequirementTier,
+    source: 'rawg' | 'pcgamingwiki',
+    sourceUrl: string | null,
+): { values: CandidateValues; warnings: string[] } {
+    if (!nonblank(rawText)) {
+        return { values: {}, warnings: [skippedRequirementTierWarning(tier)] };
+    }
 
     const values: CandidateValues = {};
+    const warnings: string[] = [];
+    const numericValue = (
+        field: 'ramGb' | 'vramGb' | 'storageGb',
+        value: string | undefined,
+    ): number | undefined => {
+        if (value && /\d/.test(value) && !/(?:GB|MB)\b/i.test(value)) {
+            warnings.push(unsupportedRequirementUnitWarning(tier, field));
+        }
+        return gigabytes(value);
+    };
     const add = (
         field: RequirementField,
         value: CandidateValue['value'] | undefined,
@@ -270,11 +355,18 @@ export function normalizeRequirements(
         }
     };
 
-    add('ramGb', gigabytes(labeledValue(rawText, ['RAM', 'Memory'])));
-    add('vramGb', gigabytes(labeledValue(rawText, ['VRAM', 'Video memory'])));
+    add(
+        'ramGb',
+        numericValue('ramGb', labeledValue(rawText, ['RAM', 'Memory'])),
+    );
+    add(
+        'vramGb',
+        numericValue('vramGb', labeledValue(rawText, ['VRAM', 'Video memory'])),
+    );
     add(
         'storageGb',
-        gigabytes(
+        numericValue(
+            'storageGb',
             labeledValue(rawText, ['Storage', 'Storage space', 'Hard drive']),
         ),
     );
@@ -298,7 +390,10 @@ export function normalizeRequirements(
     ].filter(nonblank);
     if (notes.length > 0) add('notes', notes.join('; '));
 
-    return values;
+    if (Object.keys(values).length === 0) {
+        warnings.push(skippedRequirementTierWarning(tier));
+    }
+    return { values, warnings: [...new Set(warnings)] };
 }
 
 export function mergeMissing(

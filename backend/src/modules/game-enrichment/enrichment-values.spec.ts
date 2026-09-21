@@ -1,3 +1,4 @@
+import { rawgPcRequirementsPayload } from './__fixtures__/rawg.fixtures';
 import type { CandidateValue, CandidateValues } from './enrichment-values';
 import {
     extractRawg,
@@ -126,6 +127,13 @@ describe('enrichment values', () => {
                 },
                 12,
             );
+
+            expect(values['requirements.minimum.ramGb']?.value).toBe(8);
+            expect(values['requirements.recommended.ramGb']?.value).toBe(16);
+        });
+
+        it('recognizes RAWG’s real PC platform shape for requirements', () => {
+            const values = extractRawg(rawgPcRequirementsPayload, 12);
 
             expect(values['requirements.minimum.ramGb']?.value).toBe(8);
             expect(values['requirements.recommended.ramGb']?.value).toBe(16);

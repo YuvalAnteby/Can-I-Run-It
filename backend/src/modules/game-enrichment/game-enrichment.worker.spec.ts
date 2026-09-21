@@ -3,6 +3,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import type { Message } from 'amqplib';
 import { DataSource } from 'typeorm';
 
+import { Cpu } from '../cpu/entities/cpu.entity';
 import { Game } from '../games/entities/game.entity';
 import { GameEnrichmentJob } from '../games/entities/game-enrichment-job.entity';
 import { GameRequirement } from '../games/entities/game-requirement.entity';
@@ -11,7 +12,9 @@ import {
     GAME_ENRICHMENT_QUEUE,
     GAME_ENRICHMENT_RETRY_QUEUE,
 } from '../games/game-lifecycle.contract';
+import { Gpu } from '../gpu/entities/gpu.entity';
 import { RabbitMqService } from '../messaging/rabbitmq.service';
+import { rawgPcRequirementsPayload } from './__fixtures__/rawg.fixtures';
 import { GameEnrichmentWorker } from './game-enrichment.worker';
 import { GeminiRequirementsService } from './gemini-requirements.service';
 import {
@@ -577,23 +580,11 @@ describe('GameEnrichmentWorker', () => {
     it('skips PCGamingWiki when retained RAWG data fills every wiki-capable field', async () => {
         const harness = await createHarness();
         harness.store.game!.rawgPayload = {
-            id: 12,
-            name: 'Elden Ring',
+            ...rawgPcRequirementsPayload,
             released: '2022-02-25',
             developers: [{ name: 'FromSoftware' }],
             publishers: [{ name: 'Bandai Namco Entertainment' }],
             genres: [{ name: 'Action RPG' }],
-            platforms: [
-                {
-                    platform: { slug: 'windows' },
-                    requirements: {
-                        minimum:
-                            'OS: Windows 10\nRAM: 8 GB\nVRAM: 4 GB\nStorage: 60 GB\nCPU: Intel Core i5-8400\nGPU: NVIDIA GeForce GTX 1060\nSSD required',
-                        recommended:
-                            'OS: Windows 10\nRAM: 16 GB\nVRAM: 8 GB\nStorage: 60 GB\nCPU: Intel Core i7-8700K\nGPU: NVIDIA GeForce GTX 1070\nSSD required',
-                    },
-                },
-            ],
         };
 
         await harness.deliver({ gameId: 42 });
@@ -601,6 +592,148 @@ describe('GameEnrichmentWorker', () => {
         expect(harness.wiki.findExact).not.toHaveBeenCalled();
         expect(harness.store.job?.status).toBe('completed');
     });
+
+    it('skips providers when persisted metadata and requirements already fill the paths', async () => {
+        const harness = await createHarness();
+        const game = harness.store.game!;
+        game.publisher = 'Saved publisher';
+        game.developer = 'Saved developer';
+        game.releaseDate = new Date('2022-02-25T00:00:00.000Z');
+        game.genre = 'Saved genre';
+        game.metadataProvenance = {
+            publisher: {
+                source: 'rawg',
+                sourceUrl: 'https://rawg.io/games/12',
+                extractedBy: null,
+            },
+            developer: {
+                source: 'rawg',
+                sourceUrl: 'https://rawg.io/games/12',
+                extractedBy: null,
+            },
+            releaseDate: {
+                source: 'rawg',
+                sourceUrl: 'https://rawg.io/games/12',
+                extractedBy: null,
+            },
+            genre: {
+                source: 'rawg',
+                sourceUrl: 'https://rawg.io/games/12',
+                extractedBy: null,
+            },
+        };
+        harness.store.requirementRows.push(
+            Object.assign(new GameRequirement(), {
+                game,
+                tier: 'minimum',
+                ramGb: 8,
+                vramGb: 4,
+                storageGb: 60,
+                requiresSsd: true,
+                cpu: Object.assign(new Cpu(), { name: 'Saved CPU' }),
+                gpu: Object.assign(new Gpu(), { name: 'Saved GPU' }),
+                notes: 'Saved requirements note',
+            }),
+        );
+
+        await harness.deliver({ gameId: 42 });
+
+        expect(harness.wiki.findExact).not.toHaveBeenCalled();
+        expect(harness.gemini.interpret).not.toHaveBeenCalled();
+        expect(harness.store.job?.status).toBe('completed');
+    });
+
+    it('persists stable warnings for unsupported units and skipped requirement tiers', async () => {
+        const harness = await createHarness();
+        harness.store.game!.rawgPayload = {
+            id: 12,
+            name: 'Elden Ring',
+            platforms: [
+                {
+                    platform: { id: 4, slug: 'pc', name: 'PC' },
+                    requirements: {
+                        minimum: 'RAM: 8192 KiB',
+                        recommended: '',
+                    },
+                },
+            ],
+        };
+        harness.wiki.findExact.mockResolvedValue({
+            kind: 'unmatched',
+            warning: 'PCGamingWiki page not found',
+        });
+
+        await harness.deliver({ gameId: 42 });
+
+        expect(harness.store.job?.warnings).toEqual(
+            expect.arrayContaining([
+                'Unsupported requirement unit: requirements.minimum.ramGb',
+                'Skipped requirement tier: recommended',
+            ]),
+        );
+    });
+
+    it.each([
+        ['publisher', 'publishers', 201],
+        ['developer', 'developers', 201],
+        ['genre', 'genres', 101],
+    ] as const)(
+        'rejects an oversized RAWG %s candidate without failing completion',
+        async (field, payloadField, length) => {
+            const harness = await createHarness();
+            harness.store.game!.rawgPayload = {
+                id: 12,
+                name: 'Elden Ring',
+                description_raw: 'Retained description',
+                [payloadField]: [{ name: 'x'.repeat(length) }],
+            };
+            harness.wiki.findExact.mockResolvedValue({
+                kind: 'unmatched',
+                warning: 'PCGamingWiki page not found',
+            });
+
+            await harness.deliver({ gameId: 42 });
+
+            const gameValue = (
+                harness.store.game as unknown as Record<string, unknown>
+            )[field];
+            expect(gameValue).toBeNull();
+            expect(harness.store.game?.description).toBe(
+                'Retained description',
+            );
+            expect(harness.store.job?.status).toBe('completed');
+            expect(harness.store.job?.warnings).toContain(
+                `Provider value exceeds persistence limit: ${field}`,
+            );
+        },
+    );
+
+    it.each([
+        ['publisher', 201],
+        ['developer', 201],
+        ['genre', 101],
+    ] as const)(
+        'rejects an oversized PCGamingWiki %s candidate without failing completion',
+        async (field, length) => {
+            const harness = await createHarness();
+            harness.wiki.findExact.mockResolvedValue({
+                ...matchedLookup,
+                metadata: { [field]: 'x'.repeat(length) },
+                minimum: 'RAM: 8 GB',
+            });
+
+            await harness.deliver({ gameId: 42 });
+
+            const gameValue = (
+                harness.store.game as unknown as Record<string, unknown>
+            )[field];
+            expect(gameValue).toBeNull();
+            expect(harness.store.job?.status).toBe('completed');
+            expect(harness.store.job?.warnings).toContain(
+                `Provider value exceeds persistence limit: ${field}`,
+            );
+        },
+    );
 
     it('omits an invalid provider release date without retrying the job', async () => {
         const harness = await createHarness();
@@ -677,6 +810,106 @@ describe('GameEnrichmentWorker', () => {
         });
     });
 
+    it('preserves an admin-owned false SSD decision', async () => {
+        const harness = await createHarness();
+        const game = harness.store.game!;
+        harness.store.requirementRows.push(
+            Object.assign(new GameRequirement(), {
+                game,
+                tier: 'minimum',
+                ramGb: 8,
+                vramGb: null,
+                storageGb: null,
+                requiresSsd: false,
+                cpu: null,
+                gpu: null,
+                notes: null,
+            }),
+        );
+        game.metadataProvenance = {
+            'requirements.minimum.requiresSsd': {
+                source: 'admin',
+                sourceUrl: null,
+                extractedBy: null,
+            },
+        };
+        harness.wiki.findExact.mockResolvedValue({
+            ...matchedLookup,
+            minimum: 'RAM: 8 GB\nSSD required',
+        });
+
+        await harness.deliver({ gameId: 42 });
+
+        expect(harness.store.requirementRows[0]?.requiresSsd).toBe(false);
+        expect(
+            harness.store.game?.metadataProvenance[
+                'requirements.minimum.requiresSsd'
+            ],
+        ).toEqual({ source: 'admin', sourceUrl: null, extractedBy: null });
+    });
+
+    it('preserves an admin-owned blank requirement note', async () => {
+        const harness = await createHarness();
+        const game = harness.store.game!;
+        harness.store.requirementRows.push(
+            Object.assign(new GameRequirement(), {
+                game,
+                tier: 'minimum',
+                ramGb: 8,
+                vramGb: null,
+                storageGb: null,
+                requiresSsd: false,
+                cpu: null,
+                gpu: null,
+                notes: '',
+            }),
+        );
+        game.metadataProvenance = {
+            'requirements.minimum.notes': {
+                source: 'admin',
+                sourceUrl: null,
+                extractedBy: null,
+            },
+        };
+        harness.wiki.findExact.mockResolvedValue({
+            ...matchedLookup,
+            minimum: 'RAM: 8 GB\nOS: Windows 10',
+        });
+
+        await harness.deliver({ gameId: 42 });
+
+        expect(harness.store.requirementRows[0]?.notes).toBe('');
+        expect(
+            harness.store.game?.metadataProvenance[
+                'requirements.minimum.notes'
+            ],
+        ).toEqual({ source: 'admin', sourceUrl: null, extractedBy: null });
+    });
+
+    it('does not fill an admin-owned requirement path when creating its tier row', async () => {
+        const harness = await createHarness();
+        harness.store.game!.metadataProvenance = {
+            'requirements.minimum.requiresSsd': {
+                source: 'admin',
+                sourceUrl: null,
+                extractedBy: null,
+            },
+        };
+        harness.wiki.findExact.mockResolvedValue({
+            ...matchedLookup,
+            minimum: 'RAM: 8 GB\nSSD required',
+        });
+
+        await harness.deliver({ gameId: 42 });
+
+        expect(harness.store.requirementRows[0]?.requiresSsd).toBe(false);
+        expect(
+            harness.store.game?.metadataProvenance[
+                'requirements.minimum.requiresSsd'
+            ],
+        ).toEqual({ source: 'admin', sourceUrl: null, extractedBy: null });
+    });
+
     it('records source provenance for notes synthesized from unmatched hardware text', async () => {
         const harness = await createHarness();
         harness.wiki.findExact.mockResolvedValue({
@@ -698,6 +931,35 @@ describe('GameEnrichmentWorker', () => {
             sourceUrl: 'https://www.pcgamingwiki.com/wiki/Elden_Ring',
             extractedBy: null,
         });
+    });
+
+    it('keeps unmatched hardware beside source notes without false mixed-source provenance', async () => {
+        const harness = await createHarness();
+        harness.store.game!.rawgPayload = {
+            id: 12,
+            name: 'Elden Ring',
+            platforms: [
+                {
+                    platform: { id: 4, slug: 'pc', name: 'PC' },
+                    requirements: { minimum: 'OS: Windows 10' },
+                },
+            ],
+        };
+        harness.wiki.findExact.mockResolvedValue({
+            ...matchedLookup,
+            minimum: 'RAM: 8 GB\nCPU: Unmatched CPU\nGPU: Unmatched GPU',
+        });
+
+        await harness.deliver({ gameId: 42 });
+
+        expect(harness.store.requirementRows[0]?.notes).toBe(
+            'Windows 10; CPU: Unmatched CPU; GPU: Unmatched GPU',
+        );
+        expect(
+            harness.store.game?.metadataProvenance[
+                'requirements.minimum.notes'
+            ],
+        ).toBeUndefined();
     });
 
     it('does not ACK until the completion transaction resolves', async () => {

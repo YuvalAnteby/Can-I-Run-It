@@ -154,6 +154,24 @@ describe('PcGamingWikiService', () => {
         expect(fetchSpy).toHaveBeenCalledTimes(2);
     });
 
+    it('treats an accepted query with a different parse title as malformed and retryable', async () => {
+        fetchSpy
+            .mockResolvedValueOnce(jsonResponse(exactQueryResponse))
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    parse: {
+                        ...exactParseResponse.parse,
+                        title: 'Different Game',
+                    },
+                }),
+            );
+
+        await expect(service.findExact('Elden Ring')).rejects.toMatchObject({
+            code: 'http_5xx',
+        });
+        expect(fetchSpy).toHaveBeenCalledTimes(2);
+    });
+
     it('returns metadata and a warning when the accepted page lacks Windows requirements', async () => {
         fetchSpy
             .mockResolvedValueOnce(jsonResponse(exactQueryResponse))
