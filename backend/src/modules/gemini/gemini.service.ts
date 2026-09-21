@@ -6,7 +6,10 @@ import { SettingsDto } from '../check/dto/settings.dto';
 import { Cpu } from '../cpu/entities/cpu.entity';
 import { Game } from '../games/entities/game.entity';
 import { Gpu } from '../gpu/entities/gpu.entity';
-import { SettingPreset } from '../performance/entities/performance-record.entity';
+import {
+    SettingPreset,
+    UpscalerType,
+} from '../performance/entities/performance-record.entity';
 
 export interface GeminiEstimate {
     fps: {
@@ -110,9 +113,7 @@ export class GeminiService {
             `Target resolution: ${resLabel}`,
             `Requested preset: ${settings.preset ?? SettingPreset.HIGH}`,
         ];
-        if (settings.upscaler != null) {
-            prompt.push(`Upscaler: ${settings.upscaler}`);
-        }
+        prompt.push(`Upscaler: ${settings.upscaler ?? UpscalerType.OFF}`);
         if (settings.upscalerQuality != null) {
             prompt.push(`Upscaler quality: ${settings.upscalerQuality}`);
         }

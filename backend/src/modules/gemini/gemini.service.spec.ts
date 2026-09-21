@@ -161,7 +161,7 @@ describe('GeminiService', () => {
         expect(result?.note).toBe('May stutter during shader compilation');
     });
 
-    it('includes only available optional upscaler data in the prompt', async () => {
+    it('uses the same no-upscaling prompt for omitted and explicit off', async () => {
         const generateContent = jest
             .spyOn(
                 (
@@ -182,7 +182,6 @@ describe('GeminiService', () => {
 
         await service.estimate(mockGame, mockCpu, mockGpu, mockRamGb, {
             ...mockSettings,
-            upscaler: null,
             upscalerQuality: null,
         } as unknown as SettingsDto);
         const unavailablePrompt = String(
@@ -192,7 +191,16 @@ describe('GeminiService', () => {
                 }
             ).contents,
         );
-        expect(unavailablePrompt).not.toContain('Upscaler:');
+        await service.estimate(mockGame, mockCpu, mockGpu, mockRamGb, {
+            ...mockSettings,
+            upscaler: UpscalerType.OFF,
+        });
+        const explicitOffPrompt = String(
+            (generateContent.mock.calls[1]?.[0] as { contents: unknown })
+                .contents,
+        );
+        expect(unavailablePrompt).toBe(explicitOffPrompt);
+        expect(unavailablePrompt).toContain('Upscaler: off');
         expect(unavailablePrompt).not.toContain('Upscaler quality:');
 
         await service.estimate(mockGame, mockCpu, mockGpu, mockRamGb, {
@@ -202,7 +210,7 @@ describe('GeminiService', () => {
         });
         const availablePrompt = String(
             (
-                generateContent.mock.calls[1]?.[0] as {
+                generateContent.mock.calls[2]?.[0] as {
                     contents: unknown;
                 }
             ).contents,

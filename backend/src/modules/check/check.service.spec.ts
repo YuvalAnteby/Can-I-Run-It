@@ -325,6 +325,49 @@ describe('CheckService', () => {
         );
     });
 
+    it('shares a Gemini cache identity between omitted and explicit off', async () => {
+        let cached: PerformanceRecord | null = null;
+        mockPerfRepo.create.mockImplementation(
+            (value: Partial<PerformanceRecord>) => record(value),
+        );
+        mockPerfRepo.save.mockImplementation((value: PerformanceRecord) => {
+            cached = value;
+            return value;
+        });
+        mockPerfRepo.find.mockImplementation(() =>
+            Promise.resolve(cached ? [cached] : []),
+        );
+        mockGeminiService.estimate.mockResolvedValue({
+            fps: { low: 80, med: 70, high: 60, ultra: 45 },
+            note: null,
+        });
+
+        await service.checkCompatibility(validRequest());
+        const result = await service.checkCompatibility(
+            validRequest({ upscaler: UpscalerType.OFF }),
+        );
+
+        expect(result.source).toBe('ai');
+        expect(mockGeminiService.estimate).toHaveBeenCalledTimes(1);
+        expect(mockPerfRepo.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                upscaler: UpscalerType.OFF,
+                upscalerQuality: null,
+            }),
+        );
+        expect(mockPerfRepo.find).toHaveBeenCalledTimes(2);
+        for (const [query] of mockPerfRepo.find.mock.calls as Array<
+            [{ where: Record<string, unknown> }]
+        >) {
+            expect(query.where).toEqual(
+                expect.objectContaining({
+                    upscaler: UpscalerType.OFF,
+                    upscalerQuality: IsNull(),
+                }),
+            );
+        }
+    });
+
     it('uses the heuristic without persisting it when a requirement is available', async () => {
         const result = await service.checkCompatibility(validRequest());
 

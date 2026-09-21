@@ -382,7 +382,7 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
         send.mockRestore();
     });
 
-    it('keeps persistent messages across shared-topology channel initialization orders', async () => {
+    it('delivers messages across shared-topology channels in both connection orders', async () => {
         await drainMainQueue();
         const rabbitMq = app.get(RabbitMqService);
         const producerFirst = rabbitMq.createConfirmChannel(
@@ -423,13 +423,11 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
         const consumerFirst = rabbitMq.createConfirmChannel(
             assertGameEnrichmentTopology,
         );
+        await consumerFirst.waitForConnect();
         const producerAfterConsumer = rabbitMq.createConfirmChannel(
             assertGameEnrichmentTopology,
         );
-        await Promise.all([
-            consumerFirst.waitForConnect(),
-            producerAfterConsumer.waitForConnect(),
-        ]);
+        await producerAfterConsumer.waitForConnect();
         await producerAfterConsumer.sendToQueue(
             GAME_ENRICHMENT_QUEUE,
             { gameId: localFixtureId },
