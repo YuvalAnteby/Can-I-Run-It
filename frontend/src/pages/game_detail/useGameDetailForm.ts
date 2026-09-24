@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useCpuSearch, useGpuSearch } from './useHardwareSearch';
 import { useHardwareCheck } from './useHardwareCheck';
 import { ClientCpuDto } from '../../@types/cpu.types';
@@ -9,6 +9,7 @@ import { ClientGameDto } from '../../@types/game.types';
 export function useGameDetailForm(
   game: ClientGameDto | undefined,
   slug: string | undefined,
+  activeTier?: string,
 ) {
   // Search state for hardware dropdowns
   const [gpuQuery, setGpuQuery] = useState('');
@@ -18,8 +19,6 @@ export function useGameDetailForm(
     useGpuSearch(gpuQuery);
   const { results: cpuResults, isLoading: isLoadingCpus } =
     useCpuSearch(cpuQuery);
-
-  const [activeTier, setActiveTier] = useState<string | null>(null);
 
   // User hardware selections
   const [selectedGpu, setSelectedGpu] = useState<string>('');
@@ -60,20 +59,10 @@ export function useGameDetailForm(
       : undefined,
   );
 
-  // Initialize active tier (e.g., "minimum") when game data first arrives
+  // A different requirements tier invalidates the previous compatibility result.
   useEffect(() => {
-    if (game?.requirements.length && !activeTier) {
-      setActiveTier(game.requirements[0].tier);
-    }
-  }, [game, activeTier]);
-
-  // Derived state for the currently viewed requirement tier (tabs)
-  const currentReq = useMemo(() => {
-    return (
-      game?.requirements.find((r) => r.tier === activeTier) ||
-      game?.requirements[0]
-    );
-  }, [game, activeTier]);
+    resetCheck();
+  }, [activeTier, resetCheck]);
 
   const handleCheck = () => {
     setHasAttemptedSubmit(true);
@@ -163,11 +152,6 @@ export function useGameDetailForm(
     resetCheck();
   };
 
-  const handleActiveTierChange = (tier: string) => {
-    setActiveTier(tier);
-    resetCheck();
-  };
-
   const isFormValid = !!selectedGpu && !!selectedCpu;
 
   return {
@@ -180,11 +164,6 @@ export function useGameDetailForm(
     isLoadingGpus,
     cpuResults,
     isLoadingCpus,
-
-    // Tier
-    activeTier,
-    setActiveTier: handleActiveTierChange,
-    currentReq,
 
     // Selection
     selectedGpu,

@@ -1,8 +1,8 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { http, HttpResponse } from 'msw';
-import type { ComponentProps, ReactElement } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import type { ReactElement } from 'react';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   SettingPreset,
@@ -13,6 +13,10 @@ import { server } from '../../../mocks/server';
 import { useHardwareCheck } from '../useHardwareCheck';
 import { CompatibilityResult } from './CompatibilityResult';
 import { HardwareCheckCard } from './HardwareCheckCard';
+import * as gameDetailForm from '../useGameDetailForm';
+import type { ClientGameDto } from '../../../@types/game.types';
+
+afterEach(() => vi.restoreAllMocks());
 
 const CHECK_URL = 'http://localhost:4000/api/v1/check';
 const SSD_ADVISORY = 'An SSD is recommended for smoother asset streaming.';
@@ -86,39 +90,42 @@ const insufficientResult: CheckResponse = {
   notes: [],
 };
 
-const cardProps: ComponentProps<typeof HardwareCheckCard> = {
+const formState: ReturnType<typeof gameDetailForm.useGameDetailForm> = {
+  gpuQuery: '',
+  cpuQuery: '',
+  resetCheck: vi.fn(),
   gpuResults: [],
   isLoadingGpus: false,
-  onGpuSearch: vi.fn(),
-  onGpuSelect: vi.fn(),
+  setGpuQuery: vi.fn(),
+  handleGpuSelect: vi.fn(),
   cpuResults: [],
   isLoadingCpus: false,
-  onCpuSearch: vi.fn(),
-  onCpuSelect: vi.fn(),
+  setCpuQuery: vi.fn(),
+  handleCpuSelect: vi.fn(),
   selectedGpu: '1',
-  selectedGpuName: 'GeForce RTX 4090',
+  selectedGpuObj: null,
   selectedCpu: '1',
-  selectedCpuName: 'Intel Core i9-14900K',
+  selectedCpuObj: null,
   selectedRam: 16,
-  onRamChange: vi.fn(),
+  setSelectedRam: vi.fn(),
   selectedStorage: 'ssd',
-  onStorageChange: vi.fn(),
+  setSelectedStorage: vi.fn(),
   selectedPreset: SettingPreset.HIGH,
-  onPresetChange: vi.fn(),
+  setSelectedPreset: vi.fn(),
   selectedTargetFps: 60,
-  onTargetFpsChange: vi.fn(),
+  setSelectedTargetFps: vi.fn(),
   selectedResolutionKey: '1920x1080',
-  onResolutionKeyChange: vi.fn(),
+  setSelectedResolutionKey: vi.fn(),
   customWidth: 1920,
-  onCustomWidthChange: vi.fn(),
+  setCustomWidth: vi.fn(),
   customHeight: 1080,
-  onCustomHeightChange: vi.fn(),
+  setCustomHeight: vi.fn(),
   hasAttemptedSubmit: true,
   isChecking: false,
   checkResult: undefined,
   checkError: undefined,
   isFormValid: true,
-  onCheck: vi.fn(),
+  handleCheck: vi.fn(),
 };
 
 const checkRequest: CheckRequest = {
@@ -269,7 +276,13 @@ describe('HardwareCheckCard errors', () => {
     'The compatibility check timed out. Please try again.',
     "We couldn't check compatibility. Please try again.",
   ])('announces a safe recovery message', (message) => {
-    render(<HardwareCheckCard {...cardProps} checkError={message} />);
+    vi.spyOn(gameDetailForm, 'useGameDetailForm').mockReturnValue({
+      ...formState,
+      checkError: message,
+    });
+    render(
+      <HardwareCheckCard game={{} as ClientGameDto} slug="cyberpunk-2077" />,
+    );
 
     expect(within(screen.getByRole('alert')).getByText(message)).toBeVisible();
   });

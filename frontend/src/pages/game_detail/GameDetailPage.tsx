@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Navigate, useLocation, useParams } from 'react-router-dom';
 import { useGameDetail } from './useGameDetail';
-import { useGameDetailForm } from './useGameDetailForm';
 import GameHero from './components/GameHero';
 import { RequirementsGrid } from './components/RequirementsGrid';
 import { TechFeatures } from './components/TechFeatures';
@@ -22,52 +21,12 @@ export default function GameDetailPage(): React.ReactElement {
     resolvedPendingId !== undefined ? { pendingId: resolvedPendingId } : slug,
   );
 
-  const {
-    // Search
-    gpuResults,
-    isLoadingGpus,
-    setGpuQuery,
-    cpuResults,
-    isLoadingCpus,
-    setCpuQuery,
-
-    // Tier
-    activeTier,
-    setActiveTier,
-    currentReq,
-
-    // Selection
-    selectedGpu,
-    selectedCpu,
-    selectedGpuObj,
-    selectedCpuObj,
-    selectedRam,
-    setSelectedRam,
-    selectedStorage,
-    setSelectedStorage,
-    selectedResolutionKey,
-    setSelectedResolutionKey,
-    customWidth,
-    setCustomWidth,
-    customHeight,
-    setCustomHeight,
-    selectedPreset,
-    setSelectedPreset,
-    selectedTargetFps,
-    setSelectedTargetFps,
-
-    // Status
-    hasAttemptedSubmit,
-    isChecking,
-    checkResult,
-    checkError,
-    isFormValid,
-
-    // Handlers
-    handleCheck,
-    handleGpuSelect,
-    handleCpuSelect,
-  } = useGameDetailForm(game, slug);
+  const [selectedTier, setActiveTier] = useState<string | null>(null);
+  const currentReq =
+    game?.requirements.find(
+      (requirement) => requirement.tier === selectedTier,
+    ) ?? game?.requirements[0];
+  const activeTier = currentReq?.tier;
 
   if (isLoading)
     return (
@@ -134,40 +93,7 @@ export default function GameDetailPage(): React.ReactElement {
         </div>
 
         {/* RIGHT COLUMN: Interactive Hardware Check Card */}
-        <HardwareCheckCard
-          gpuResults={gpuResults}
-          isLoadingGpus={isLoadingGpus}
-          onGpuSearch={setGpuQuery}
-          onGpuSelect={handleGpuSelect}
-          cpuResults={cpuResults}
-          isLoadingCpus={isLoadingCpus}
-          onCpuSearch={setCpuQuery}
-          onCpuSelect={handleCpuSelect}
-          selectedGpu={selectedGpu}
-          selectedGpuName={selectedGpuObj?.name}
-          selectedCpu={selectedCpu}
-          selectedCpuName={selectedCpuObj?.name}
-          selectedRam={selectedRam}
-          onRamChange={setSelectedRam}
-          selectedStorage={selectedStorage}
-          onStorageChange={setSelectedStorage}
-          selectedPreset={selectedPreset}
-          onPresetChange={setSelectedPreset}
-          selectedTargetFps={selectedTargetFps}
-          onTargetFpsChange={setSelectedTargetFps}
-          selectedResolutionKey={selectedResolutionKey}
-          onResolutionKeyChange={setSelectedResolutionKey}
-          customWidth={customWidth}
-          onCustomWidthChange={setCustomWidth}
-          customHeight={customHeight}
-          onCustomHeightChange={setCustomHeight}
-          hasAttemptedSubmit={hasAttemptedSubmit}
-          isChecking={isChecking}
-          checkResult={checkResult}
-          checkError={checkError}
-          isFormValid={isFormValid}
-          onCheck={handleCheck}
-        />
+        <HardwareCheckCard game={game} slug={slug} activeTier={activeTier} />
       </div>
     </div>
   );
