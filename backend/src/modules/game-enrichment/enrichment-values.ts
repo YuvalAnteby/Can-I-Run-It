@@ -205,11 +205,16 @@ const hasValue = (
     return entry.value === true || entry.sourceUrl !== null;
 };
 
-export function extractRawg(payload: unknown, rawgId: number): CandidateValues {
-    return extractRawgWithWarnings(payload, rawgId).values;
+/** Extracts allowlisted enrichment candidates from a retained RAWG payload. */
+export function extractRawgCandidates(
+    payload: unknown,
+    rawgId: number,
+): CandidateValues {
+    return extractRawgCandidatesWithWarnings(payload, rawgId).values;
 }
 
-export function extractRawgWithWarnings(
+/** Extracts RAWG candidates and reports fields that cannot be persisted safely. */
+export function extractRawgCandidatesWithWarnings(
     payload: unknown,
     rawgId: number,
 ): { values: CandidateValues; warnings: string[] } {
@@ -284,12 +289,13 @@ export function extractRawgWithWarnings(
             for (const tier of ['minimum', 'recommended'] as const) {
                 const text = textFor(requirements[tier]);
                 if (text) {
-                    const normalized = normalizeRequirementsWithWarnings(
-                        text,
-                        tier,
-                        'rawg',
-                        sourceUrl,
-                    );
+                    const normalized =
+                        extractDeterministicRequirementsWithWarnings(
+                            text,
+                            tier,
+                            'rawg',
+                            sourceUrl,
+                        );
                     Object.assign(values, normalized.values);
                     warnings.push(...normalized.warnings);
                 }
@@ -311,17 +317,23 @@ export function extractRawgWithWarnings(
     return { values, warnings: [...new Set(warnings)] };
 }
 
-export function normalizeRequirements(
+/** Parses explicit requirement values without model inference. */
+export function extractDeterministicRequirements(
     rawText: string,
     tier: RequirementTier,
     source: 'rawg' | 'pcgamingwiki',
     sourceUrl: string | null,
 ): CandidateValues {
-    return normalizeRequirementsWithWarnings(rawText, tier, source, sourceUrl)
-        .values;
+    return extractDeterministicRequirementsWithWarnings(
+        rawText,
+        tier,
+        source,
+        sourceUrl,
+    ).values;
 }
 
-export function normalizeRequirementsWithWarnings(
+/** Parses explicit requirement values and reports unsupported or empty input. */
+export function extractDeterministicRequirementsWithWarnings(
     rawText: string,
     tier: RequirementTier,
     source: 'rawg' | 'pcgamingwiki',
@@ -396,7 +408,8 @@ export function normalizeRequirementsWithWarnings(
     return { values, warnings: [...new Set(warnings)] };
 }
 
-export function mergeMissing(
+/** Merges candidates without replacing valid values already present. */
+export function mergeCandidateValuesPreservingExisting(
     current: CandidateValues,
     candidates: CandidateValues,
 ): CandidateValues {
@@ -419,7 +432,10 @@ export function mergeMissing(
     return merged;
 }
 
-export function summarizeMissing(values: CandidateValues): FieldPath[] {
+/** Lists fields still absent after enrichment, in stable sorted order. */
+export function listMissingEnrichmentFields(
+    values: CandidateValues,
+): FieldPath[] {
     const missing: string[] = [];
     for (const field of METADATA_FIELDS) {
         if (!hasValue(values[field])) missing.push(field);

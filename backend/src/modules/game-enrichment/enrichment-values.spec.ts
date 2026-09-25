@@ -1,10 +1,10 @@
 import { rawgPcRequirementsPayload } from './__fixtures__/rawg.fixtures';
 import type { CandidateValue, CandidateValues } from './enrichment-values';
 import {
-    extractRawg,
-    mergeMissing,
-    normalizeRequirements,
-    summarizeMissing,
+    extractDeterministicRequirements,
+    extractRawgCandidates,
+    listMissingEnrichmentFields,
+    mergeCandidateValuesPreservingExisting,
 } from './enrichment-values';
 
 const rawgValue = (
@@ -18,21 +18,21 @@ const rawgValue = (
 });
 
 describe('enrichment values', () => {
-    describe('extractRawg', () => {
+    describe('extractRawgCandidates', () => {
         it('rejects a payload whose identity does not match the retained RAWG id', () => {
             expect(() =>
-                extractRawg({ id: 12, name: 'Other game' }, 13),
+                extractRawgCandidates({ id: 12, name: 'Other game' }, 13),
             ).toThrow('RAWG id');
         });
 
         it('rejects a payload without a nonblank name', () => {
-            expect(() => extractRawg({ id: 12, name: '   ' }, 12)).toThrow(
-                'RAWG name',
-            );
+            expect(() =>
+                extractRawgCandidates({ id: 12, name: '   ' }, 12),
+            ).toThrow('RAWG name');
         });
 
         it('extracts only nonblank allowlisted metadata and explicit feature flags', () => {
-            const values = extractRawg(
+            const values = extractRawgCandidates(
                 {
                     id: 12,
                     name: 'Elden Ring',
@@ -79,7 +79,7 @@ describe('enrichment values', () => {
         });
 
         it('treats blank fields, empty collections, and default false flags as missing', () => {
-            const values = extractRawg(
+            const values = extractRawgCandidates(
                 {
                     id: 12,
                     name: 'Elden Ring',
@@ -102,7 +102,7 @@ describe('enrichment values', () => {
         });
 
         it('omits an invalid calendar release date instead of creating a candidate', () => {
-            const values = extractRawg(
+            const values = extractRawgCandidates(
                 { id: 12, name: 'Elden Ring', released: '2022-99-99' },
                 12,
             );
@@ -111,7 +111,7 @@ describe('enrichment values', () => {
         });
 
         it('reads Windows requirement text without requiring a platforms array', () => {
-            const values = extractRawg(
+            const values = extractRawgCandidates(
                 {
                     id: 12,
                     name: 'Elden Ring',
@@ -133,16 +133,16 @@ describe('enrichment values', () => {
         });
 
         it('recognizes RAWG’s real PC platform shape for requirements', () => {
-            const values = extractRawg(rawgPcRequirementsPayload, 12);
+            const values = extractRawgCandidates(rawgPcRequirementsPayload, 12);
 
             expect(values['requirements.minimum.ramGb']?.value).toBe(8);
             expect(values['requirements.recommended.ramGb']?.value).toBe(16);
         });
     });
 
-    describe('normalizeRequirements', () => {
+    describe('extractDeterministicRequirements', () => {
         it('converts explicit RAM, VRAM, storage, hardware, and SSD evidence', () => {
-            const values = normalizeRequirements(
+            const values = extractDeterministicRequirements(
                 [
                     'RAM: 8192 MB',
                     'VRAM: 4 GB',
@@ -179,13 +179,13 @@ describe('enrichment values', () => {
         });
 
         it('rounds fractional gigabytes up and does not infer unsupported units', () => {
-            const rounded = normalizeRequirements(
+            const rounded = extractDeterministicRequirements(
                 'RAM: 1.5 GB',
                 'minimum',
                 'pcgamingwiki',
                 'https://www.pcgamingwiki.com/wiki/Example',
             );
-            const unsupported = normalizeRequirements(
+            const unsupported = extractDeterministicRequirements(
                 'RAM: 8192 KiB',
                 'minimum',
                 'pcgamingwiki',
@@ -197,7 +197,7 @@ describe('enrichment values', () => {
         });
 
         it('does not mistake storage or VRAM numbers for RAM', () => {
-            const values = normalizeRequirements(
+            const values = extractDeterministicRequirements(
                 'VRAM: 8 GB\nStorage: 80 GB',
                 'minimum',
                 'rawg',
@@ -210,7 +210,7 @@ describe('enrichment values', () => {
         });
     });
 
-    describe('mergeMissing', () => {
+    describe('mergeCandidateValuesPreservingExisting', () => {
         it('keeps an existing RAWG value when PCGamingWiki supplies a duplicate', () => {
             const rawg: CandidateValues = {
                 publisher: rawgValue('RAWG publisher'),
@@ -224,9 +224,10 @@ describe('enrichment values', () => {
                 },
             };
 
-            expect(mergeMissing(rawg, wiki).publisher?.value).toBe(
-                'RAWG publisher',
-            );
+            expect(
+                mergeCandidateValuesPreservingExisting(rawg, wiki).publisher
+                    ?.value,
+            ).toBe('RAWG publisher');
         });
 
         it('always keeps admin provenance and fills genuinely missing paths', () => {
@@ -253,16 +254,16 @@ describe('enrichment values', () => {
                 },
             };
 
-            const merged = mergeMissing(admin, wiki);
+            const merged = mergeCandidateValuesPreservingExisting(admin, wiki);
             expect(merged.publisher?.value).toBe('Edited publisher');
             expect(merged.publisher?.source).toBe('admin');
             expect(merged.developer?.value).toBe('Wiki developer');
         });
     });
 
-    describe('summarizeMissing', () => {
+    describe('listMissingEnrichmentFields', () => {
         it('returns a stable sorted list with minimum required evidence', () => {
-            const missing = summarizeMissing({
+            const missing = listMissingEnrichmentFields({
                 'requirements.recommended.ramGb': rawgValue(16),
             });
 
@@ -280,7 +281,7 @@ describe('enrichment values', () => {
         });
 
         it('does not invent a recommended tier when no source supplied one', () => {
-            const missing = summarizeMissing({});
+            const missing = listMissingEnrichmentFields({});
 
             expect(missing).toContain('requirements.minimum.ramGb');
             expect(missing).not.toContain('requirements.recommended.ramGb');

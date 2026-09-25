@@ -31,16 +31,16 @@ import { RabbitMqService } from '../messaging/rabbitmq.service';
 import {
     type CandidateValue,
     type CandidateValues,
-    extractRawg,
-    extractRawgWithWarnings,
+    extractDeterministicRequirementsWithWarnings,
+    extractRawgCandidates,
+    extractRawgCandidatesWithWarnings,
     type FieldPath,
     isRawgPcPlatform,
     isValidCalendarDate,
-    mergeMissing,
-    normalizeRequirementsWithWarnings,
+    listMissingEnrichmentFields,
+    mergeCandidateValuesPreservingExisting,
     providerValueWarning,
     skippedRequirementTierWarning,
-    summarizeMissing,
 } from './enrichment-values';
 import { GeminiRequirementsService } from './gemini-requirements.service';
 import {
@@ -115,16 +115,16 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             await assertGameEnrichmentTopology(channel);
             await channel.prefetch(1);
             const consumeHandler = (message: Message | null): Promise<void> =>
-                this.handleMessage(channel, message);
+                this.processDelivery(channel, message);
             await channel.consume(
                 GAME_ENRICHMENT_QUEUE,
                 consumeHandler as unknown as (message: Message | null) => void,
             );
         });
 
-        setImmediate(() => void this.recoverStaleJobs());
+        setImmediate(() => void this.requeueStaleJobs());
         this.recoveryTimer = setInterval(
-            () => void this.recoverStaleJobs(),
+            () => void this.requeueStaleJobs(),
             RECOVERY_INTERVAL_MS,
         );
         this.recoveryTimer.unref?.();
@@ -134,7 +134,8 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         if (this.recoveryTimer) clearInterval(this.recoveryTimer);
     }
 
-    private async handleMessage(
+    /** Validates one RabbitMQ delivery and settles it after job processing. */
+    private async processDelivery(
         deliveryChannel: ConfirmChannel,
         message: Message | null,
     ): Promise<void> {
@@ -142,39 +143,41 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
 
         const gameId = parseGameId(message);
         if (!gameId) {
-            this.safeNack(deliveryChannel, message, false);
+            this.rejectIfChannelOpen(deliveryChannel, message, false);
             return;
         }
 
         let claim: ClaimResult;
         try {
-            claim = await this.claim(gameId);
+            claim = await this.claimEnrichmentJob(gameId);
         } catch {
             this.logger.error('Game enrichment claim failed');
-            this.safeNack(deliveryChannel, message, true);
+            this.rejectIfChannelOpen(deliveryChannel, message, true);
             return;
         }
 
         if (claim.kind === 'ack') {
-            this.safeAck(deliveryChannel, message);
+            this.acknowledgeIfChannelOpen(deliveryChannel, message);
             return;
         }
         if (claim.kind === 'dead') {
-            this.safeNack(deliveryChannel, message, false);
+            this.rejectIfChannelOpen(deliveryChannel, message, false);
             return;
         }
 
         try {
-            const enrichment = await this.collect(claim.game);
-            await this.complete(
+            const enrichment = await this.collectEnrichmentCandidates(
+                claim.game,
+            );
+            await this.completeClaimedJob(
                 gameId,
                 claim.claimToken,
                 enrichment.candidates,
                 enrichment.warnings,
             );
-            this.safeAck(deliveryChannel, message);
+            this.acknowledgeIfChannelOpen(deliveryChannel, message);
         } catch (error: unknown) {
-            await this.retryOrDeadLetter(
+            await this.scheduleRetryOrDeadLetter(
                 deliveryChannel,
                 message,
                 gameId,
@@ -184,7 +187,8 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         }
     }
 
-    private async claim(gameId: number): Promise<ClaimResult> {
+    /** Leases a queued or expired job so provider calls run outside a transaction. */
+    private async claimEnrichmentJob(gameId: number): Promise<ClaimResult> {
         return this.dataSource.transaction(async (tx) => {
             const gameRepository = tx.getRepository(Game);
             const jobRepository = tx.getRepository(GameEnrichmentJob);
@@ -220,7 +224,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             }
 
             try {
-                extractRawg(game.rawgPayload, game.rawgId ?? 0);
+                extractRawgCandidates(game.rawgPayload, game.rawgId ?? 0);
             } catch {
                 job.status = 'failed';
                 job.error = 'Invalid retained RAWG payload';
@@ -240,7 +244,8 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         });
     }
 
-    private async collect(
+    /** Collects missing values in priority order: retained RAWG, wiki, then Gemini. */
+    private async collectEnrichmentCandidates(
         game: Game,
     ): Promise<{ candidates: CandidateValues; warnings: string[] }> {
         const existingRequirements = await this.dataSource
@@ -249,26 +254,29 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                 where: { game: { id: game.id } },
                 relations: ['cpu', 'gpu'],
             });
-        const rawg = extractRawgWithWarnings(
+        const rawg = extractRawgCandidatesWithWarnings(
             game.rawgPayload,
             game.rawgId ?? 0,
         );
         const warnings = [...rawg.warnings];
-        let candidates = mergeMissing(
-            this.currentValues(game, existingRequirements),
+        let candidates = mergeCandidateValuesPreservingExisting(
+            this.getPersistedCandidateValues(game, existingRequirements),
             rawg.values,
         );
-        const sources = this.rawgRequirementSources(game.rawgPayload);
-        if (summarizeMissing(candidates).some(pcGamingWikiCanFill)) {
-            const lookup = await this.wiki.findExact(game.name);
+        const sources = this.getRawgRequirementTexts(game.rawgPayload);
+        if (listMissingEnrichmentFields(candidates).some(pcGamingWikiCanFill)) {
+            const lookup = await this.wiki.fetchExactGameData(game.name);
 
             if (lookup.kind === 'unmatched') {
                 warnings.push(lookup.warning);
             } else {
                 warnings.push(...lookup.warnings);
-                const metadata = this.metadataCandidates(lookup);
+                const metadata = this.extractWikiMetadataCandidates(lookup);
                 warnings.push(...metadata.warnings);
-                candidates = mergeMissing(candidates, metadata.values);
+                candidates = mergeCandidateValuesPreservingExisting(
+                    candidates,
+                    metadata.values,
+                );
                 const hasRequirementText = Boolean(
                     lookup.minimum || lookup.recommended,
                 );
@@ -288,14 +296,15 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                             source: 'pcgamingwiki',
                             sourceUrl: lookup.url,
                         });
-                        const normalized = normalizeRequirementsWithWarnings(
-                            text,
-                            tier,
-                            'pcgamingwiki',
-                            lookup.url,
-                        );
+                        const normalized =
+                            extractDeterministicRequirementsWithWarnings(
+                                text,
+                                tier,
+                                'pcgamingwiki',
+                                lookup.url,
+                            );
                         warnings.push(...normalized.warnings);
-                        candidates = mergeMissing(
+                        candidates = mergeCandidateValuesPreservingExisting(
                             candidates,
                             normalized.values,
                         );
@@ -305,7 +314,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         }
 
         for (const source of sources) {
-            const missing = summarizeMissing(candidates).filter(
+            const missing = listMissingEnrichmentFields(candidates).filter(
                 (path) =>
                     path === `requirements.${source.tier}.ramGb` ||
                     path.startsWith(`requirements.${source.tier}.`),
@@ -318,7 +327,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                 ].includes(path),
             );
             if (requiredMissing.length === 0) continue;
-            const interpreted = await this.gemini.interpret(
+            const interpreted = await this.gemini.extractMissingRequirements(
                 source.text,
                 missing,
                 source.source,
@@ -327,13 +336,16 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             if (Object.keys(interpreted).length === 0) {
                 warnings.push('Gemini requirement interpretation incomplete');
             }
-            candidates = mergeMissing(candidates, interpreted);
+            candidates = mergeCandidateValuesPreservingExisting(
+                candidates,
+                interpreted,
+            );
         }
 
         return { candidates, warnings: unique(warnings) };
     }
 
-    private metadataCandidates(
+    private extractWikiMetadataCandidates(
         lookup: Extract<PcGamingWikiLookup, { kind: 'matched' }>,
     ): { values: CandidateValues; warnings: string[] } {
         const values: CandidateValues = {};
@@ -367,7 +379,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         return { values, warnings: [...new Set(warnings)] };
     }
 
-    private rawgRequirementSources(
+    private getRawgRequirementTexts(
         payload: Record<string, unknown> | null,
     ): RequirementSource[] {
         if (!isRecord(payload) || !Array.isArray(payload.platforms)) return [];
@@ -389,7 +401,8 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         });
     }
 
-    private async complete(
+    /** Persists a completion only while the original claim token still owns the job. */
+    private async completeClaimedJob(
         gameId: number,
         claimToken: string,
         candidates: CandidateValues,
@@ -424,12 +437,13 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             }
 
             job.warnings = unique(warnings);
-            await this.mergeAndSaveAllowedValues(tx, game, job, candidates);
+            await this.persistAllowedCandidateValues(tx, game, job, candidates);
             return true;
         });
     }
 
-    private async retryOrDeadLetter(
+    /** Records a failed attempt, then republishes or dead-letters the delivery. */
+    private async scheduleRetryOrDeadLetter(
         deliveryChannel: ConfirmChannel,
         message: Message,
         gameId: number,
@@ -440,10 +454,10 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             error instanceof Error &&
             error.message === 'Game is no longer pending'
                 ? error.message
-                : this.sanitizedError(error);
+                : this.getSafeErrorMessage(error);
         let attempts: number | undefined;
         try {
-            attempts = await this.recordFailure(
+            attempts = await this.persistJobFailure(
                 gameId,
                 claimToken,
                 messageText,
@@ -452,21 +466,21 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             this.logger.error(
                 'Game enrichment failure state could not be saved',
             );
-            this.safeNack(deliveryChannel, message, true);
+            this.rejectIfChannelOpen(deliveryChannel, message, true);
             return;
         }
 
         if (attempts === undefined) {
-            this.safeAck(deliveryChannel, message);
+            this.acknowledgeIfChannelOpen(deliveryChannel, message);
             return;
         }
         if (attempts >= MAX_ATTEMPTS) {
-            this.safeNack(deliveryChannel, message, false);
+            this.rejectIfChannelOpen(deliveryChannel, message, false);
             return;
         }
 
         if (!this.channel) {
-            this.safeNack(deliveryChannel, message, true);
+            this.rejectIfChannelOpen(deliveryChannel, message, true);
             return;
         }
 
@@ -476,14 +490,17 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                 { gameId },
                 { persistent: true },
             );
-            this.safeAck(deliveryChannel, message);
+            this.acknowledgeIfChannelOpen(deliveryChannel, message);
         } catch {
             this.logger.error('Game enrichment retry publication failed');
-            this.safeNack(deliveryChannel, message, true);
+            this.rejectIfChannelOpen(deliveryChannel, message, true);
         }
     }
 
-    private safeAck(channel: ConfirmChannel, message: Message): void {
+    private acknowledgeIfChannelOpen(
+        channel: ConfirmChannel,
+        message: Message,
+    ): void {
         try {
             channel.ack(message);
         } catch {
@@ -493,7 +510,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         }
     }
 
-    private safeNack(
+    private rejectIfChannelOpen(
         channel: ConfirmChannel,
         message: Message,
         requeue: boolean,
@@ -507,7 +524,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         }
     }
 
-    private async recordFailure(
+    private async persistJobFailure(
         gameId: number,
         claimToken: string,
         error: string,
@@ -551,7 +568,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         });
     }
 
-    private sanitizedError(error: unknown): string {
+    private getSafeErrorMessage(error: unknown): string {
         if (
             error instanceof PcGamingWikiProviderError &&
             /^[\w .:-]{1,200}$/.test(error.message)
@@ -564,7 +581,8 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         return 'Provider failure';
     }
 
-    private async recoverStaleJobs(): Promise<void> {
+    /** Requeues expired claims and queued jobs left behind by interrupted publishers. */
+    private async requeueStaleJobs(): Promise<void> {
         if (!this.channel) return;
         try {
             const jobs = await this.dataSource
@@ -624,7 +642,8 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         }
     }
 
-    private async mergeAndSaveAllowedValues(
+    /** Applies fill-only candidates while preserving administrator-owned fields. */
+    private async persistAllowedCandidateValues(
         tx: EntityManager,
         game: Game,
         job: GameEnrichmentJob,
@@ -635,8 +654,14 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             where: { game: { id: game.id } },
             relations: ['cpu', 'gpu'],
         });
-        const current = this.currentValues(game, existingRequirements);
-        const merged = mergeMissing(current, candidates);
+        const current = this.getPersistedCandidateValues(
+            game,
+            existingRequirements,
+        );
+        const merged = mergeCandidateValuesPreservingExisting(
+            current,
+            candidates,
+        );
 
         const gameRepository = tx.getRepository(Game);
         let gameChanged = false;
@@ -657,7 +682,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         ] as const;
         for (const path of scalarFields) {
             const entry = merged[path];
-            if (!entry || !this.canFillGameField(game, path)) continue;
+            if (!entry || !this.isGameFieldFillable(game, path)) continue;
             const value = entry.value;
             if (path === 'releaseDate' && typeof value === 'string') {
                 game.releaseDate = new Date(`${value}T00:00:00.000Z`);
@@ -672,7 +697,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             gameChanged = true;
         }
 
-        const persisted = mergeMissing(current, {});
+        const persisted = mergeCandidateValuesPreservingExisting(current, {});
         for (const field of scalarFields) {
             const value = (game as unknown as Record<string, unknown>)[field];
             if (field === 'releaseDate' && value instanceof Date) {
@@ -735,7 +760,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             };
             const cpu = isAdminOwned('cpu')
                 ? (existing?.cpu ?? null)
-                : await this.hardwareMatch(
+                : await this.findExactHardwareMatch(
                       tx,
                       Cpu,
                       merged[`requirements.${tier}.cpu`],
@@ -743,7 +768,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                   );
             const gpu = isAdminOwned('gpu')
                 ? (existing?.gpu ?? null)
-                : await this.hardwareMatch(
+                : await this.findExactHardwareMatch(
                       tx,
                       Gpu,
                       merged[`requirements.${tier}.gpu`],
@@ -751,7 +776,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                   );
             const notes = isAdminOwned('notes')
                 ? { value: existing?.notes ?? null }
-                : this.requirementNotes(
+                : this.buildRequirementNotes(
                       existing?.notes ?? null,
                       merged[`requirements.${tier}.notes`],
                       merged[`requirements.${tier}.cpu`],
@@ -761,13 +786,13 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                   );
             const vram = isAdminOwned('vramGb')
                 ? (existing?.vramGb ?? null)
-                : this.numberValue(
+                : this.chooseNumericRequirement(
                       merged[`requirements.${tier}.vramGb`],
                       existing?.vramGb,
                   );
             const storage = isAdminOwned('storageGb')
                 ? (existing?.storageGb ?? null)
-                : this.numberValue(
+                : this.chooseNumericRequirement(
                       merged[`requirements.${tier}.storageGb`],
                       existing?.storageGb,
                   );
@@ -782,7 +807,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                 storageGb: storage,
                 requiresSsd: isAdminOwned('requiresSsd')
                     ? (existing?.requiresSsd ?? false)
-                    : (this.booleanValue(
+                    : (this.getBooleanCandidateValue(
                           merged[`requirements.${tier}.requiresSsd`],
                       ) ??
                       existing?.requiresSsd ??
@@ -844,7 +869,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                 extractedBy: metadataProvenance[path]?.extractedBy ?? null,
             };
             for (const field of ['vramGb', 'storageGb'] as const) {
-                const value = this.numberValue(
+                const value = this.chooseNumericRequirement(
                     merged[`requirements.${tier}.${field}`],
                     existing?.[field],
                 );
@@ -861,14 +886,14 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             }
             if (cpu) {
                 persisted[`requirements.${tier}.cpu`] =
-                    this.candidateForHardware(
+                    this.buildHardwareCandidate(
                         cpu.name,
                         metadataProvenance[`requirements.${tier}.cpu`],
                     );
             }
             if (gpu) {
                 persisted[`requirements.${tier}.gpu`] =
-                    this.candidateForHardware(
+                    this.buildHardwareCandidate(
                         gpu.name,
                         metadataProvenance[`requirements.${tier}.gpu`],
                     );
@@ -915,7 +940,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             await gameRepository.save(game);
         }
 
-        job.missingFields = summarizeMissing(persisted);
+        job.missingFields = listMissingEnrichmentFields(persisted);
         job.status = 'completed';
         job.error = null;
         job.claimToken = null;
@@ -923,7 +948,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         await tx.getRepository(GameEnrichmentJob).save(job);
     }
 
-    private currentValues(
+    private getPersistedCandidateValues(
         game: Game,
         requirements: GameRequirement[],
     ): CandidateValues {
@@ -1032,7 +1057,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         return values;
     }
 
-    private canFillGameField(game: Game, field: string): boolean {
+    private isGameFieldFillable(game: Game, field: string): boolean {
         const provenance = game.metadataProvenance?.[field];
         if (provenance?.source === 'admin') return false;
         const value = (game as unknown as Record<string, unknown>)[field];
@@ -1045,7 +1070,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         );
     }
 
-    private async hardwareMatch<T extends Cpu | Gpu>(
+    private async findExactHardwareMatch<T extends Cpu | Gpu>(
         tx: EntityManager,
         entity: typeof Cpu | typeof Gpu,
         candidateValue: CandidateValue | undefined,
@@ -1060,7 +1085,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         return rows.length === 1 ? rows[0] : null;
     }
 
-    private requirementNotes(
+    private buildRequirementNotes(
         existing: string | null,
         notes: CandidateValue | undefined,
         cpu: CandidateValue | undefined,
@@ -1106,7 +1131,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         };
     }
 
-    private numberValue(
+    private chooseNumericRequirement(
         candidateValue: CandidateValue | undefined,
         existing: number | null | undefined,
     ): number | null {
@@ -1119,7 +1144,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         return existing ?? null;
     }
 
-    private booleanValue(
+    private getBooleanCandidateValue(
         candidateValue: CandidateValue | undefined,
     ): boolean | null {
         return typeof candidateValue?.value === 'boolean'
@@ -1127,7 +1152,7 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             : null;
     }
 
-    private candidateForHardware(
+    private buildHardwareCandidate(
         value: string,
         provenance:
             | {

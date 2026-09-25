@@ -4,20 +4,23 @@ import { ConfigService } from '@nestjs/config';
 
 import {
     type CandidateValues,
+    extractDeterministicRequirements,
     type FieldPath,
-    normalizeRequirements,
 } from './enrichment-values';
 
 const GEMINI_TIMEOUT_MS = 8_000;
 const MAX_EXCERPT_LENGTH = 9_000;
 
-const boundedExcerpt = (text: string): string => {
+const truncateRequirementTextForPrompt = (text: string): string => {
     if (text.length <= MAX_EXCERPT_LENGTH) return text;
     const side = Math.floor((MAX_EXCERPT_LENGTH - 80) / 2);
     return `${text.slice(0, side)}\n...[excerpt truncated]...\n${text.slice(-side)}`;
 };
 
-const saneValue = (path: FieldPath, value: unknown): boolean => {
+const isPlausibleRequirementValue = (
+    path: FieldPath,
+    value: unknown,
+): boolean => {
     if (path.endsWith('.ramGb')) {
         return (
             typeof value === 'number' &&
@@ -59,7 +62,11 @@ export class GeminiRequirementsService {
         if (this.apiKey) this.genAI = new GoogleGenAI({ apiKey: this.apiKey });
     }
 
-    async interpret(
+    /**
+     * Extracts only unresolved requirement fields that have literal evidence in
+     * the supplied provider text. Deterministically parsed fields are excluded.
+     */
+    async extractMissingRequirements(
         text: string,
         missingPaths: FieldPath[],
         source: 'rawg' | 'pcgamingwiki',
@@ -69,7 +76,7 @@ export class GeminiRequirementsService {
         for (const tier of ['minimum', 'recommended'] as const) {
             Object.assign(
                 deterministic,
-                normalizeRequirements(text, tier, source, sourceUrl),
+                extractDeterministicRequirements(text, tier, source, sourceUrl),
             );
         }
         const unresolved = missingPaths.filter((path) => !deterministic[path]);
@@ -77,10 +84,10 @@ export class GeminiRequirementsService {
 
         let responseText: string;
         try {
-            responseText = await this.callGemini(
+            responseText = await this.requestStructuredRequirements(
                 text,
                 unresolved,
-                boundedExcerpt(text),
+                truncateRequirementTextForPrompt(text),
             );
         } catch (error: unknown) {
             if (
@@ -114,7 +121,7 @@ export class GeminiRequirementsService {
             ) {
                 continue;
             }
-            if (!saneValue(path, entry.value)) continue;
+            if (!isPlausibleRequirementValue(path, entry.value)) continue;
             values[path] = {
                 value: entry.value as string | number | boolean,
                 source,
@@ -125,7 +132,8 @@ export class GeminiRequirementsService {
         return values;
     }
 
-    private async callGemini(
+    /** Sends the bounded source text to Gemini and returns its raw JSON text. */
+    private async requestStructuredRequirements(
         sourceText: string,
         missingPaths: FieldPath[],
         excerpt: string,

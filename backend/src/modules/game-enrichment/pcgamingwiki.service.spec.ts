@@ -49,7 +49,7 @@ describe('PcGamingWikiService', () => {
             .mockResolvedValueOnce(jsonResponse(exactQueryResponse))
             .mockResolvedValueOnce(jsonResponse(exactParseResponse));
 
-        const result = await service.findExact('Elden Ring');
+        const result = await service.fetchExactGameData('Elden Ring');
 
         expect(result).toMatchObject({
             kind: 'matched',
@@ -91,7 +91,7 @@ describe('PcGamingWikiService', () => {
             .mockResolvedValueOnce(jsonResponse(redirectQueryResponse))
             .mockResolvedValueOnce(jsonResponse(exactParseResponse));
 
-        const result = await service.findExact(
+        const result = await service.fetchExactGameData(
             'Elden Ring: Shadow of the Erdtree',
         );
 
@@ -128,7 +128,9 @@ describe('PcGamingWikiService', () => {
         async (_caseName, requestedName, queryResponse, warning) => {
             fetchSpy.mockResolvedValueOnce(jsonResponse(queryResponse));
 
-            await expect(service.findExact(requestedName)).resolves.toEqual({
+            await expect(
+                service.fetchExactGameData(requestedName),
+            ).resolves.toEqual({
                 kind: 'unmatched',
                 warning,
             });
@@ -147,7 +149,9 @@ describe('PcGamingWikiService', () => {
             )
             .mockResolvedValueOnce(jsonResponse(exactParseResponse));
 
-        await expect(service.findExact('Elden Ring')).resolves.toMatchObject({
+        await expect(
+            service.fetchExactGameData('Elden Ring'),
+        ).resolves.toMatchObject({
             kind: 'matched',
             url: 'https://www.pcgamingwiki.com/wiki/Elden_Ring',
         });
@@ -166,7 +170,9 @@ describe('PcGamingWikiService', () => {
                 }),
             );
 
-        await expect(service.findExact('Elden Ring')).rejects.toMatchObject({
+        await expect(
+            service.fetchExactGameData('Elden Ring'),
+        ).rejects.toMatchObject({
             code: 'http_5xx',
         });
         expect(fetchSpy).toHaveBeenCalledTimes(2);
@@ -179,7 +185,7 @@ describe('PcGamingWikiService', () => {
                 jsonResponse(noWindowsRequirementsParseResponse),
             );
 
-        const result = await service.findExact('Elden Ring');
+        const result = await service.fetchExactGameData('Elden Ring');
 
         expect(result).toMatchObject({
             kind: 'matched',
@@ -204,7 +210,7 @@ describe('PcGamingWikiService', () => {
                 }),
             );
 
-        const result = await service.findExact('Elden Ring');
+        const result = await service.fetchExactGameData('Elden Ring');
 
         expect(result.kind).toBe('matched');
         if (result.kind !== 'matched') return;
@@ -219,7 +225,7 @@ describe('PcGamingWikiService', () => {
         async (_caseName, response) => {
             fetchSpy.mockResolvedValueOnce(jsonResponse(response));
 
-            const rejection = service.findExact('Elden Ring');
+            const rejection = service.fetchExactGameData('Elden Ring');
             await expect(rejection).rejects.toMatchObject({ code: 'http_5xx' });
             await rejection.catch((error: unknown) => {
                 expect(String(error)).not.toContain('provider-secret');
@@ -238,7 +244,7 @@ describe('PcGamingWikiService', () => {
                 .mockResolvedValueOnce(jsonResponse(exactQueryResponse))
                 .mockResolvedValueOnce(jsonResponse(response));
 
-            const rejection = service.findExact('Elden Ring');
+            const rejection = service.fetchExactGameData('Elden Ring');
             await expect(rejection).rejects.toMatchObject({ code: 'http_5xx' });
             await rejection.catch((error: unknown) => {
                 expect(String(error)).not.toContain('provider-secret');
@@ -252,7 +258,7 @@ describe('PcGamingWikiService', () => {
             .mockResolvedValueOnce(jsonResponse(exactQueryResponse))
             .mockResolvedValueOnce(jsonResponse(nestedParseResponse));
 
-        const result = await service.findExact('Elden Ring');
+        const result = await service.fetchExactGameData('Elden Ring');
 
         expect(result.kind).toBe('matched');
         if (result.kind !== 'matched') return;
@@ -283,7 +289,7 @@ describe('PcGamingWikiService', () => {
                 .mockResolvedValueOnce(jsonResponse(exactQueryResponse))
                 .mockResolvedValueOnce(jsonResponse(parseResponse));
 
-            const result = await service.findExact('Elden Ring');
+            const result = await service.fetchExactGameData('Elden Ring');
 
             expect(result.kind).toBe('matched');
             if (result.kind !== 'matched') return;
@@ -308,7 +314,7 @@ describe('PcGamingWikiService', () => {
                 new Response('provider-secret-response-body', { status }),
             );
 
-            const rejection = service.findExact('Elden Ring');
+            const rejection = service.fetchExactGameData('Elden Ring');
             await expect(rejection).rejects.toMatchObject({ code });
             await rejection.catch((error: unknown) => {
                 expect(error).toBeInstanceOf(PcGamingWikiProviderError);
@@ -327,7 +333,7 @@ describe('PcGamingWikiService', () => {
             }),
         );
 
-        const rejection = service.findExact('Elden Ring');
+        const rejection = service.fetchExactGameData('Elden Ring');
         await expect(rejection).rejects.toMatchObject({ code: 'timeout' });
         await rejection.catch((error: unknown) => {
             expect(String(error)).not.toContain('provider-secret-timeout');
@@ -339,7 +345,9 @@ describe('PcGamingWikiService', () => {
             new Response('x'.repeat(256 * 1024 + 1), { status: 200 }),
         );
 
-        await expect(service.findExact('Elden Ring')).rejects.toMatchObject({
+        await expect(
+            service.fetchExactGameData('Elden Ring'),
+        ).rejects.toMatchObject({
             code: 'response_too_large',
         });
         expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -371,7 +379,9 @@ describe('PcGamingWikiService', () => {
             },
         } as unknown as Response);
 
-        await expect(service.findExact('Elden Ring')).rejects.toMatchObject({
+        await expect(
+            service.fetchExactGameData('Elden Ring'),
+        ).rejects.toMatchObject({
             code: 'response_too_large',
         });
         expect(read).toHaveBeenCalledTimes(3);

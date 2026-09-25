@@ -40,7 +40,7 @@ describe('GeminiRequirementsService', () => {
         const service = new GeminiRequirementsService(config);
         setSdk(service, sdk);
 
-        const values = await service.interpret(
+        const values = await service.extractMissingRequirements(
             'Minimum RAM: 8 GB',
             ['requirements.minimum.ramGb'],
             'pcgamingwiki',
@@ -65,7 +65,7 @@ describe('GeminiRequirementsService', () => {
         setSdk(service, sdk);
 
         const sourceText = `${'unrelated source text '.repeat(1_000)}CPU: Intel Core i5-8400`;
-        await service.interpret(
+        await service.extractMissingRequirements(
             sourceText,
             ['requirements.minimum.cpu'],
             'pcgamingwiki',
@@ -94,7 +94,7 @@ describe('GeminiRequirementsService', () => {
         const service = new GeminiRequirementsService(config);
         setSdk(service, sdk);
 
-        const values = await service.interpret(
+        const values = await service.extractMissingRequirements(
             'Minimum RAM: eight gigabytes',
             ['requirements.minimum.ramGb'],
             'pcgamingwiki',
@@ -126,7 +126,7 @@ describe('GeminiRequirementsService', () => {
         const service = new GeminiRequirementsService(config);
         setSdk(service, sdk);
 
-        const values = await service.interpret(
+        const values = await service.extractMissingRequirements(
             'Minimum RAM: eight gigabytes\nSolid-state media is required',
             ['requirements.minimum.ramGb', 'requirements.minimum.requiresSsd'],
             'pcgamingwiki',
@@ -182,7 +182,7 @@ describe('GeminiRequirementsService', () => {
         setSdk(service, sdk);
 
         await expect(
-            service.interpret(
+            service.extractMissingRequirements(
                 'Minimum RAM: eight gigabytes',
                 ['requirements.minimum.ramGb'],
                 'pcgamingwiki',
@@ -207,7 +207,7 @@ describe('GeminiRequirementsService', () => {
             setSdk(service, sdk);
 
             await expect(
-                service.interpret(
+                service.extractMissingRequirements(
                     'RAM: eight gigabytes',
                     ['requirements.minimum.ramGb'],
                     'rawg',
@@ -226,7 +226,7 @@ describe('GeminiRequirementsService', () => {
         setSdk(service, sdk);
 
         await expect(
-            service.interpret(
+            service.extractMissingRequirements(
                 'GPU: a completely unknown model',
                 ['requirements.minimum.gpu'],
                 'rawg',

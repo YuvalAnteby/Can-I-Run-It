@@ -95,8 +95,8 @@ describe('Game enrichment worker (e2e)', () => {
     let rabbitMq: RabbitMqService;
     let wiki: PcGamingWikiService;
     let gemini: GeminiRequirementsService;
-    let wikiFindExact: jest.SpyInstance;
-    let geminiInterpret: jest.SpyInstance;
+    let wikiLookupSpy: jest.SpyInstance;
+    let geminiRequirementsSpy: jest.SpyInstance;
     const fixtureIds: number[] = [];
     let fixtureNumber = 0;
 
@@ -123,8 +123,11 @@ describe('Game enrichment worker (e2e)', () => {
         rabbitMq = app.get(RabbitMqService);
         wiki = app.get(PcGamingWikiService);
         gemini = app.get(GeminiRequirementsService);
-        wikiFindExact = jest.spyOn(wiki, 'findExact');
-        geminiInterpret = jest.spyOn(gemini, 'interpret');
+        wikiLookupSpy = jest.spyOn(wiki, 'fetchExactGameData');
+        geminiRequirementsSpy = jest.spyOn(
+            gemini,
+            'extractMissingRequirements',
+        );
     };
 
     const insertFixture = async (
@@ -242,7 +245,7 @@ describe('Game enrichment worker (e2e)', () => {
     });
 
     beforeEach(() => {
-        wikiFindExact.mockReset().mockResolvedValue({
+        wikiLookupSpy.mockReset().mockResolvedValue({
             kind: 'matched',
             url: 'https://www.pcgamingwiki.com/wiki/Elden_Ring',
             metadata: {
@@ -253,7 +256,7 @@ describe('Game enrichment worker (e2e)', () => {
                 'RAM: 8 GB\nCPU: Intel Core i5-8400\nGPU: NVIDIA GeForce GTX 1060',
             warnings: [],
         } satisfies WikiResult);
-        geminiInterpret.mockReset().mockResolvedValue({});
+        geminiRequirementsSpy.mockReset().mockResolvedValue({});
     });
 
     afterAll(async () => {
@@ -403,7 +406,7 @@ describe('Game enrichment worker (e2e)', () => {
     ] as Array<[string, WikiResult]>)(
         'partially completes the %s fixture without fabricated requirements',
         async (_caseName, result) => {
-            wikiFindExact.mockResolvedValueOnce(result);
+            wikiLookupSpy.mockResolvedValueOnce(result);
             const gameId = await insertFixture({
                 name: `Partial ${String(_caseName)}`,
             });
@@ -433,14 +436,14 @@ describe('Game enrichment worker (e2e)', () => {
     );
 
     it('persists Gemini-assisted requirement provenance and preserves an admin edit', async () => {
-        wikiFindExact.mockResolvedValueOnce({
+        wikiLookupSpy.mockResolvedValueOnce({
             kind: 'matched',
             url: 'https://www.pcgamingwiki.com/wiki/Example',
             metadata: { publisher: 'Wiki publisher' },
             minimum: 'Minimum RAM: eight gigabytes',
             warnings: [],
         } satisfies WikiResult);
-        geminiInterpret.mockResolvedValueOnce({
+        geminiRequirementsSpy.mockResolvedValueOnce({
             'requirements.minimum.ramGb': {
                 value: 8,
                 source: 'pcgamingwiki',
@@ -467,7 +470,7 @@ describe('Game enrichment worker (e2e)', () => {
         const game = await queryGame(gameId);
         const requirements = await queryRequirements(gameId);
 
-        expect(geminiInterpret).toHaveBeenCalledWith(
+        expect(geminiRequirementsSpy).toHaveBeenCalledWith(
             'Minimum RAM: eight gigabytes',
             expect.arrayContaining(['requirements.minimum.ramGb']),
             'pcgamingwiki',
@@ -493,7 +496,7 @@ describe('Game enrichment worker (e2e)', () => {
             const gameId = await insertFixture({
                 name: `Retry ${String(_name)}`,
             });
-            wikiFindExact.mockRejectedValueOnce(
+            wikiLookupSpy.mockRejectedValueOnce(
                 new PcGamingWikiProviderError(
                     code as
                         | 'http_403'
@@ -533,7 +536,7 @@ describe('Game enrichment worker (e2e)', () => {
         const claimedGameId = await insertFixture({
             name: 'Worker-owned retry fixture',
         });
-        wikiFindExact.mockRejectedValueOnce(
+        wikiLookupSpy.mockRejectedValueOnce(
             new PcGamingWikiProviderError('http_429', 'retryable failure'),
         );
         const channel = await publishJob(claimedGameId);
@@ -567,7 +570,7 @@ describe('Game enrichment worker (e2e)', () => {
         await app.close();
         if (dataSource.isInitialized) await dataSource.destroy();
         await startApp();
-        wikiFindExact.mockResolvedValue({
+        wikiLookupSpy.mockResolvedValue({
             kind: 'matched',
             url: 'https://www.pcgamingwiki.com/wiki/Example',
             metadata: {},
@@ -587,7 +590,7 @@ describe('Game enrichment worker (e2e)', () => {
 
     it('exhausts three claims and retains exactly one message in the dead queue', async () => {
         const gameId = await insertFixture({ name: 'Exhaustion fixture' });
-        wikiFindExact.mockRejectedValue(
+        wikiLookupSpy.mockRejectedValue(
             new PcGamingWikiProviderError('http_5xx', 'retryable failure'),
         );
         const channel = await publishJob(gameId);
@@ -622,7 +625,7 @@ describe('Game enrichment worker (e2e)', () => {
         expect(deadMessage).not.toBe(false);
         if (deadMessage !== false) channel.ack(deadMessage);
         expect((await queryJob(gameId)).attempts).toBe(3);
-        expect(wikiFindExact).toHaveBeenCalledTimes(3);
+        expect(wikiLookupSpy).toHaveBeenCalledTimes(3);
         await channel.close();
     });
 
@@ -652,7 +655,7 @@ describe('Game enrichment worker (e2e)', () => {
         await waitForJob(gameId, (row) => row.status === 'completed');
         await sleep(250);
 
-        expect(wikiFindExact).toHaveBeenCalledTimes(1);
+        expect(wikiLookupSpy).toHaveBeenCalledTimes(1);
         expect(await queryRequirements(gameId)).toHaveLength(1);
         const [jobCount] = await dataSource.query<{ count: number }[]>(
             'SELECT COUNT(*)::int AS count FROM game_enrichment_jobs WHERE game_id = $1',
@@ -676,7 +679,7 @@ describe('Game enrichment worker (e2e)', () => {
         if (dataSource.isInitialized) await dataSource.destroy();
 
         await startApp();
-        wikiFindExact.mockResolvedValue({
+        wikiLookupSpy.mockResolvedValue({
             kind: 'matched',
             url: 'https://www.pcgamingwiki.com/wiki/Example',
             metadata: {},

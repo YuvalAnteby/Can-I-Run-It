@@ -57,8 +57,8 @@ type WorkerHarness = {
     store: WorkerStore;
     channel: FakeChannel;
     deliveryChannel: FakeChannel;
-    wiki: { findExact: jest.Mock };
-    gemini: { interpret: jest.Mock };
+    wiki: { fetchExactGameData: jest.Mock };
+    gemini: { extractMissingRequirements: jest.Mock };
     dataSource: DataSource;
     callOrder: string[];
     getMessageHandler: () => FakeMessageHandler;
@@ -277,10 +277,10 @@ const createHarness = async (
             ),
     };
     const wiki = {
-        findExact: jest.fn().mockResolvedValue(matchedLookup),
+        fetchExactGameData: jest.fn().mockResolvedValue(matchedLookup),
     };
     const gemini = {
-        interpret: jest.fn().mockResolvedValue({}),
+        extractMissingRequirements: jest.fn().mockResolvedValue({}),
     };
     const logger = {
         log: jest.fn(),
@@ -375,7 +375,7 @@ describe('GameEnrichmentWorker', () => {
         deliveryChannel.ack.mockImplementation(() => {
             if (closedDuringWork) throw new Error('originating channel closed');
         });
-        harness.wiki.findExact.mockImplementation(() => {
+        harness.wiki.fetchExactGameData.mockImplementation(() => {
             closedDuringWork = true;
             return matchedLookup;
         });
@@ -445,8 +445,10 @@ describe('GameEnrichmentWorker', () => {
 
         await Promise.resolve(harness.getMessageHandler()(message));
 
-        expect(harness.wiki.findExact).not.toHaveBeenCalled();
-        expect(harness.gemini.interpret).not.toHaveBeenCalled();
+        expect(harness.wiki.fetchExactGameData).not.toHaveBeenCalled();
+        expect(
+            harness.gemini.extractMissingRequirements,
+        ).not.toHaveBeenCalled();
         expect(harness.channel.nack).toHaveBeenCalledWith(
             message,
             false,
@@ -465,8 +467,10 @@ describe('GameEnrichmentWorker', () => {
 
             await harness.deliver({ gameId: 42 });
 
-            expect(harness.wiki.findExact).not.toHaveBeenCalled();
-            expect(harness.gemini.interpret).not.toHaveBeenCalled();
+            expect(harness.wiki.fetchExactGameData).not.toHaveBeenCalled();
+            expect(
+                harness.gemini.extractMissingRequirements,
+            ).not.toHaveBeenCalled();
             expect(harness.channel.nack).toHaveBeenCalledWith(
                 expect.anything(),
                 false,
@@ -490,8 +494,10 @@ describe('GameEnrichmentWorker', () => {
 
         await harness.deliver({ gameId: 42 });
 
-        expect(harness.wiki.findExact).not.toHaveBeenCalled();
-        expect(harness.gemini.interpret).not.toHaveBeenCalled();
+        expect(harness.wiki.fetchExactGameData).not.toHaveBeenCalled();
+        expect(
+            harness.gemini.extractMissingRequirements,
+        ).not.toHaveBeenCalled();
         expect(harness.channel.ack).toHaveBeenCalledTimes(1);
         expect(harness.channel.nack).not.toHaveBeenCalled();
     });
@@ -552,14 +558,16 @@ describe('GameEnrichmentWorker', () => {
                 return result;
             },
         );
-        harness.wiki.findExact.mockImplementation(() => {
+        harness.wiki.fetchExactGameData.mockImplementation(() => {
             expect(transactionActive).toBe(false);
             return matchedLookup;
         });
 
         await harness.deliver({ gameId: 42 });
 
-        expect(harness.wiki.findExact).toHaveBeenCalledWith('Elden Ring');
+        expect(harness.wiki.fetchExactGameData).toHaveBeenCalledWith(
+            'Elden Ring',
+        );
         expect(harness.store.job?.status).toBe('completed');
         expect(harness.store.game?.status).toBe('pending_approval');
         expect(harness.channel.ack).toHaveBeenCalledTimes(1);
@@ -567,14 +575,16 @@ describe('GameEnrichmentWorker', () => {
 
     it('does not ask Gemini to reinterpret deterministic numeric requirements', async () => {
         const harness = await createHarness();
-        harness.wiki.findExact.mockResolvedValue({
+        harness.wiki.fetchExactGameData.mockResolvedValue({
             ...matchedLookup,
             minimum: 'RAM: 8 GB\nCPU: Intel Core i5-8400\nGPU: GTX 1060',
         });
 
         await harness.deliver({ gameId: 42 });
 
-        expect(harness.gemini.interpret).not.toHaveBeenCalled();
+        expect(
+            harness.gemini.extractMissingRequirements,
+        ).not.toHaveBeenCalled();
     });
 
     it('skips PCGamingWiki when retained RAWG data fills every wiki-capable field', async () => {
@@ -589,7 +599,7 @@ describe('GameEnrichmentWorker', () => {
 
         await harness.deliver({ gameId: 42 });
 
-        expect(harness.wiki.findExact).not.toHaveBeenCalled();
+        expect(harness.wiki.fetchExactGameData).not.toHaveBeenCalled();
         expect(harness.store.job?.status).toBe('completed');
     });
 
@@ -638,8 +648,10 @@ describe('GameEnrichmentWorker', () => {
 
         await harness.deliver({ gameId: 42 });
 
-        expect(harness.wiki.findExact).not.toHaveBeenCalled();
-        expect(harness.gemini.interpret).not.toHaveBeenCalled();
+        expect(harness.wiki.fetchExactGameData).not.toHaveBeenCalled();
+        expect(
+            harness.gemini.extractMissingRequirements,
+        ).not.toHaveBeenCalled();
         expect(harness.store.job?.status).toBe('completed');
         expect(game.publisher).toBeNull();
         expect(game.developer).toBe('');
@@ -663,7 +675,7 @@ describe('GameEnrichmentWorker', () => {
                 },
             ],
         };
-        harness.wiki.findExact.mockResolvedValue({
+        harness.wiki.fetchExactGameData.mockResolvedValue({
             kind: 'unmatched',
             warning: 'PCGamingWiki page not found',
         });
@@ -692,7 +704,7 @@ describe('GameEnrichmentWorker', () => {
                 description_raw: 'Retained description',
                 [payloadField]: [{ name: 'x'.repeat(length) }],
             };
-            harness.wiki.findExact.mockResolvedValue({
+            harness.wiki.fetchExactGameData.mockResolvedValue({
                 kind: 'unmatched',
                 warning: 'PCGamingWiki page not found',
             });
@@ -721,7 +733,7 @@ describe('GameEnrichmentWorker', () => {
         'rejects an oversized PCGamingWiki %s candidate without failing completion',
         async (field, length) => {
             const harness = await createHarness();
-            harness.wiki.findExact.mockResolvedValue({
+            harness.wiki.fetchExactGameData.mockResolvedValue({
                 ...matchedLookup,
                 metadata: { [field]: 'x'.repeat(length) },
                 minimum: 'RAM: 8 GB',
@@ -742,7 +754,7 @@ describe('GameEnrichmentWorker', () => {
 
     it('omits an invalid provider release date without retrying the job', async () => {
         const harness = await createHarness();
-        harness.wiki.findExact.mockResolvedValue({
+        harness.wiki.fetchExactGameData.mockResolvedValue({
             ...matchedLookup,
             metadata: { releaseDate: '2022-99-99' },
         });
@@ -796,7 +808,7 @@ describe('GameEnrichmentWorker', () => {
                 extractedBy: null,
             },
         };
-        harness.wiki.findExact.mockResolvedValue({
+        harness.wiki.fetchExactGameData.mockResolvedValue({
             ...matchedLookup,
             minimum: 'RAM: 8 GB\nCPU: Unmatched CPU',
         });
@@ -838,7 +850,7 @@ describe('GameEnrichmentWorker', () => {
                 extractedBy: null,
             },
         };
-        harness.wiki.findExact.mockResolvedValue({
+        harness.wiki.fetchExactGameData.mockResolvedValue({
             ...matchedLookup,
             minimum: 'RAM: 8 GB\nSSD required',
         });
@@ -876,7 +888,7 @@ describe('GameEnrichmentWorker', () => {
                 extractedBy: null,
             },
         };
-        harness.wiki.findExact.mockResolvedValue({
+        harness.wiki.fetchExactGameData.mockResolvedValue({
             ...matchedLookup,
             minimum: 'RAM: 8 GB\nOS: Windows 10',
         });
@@ -900,7 +912,7 @@ describe('GameEnrichmentWorker', () => {
                 extractedBy: null,
             },
         };
-        harness.wiki.findExact.mockResolvedValue({
+        harness.wiki.fetchExactGameData.mockResolvedValue({
             ...matchedLookup,
             minimum: 'RAM: 8 GB\nSSD required',
         });
@@ -917,7 +929,7 @@ describe('GameEnrichmentWorker', () => {
 
     it('records source provenance for notes synthesized from unmatched hardware text', async () => {
         const harness = await createHarness();
-        harness.wiki.findExact.mockResolvedValue({
+        harness.wiki.fetchExactGameData.mockResolvedValue({
             ...matchedLookup,
             minimum: 'RAM: 8 GB\nCPU: Unmatched CPU\nGPU: Unmatched GPU',
         });
@@ -950,7 +962,7 @@ describe('GameEnrichmentWorker', () => {
                 },
             ],
         };
-        harness.wiki.findExact.mockResolvedValue({
+        harness.wiki.fetchExactGameData.mockResolvedValue({
             ...matchedLookup,
             minimum: 'RAM: 8 GB\nCPU: Unmatched CPU\nGPU: Unmatched GPU',
         });
@@ -984,11 +996,11 @@ describe('GameEnrichmentWorker', () => {
                     },
                 ],
             };
-            harness.wiki.findExact.mockResolvedValue({
+            harness.wiki.fetchExactGameData.mockResolvedValue({
                 kind: 'unmatched',
                 warning: 'PCGamingWiki page not found',
             });
-            harness.gemini.interpret.mockResolvedValue({
+            harness.gemini.extractMissingRequirements.mockResolvedValue({
                 'requirements.minimum.cpu': {
                     value: 'Unmatched CPU',
                     source: 'rawg',
@@ -1026,7 +1038,7 @@ describe('GameEnrichmentWorker', () => {
     it('rejects a stale completion token without overwriting the newer claim', async () => {
         const gate = deferred<void>();
         const harness = await createHarness();
-        harness.wiki.findExact.mockImplementation(() => {
+        harness.wiki.fetchExactGameData.mockImplementation(() => {
             gate.resolve();
             return matchedLookup;
         });
@@ -1044,7 +1056,7 @@ describe('GameEnrichmentWorker', () => {
     it('preserves an admin-owned value when an enrichment completion races the edit', async () => {
         const gate = deferred<void>();
         const harness = await createHarness();
-        harness.wiki.findExact.mockImplementation(async () => {
+        harness.wiki.fetchExactGameData.mockImplementation(async () => {
             await gate.promise;
             return matchedLookup;
         });
@@ -1075,7 +1087,7 @@ describe('GameEnrichmentWorker', () => {
         async (_name, status) => {
             const gate = deferred<void>();
             const harness = await createHarness();
-            harness.wiki.findExact.mockImplementation(async () => {
+            harness.wiki.fetchExactGameData.mockImplementation(async () => {
                 await gate.promise;
                 return matchedLookup;
             });
@@ -1095,7 +1107,7 @@ describe('GameEnrichmentWorker', () => {
     it('ACKs an active duplicate while the original claim owns provider work', async () => {
         const gate = deferred<void>();
         const harness = await createHarness();
-        harness.wiki.findExact.mockImplementation(async () => {
+        harness.wiki.fetchExactGameData.mockImplementation(async () => {
             await gate.promise;
             return matchedLookup;
         });
@@ -1104,7 +1116,7 @@ describe('GameEnrichmentWorker', () => {
         const second = harness.deliver({ gameId: 42 });
         await second;
 
-        expect(harness.wiki.findExact).toHaveBeenCalledTimes(1);
+        expect(harness.wiki.fetchExactGameData).toHaveBeenCalledTimes(1);
         expect(harness.channel.ack).toHaveBeenCalledTimes(1);
 
         gate.resolve();
@@ -1118,7 +1130,7 @@ describe('GameEnrichmentWorker', () => {
 
         await harness.deliver({ gameId: 42 });
 
-        expect(harness.wiki.findExact).not.toHaveBeenCalled();
+        expect(harness.wiki.fetchExactGameData).not.toHaveBeenCalled();
         expect(harness.channel.nack).toHaveBeenCalledWith(
             expect.anything(),
             false,
@@ -1137,7 +1149,7 @@ describe('GameEnrichmentWorker', () => {
         'retries %s failures at most three total claims and dead-letters on exhaustion',
         async (code) => {
             const harness = await createHarness();
-            harness.wiki.findExact.mockRejectedValue(
+            harness.wiki.fetchExactGameData.mockRejectedValue(
                 new PcGamingWikiProviderError(
                     code as
                         | 'http_403'
@@ -1154,7 +1166,7 @@ describe('GameEnrichmentWorker', () => {
             await harness.deliver({ gameId: 42 });
             await harness.deliver({ gameId: 42 });
 
-            expect(harness.wiki.findExact).toHaveBeenCalledTimes(3);
+            expect(harness.wiki.fetchExactGameData).toHaveBeenCalledTimes(3);
             expect(harness.channel.sendToQueue).toHaveBeenCalledTimes(2);
             expect(harness.channel.sendToQueue).toHaveBeenNthCalledWith(
                 1,
@@ -1177,7 +1189,7 @@ describe('GameEnrichmentWorker', () => {
         harness.store.job!.status = 'completed';
         await harness.deliver({ gameId: 42 });
 
-        expect(harness.wiki.findExact).not.toHaveBeenCalled();
+        expect(harness.wiki.fetchExactGameData).not.toHaveBeenCalled();
         expect(harness.channel.sendToQueue).not.toHaveBeenCalled();
         expect(harness.channel.ack).toHaveBeenCalledTimes(1);
     });
@@ -1189,7 +1201,7 @@ describe('GameEnrichmentWorker', () => {
 
         await harness.deliver({ gameId: 42 });
 
-        expect(harness.wiki.findExact).not.toHaveBeenCalled();
+        expect(harness.wiki.fetchExactGameData).not.toHaveBeenCalled();
         expect(harness.channel.nack).toHaveBeenCalledWith(
             expect.anything(),
             false,
@@ -1199,11 +1211,11 @@ describe('GameEnrichmentWorker', () => {
 
     it('treats a Gemini timeout as retryable and keeps the provider payload out of RabbitMQ', async () => {
         const harness = await createHarness();
-        harness.wiki.findExact.mockResolvedValue({
+        harness.wiki.fetchExactGameData.mockResolvedValue({
             ...matchedLookup,
             minimum: 'Minimum RAM: eight gigabytes',
         });
-        harness.gemini.interpret.mockRejectedValue(
+        harness.gemini.extractMissingRequirements.mockRejectedValue(
             new Error('Gemini request timeout with provider-secret'),
         );
 

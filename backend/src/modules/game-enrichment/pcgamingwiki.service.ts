@@ -60,13 +60,14 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 const nonblank = (value: unknown): value is string =>
     typeof value === 'string' && value.trim().length > 0;
 
-const normalizedTitle = (value: string): string =>
+const normalizeTitleForComparison = (value: string): string =>
     value.trim().replaceAll('_', ' ').replace(/\s+/g, ' ').toLocaleLowerCase();
 
-const delay = (milliseconds: number): Promise<void> =>
+const sleep = (milliseconds: number): Promise<void> =>
     new Promise((resolve) => setTimeout(resolve, milliseconds));
 
-const reserveRequestSlot = async (): Promise<void> => {
+/** Serializes request starts to stay below PCGamingWiki's published limit. */
+const waitForRequestSlot = async (): Promise<void> => {
     let release!: () => void;
     const previous = rateLimitTail;
     rateLimitTail = new Promise<void>((resolve) => {
@@ -84,14 +85,14 @@ const reserveRequestSlot = async (): Promise<void> => {
                 requestStarts.push(now);
                 return;
             }
-            await delay(requestStarts[0] + REQUEST_WINDOW_MS - now);
+            await sleep(requestStarts[0] + REQUEST_WINDOW_MS - now);
         }
     } finally {
         release();
     }
 };
 
-const splitTemplate = (body: string): string[] => {
+const splitTopLevelTemplateParameters = (body: string): string[] => {
     const parts: string[] = [];
     let start = 0;
     let depth = 0;
@@ -113,7 +114,8 @@ const splitTemplate = (body: string): string[] => {
     return parts;
 };
 
-const balancedTemplates = (wikitext: string): string[] => {
+/** Extracts balanced MediaWiki template bodies while bounding parser work. */
+const extractBalancedTemplates = (wikitext: string): string[] => {
     const templates: string[] = [];
     const starts: number[] = [];
 
@@ -135,7 +137,7 @@ const balancedTemplates = (wikitext: string): string[] => {
     return templates;
 };
 
-const parseRequirements = (
+const extractWindowsRequirements = (
     parts: string[],
 ): { minimum?: string; recommended?: string } | undefined => {
     const osFamily = parts
@@ -153,7 +155,9 @@ const parseRequirements = (
                   };
         })
         .find((part) => part?.key === 'osfamily')?.value;
-    if (normalizedTitle(osFamily ?? '') !== 'windows') return undefined;
+    if (normalizeTitleForComparison(osFamily ?? '') !== 'windows') {
+        return undefined;
+    }
 
     const lines: Record<'minimum' | 'recommended', string[]> = {
         minimum: [],
@@ -216,7 +220,8 @@ const parseRequirements = (
     };
 };
 
-const parseWikitext = (
+/** Extracts the allowlisted metadata and Windows requirement templates. */
+const parseGamePageWikitext = (
     wikitext: string,
 ): {
     metadata: Partial<
@@ -233,8 +238,8 @@ const parseWikitext = (
     let minimum: string | undefined;
     let recommended: string | undefined;
 
-    for (const body of balancedTemplates(wikitext)) {
-        const parts = splitTemplate(body);
+    for (const body of extractBalancedTemplates(wikitext)) {
+        const parts = splitTopLevelTemplateParameters(body);
         const name = parts[0]?.trim().toLowerCase();
         if (!name) continue;
 
@@ -253,7 +258,7 @@ const parseWikitext = (
                 metadata.releaseDate = parts[2].trim();
             }
         } else if (name === 'system requirements') {
-            const requirements = parseRequirements(parts);
+            const requirements = extractWindowsRequirements(parts);
             if (!requirements) continue;
             requirementsFound = true;
             minimum = requirements.minimum;
@@ -264,12 +269,12 @@ const parseWikitext = (
     return { metadata, minimum, recommended, requirementsFound };
 };
 
-const warning = (value: PcGamingWikiWarning): PcGamingWikiLookup => ({
+const unmatchedLookup = (value: PcGamingWikiWarning): PcGamingWikiLookup => ({
     kind: 'unmatched',
     warning: value,
 });
 
-const malformedResponse = (): PcGamingWikiProviderError =>
+const malformedResponseError = (): PcGamingWikiProviderError =>
     new PcGamingWikiProviderError(
         'http_5xx',
         'PCGamingWiki response was invalid',
@@ -277,9 +282,12 @@ const malformedResponse = (): PcGamingWikiProviderError =>
 
 @Injectable()
 export class PcGamingWikiService {
-    async findExact(name: string): Promise<PcGamingWikiLookup> {
+    /** Resolves one exact title (or explicit redirect) and parses its game page. */
+    async fetchExactGameData(name: string): Promise<PcGamingWikiLookup> {
         const requestedTitle = name.trim();
-        if (!requestedTitle) return warning('PCGamingWiki page not found');
+        if (!requestedTitle) {
+            return unmatchedLookup('PCGamingWiki page not found');
+        }
 
         const queryUrl = new URL(API_URL);
         queryUrl.search = new URLSearchParams({
@@ -289,9 +297,9 @@ export class PcGamingWikiService {
             redirects: '1',
             titles: requestedTitle,
         }).toString();
-        const query = await this.requestJson(queryUrl);
+        const query = await this.fetchJson(queryUrl);
         if (!isRecord(query) || 'error' in query || !isRecord(query.query)) {
-            throw malformedResponse();
+            throw malformedResponseError();
         }
         const queryRecord = query.query;
         const pagesValue = queryRecord.pages;
@@ -306,21 +314,23 @@ export class PcGamingWikiService {
             ('redirects' in queryRecord &&
                 !Array.isArray(queryRecord.redirects))
         ) {
-            throw malformedResponse();
+            throw malformedResponseError();
         }
         const pages = pagesValue.filter(isRecord);
         const availablePages = pages.filter((page) => page.missing !== true);
 
         if (availablePages.length === 0) {
-            return warning('PCGamingWiki page not found');
+            return unmatchedLookup('PCGamingWiki page not found');
         }
         if (availablePages.length !== 1) {
-            return warning('PCGamingWiki title is ambiguous');
+            return unmatchedLookup('PCGamingWiki title is ambiguous');
         }
 
         const page = availablePages[0];
         const canonicalTitle = nonblank(page.title) ? page.title.trim() : '';
-        if (!canonicalTitle) return warning('PCGamingWiki title did not match');
+        if (!canonicalTitle) {
+            return unmatchedLookup('PCGamingWiki title did not match');
+        }
 
         const redirects = Array.isArray(queryRecord?.redirects)
             ? queryRecord.redirects.filter(isRecord)
@@ -330,13 +340,16 @@ export class PcGamingWikiService {
         const redirectTo =
             typeof redirects[0]?.to === 'string' ? redirects[0].to : '';
         const exact =
-            normalizedTitle(canonicalTitle) === normalizedTitle(requestedTitle);
+            normalizeTitleForComparison(canonicalTitle) ===
+            normalizeTitleForComparison(requestedTitle);
         const explicitRedirect =
             redirects.length === 1 &&
-            normalizedTitle(redirectFrom) === normalizedTitle(requestedTitle) &&
-            normalizedTitle(redirectTo) === normalizedTitle(canonicalTitle);
+            normalizeTitleForComparison(redirectFrom) ===
+                normalizeTitleForComparison(requestedTitle) &&
+            normalizeTitleForComparison(redirectTo) ===
+                normalizeTitleForComparison(canonicalTitle);
         if (!exact && !explicitRedirect) {
-            return warning('PCGamingWiki title did not match');
+            return unmatchedLookup('PCGamingWiki title did not match');
         }
 
         const parseUrl = new URL(API_URL);
@@ -347,9 +360,9 @@ export class PcGamingWikiService {
             prop: 'wikitext',
             page: canonicalTitle,
         }).toString();
-        const parsed = await this.requestJson(parseUrl);
+        const parsed = await this.fetchJson(parseUrl);
         if (!isRecord(parsed) || 'error' in parsed || !isRecord(parsed.parse)) {
-            throw malformedResponse();
+            throw malformedResponseError();
         }
         const parseRecord = parsed.parse;
         const parseTitleValue = parseRecord.title;
@@ -363,18 +376,21 @@ export class PcGamingWikiService {
                     typeof wikitextValue['*'] === 'string')
             )
         ) {
-            throw malformedResponse();
+            throw malformedResponseError();
         }
         const parseTitle = parseTitleValue;
-        if (normalizedTitle(parseTitle) !== normalizedTitle(canonicalTitle)) {
-            throw malformedResponse();
+        if (
+            normalizeTitleForComparison(parseTitle) !==
+            normalizeTitleForComparison(canonicalTitle)
+        ) {
+            throw malformedResponseError();
         }
 
         const wikitext =
             typeof wikitextValue === 'string'
                 ? wikitextValue
                 : (wikitextValue as Record<string, string>)['*'];
-        const parsedPage = parseWikitext(wikitext);
+        const parsedPage = parseGamePageWikitext(wikitext);
         const warnings: PcGamingWikiWarning[] = parsedPage.requirementsFound
             ? []
             : ['PCGamingWiki Windows requirements missing'];
@@ -391,8 +407,9 @@ export class PcGamingWikiService {
         };
     }
 
-    private async requestJson(url: URL): Promise<unknown> {
-        await reserveRequestSlot();
+    /** Fetches, bounds, and decodes one JSON response into untrusted data. */
+    private async fetchJson(url: URL): Promise<unknown> {
+        await waitForRequestSlot();
 
         let response: Response;
         try {
@@ -443,7 +460,7 @@ export class PcGamingWikiService {
 
         let bytes: Uint8Array;
         try {
-            bytes = await this.readBounded(response);
+            bytes = await this.readResponseWithinLimit(response);
         } catch (error: unknown) {
             if (error instanceof PcGamingWikiProviderError) throw error;
             throw new PcGamingWikiProviderError(
@@ -462,7 +479,9 @@ export class PcGamingWikiService {
         }
     }
 
-    private async readBounded(response: Response): Promise<Uint8Array> {
+    private async readResponseWithinLimit(
+        response: Response,
+    ): Promise<Uint8Array> {
         const contentLength = response.headers.get('content-length');
         if (
             contentLength !== null &&

@@ -69,20 +69,20 @@ type CandidateValue = {
 };
 type CandidateValues = Partial<Record<FieldPath, CandidateValue>>;
 
-function extractRawg(payload: unknown, rawgId: number): CandidateValues;
-function normalizeRequirements(rawText: string, tier: RequirementTier, source: 'rawg' | 'pcgamingwiki', sourceUrl: string | null): CandidateValues;
-function mergeMissing(current: CandidateValues, candidates: CandidateValues): CandidateValues;
-function summarizeMissing(values: CandidateValues): FieldPath[];
+function extractRawgCandidates(payload: unknown, rawgId: number): CandidateValues;
+function extractDeterministicRequirements(rawText: string, tier: RequirementTier, source: 'rawg' | 'pcgamingwiki', sourceUrl: string | null): CandidateValues;
+function mergeCandidateValuesPreservingExisting(current: CandidateValues, candidates: CandidateValues): CandidateValues;
+function listMissingEnrichmentFields(values: CandidateValues): FieldPath[];
 ```
 
 Core first-failure assertions:
 
 ```ts
-expect(() => extractRawg({ id: 12, name: 'Other' }, 13)).toThrow();
-expect(normalizeRequirements('RAM: 8192 MB', 'minimum', 'rawg', null)['requirements.minimum.ramGb']?.value).toBe(8);
+expect(() => extractRawgCandidates({ id: 12, name: 'Other' }, 13)).toThrow();
+expect(extractDeterministicRequirements('RAM: 8192 MB', 'minimum', 'rawg', null)['requirements.minimum.ramGb']?.value).toBe(8);
 const admin = { publisher: { value: 'Edited', source: 'admin', sourceUrl: null, extractedBy: null } } as CandidateValues;
 const wiki = { publisher: { value: 'Wiki', source: 'pcgamingwiki', sourceUrl: 'https://www.pcgamingwiki.com/wiki/Example', extractedBy: null } } as CandidateValues;
-expect(mergeMissing(admin, wiki).publisher?.value).toBe('Edited');
+expect(mergeCandidateValuesPreservingExisting(admin, wiki).publisher?.value).toBe('Edited');
 ```
 
 - [ ] Write failing pure tests for RAWG object validation (`id` mismatch and missing `name`), nonblank metadata extraction, empty/default placeholders, and numeric conversion: `8192 MB -> 8 GB`, `1.5 GB -> 2 GB`, unsupported units -> missing. Test that a RAWG value wins over PCGamingWiki and `admin` provenance always wins.
@@ -129,8 +129,8 @@ class PcGamingWikiProviderError extends Error {
     }
 }
 
-PcGamingWikiService.findExact(name: string): Promise<PcGamingWikiLookup>;
-GeminiRequirementsService.interpret(
+PcGamingWikiService.fetchExactGameData(name: string): Promise<PcGamingWikiLookup>;
+GeminiRequirementsService.extractMissingRequirements(
     text: string,
     missingPaths: FieldPath[],
     source: 'rawg' | 'pcgamingwiki',
@@ -141,10 +141,10 @@ GeminiRequirementsService.interpret(
 Provider and interpretation acceptance assertions:
 
 ```ts
-expect(await wiki.findExact('No exact page')).toEqual({ kind: 'unmatched', warning: 'PCGamingWiki page not found' });
-expect(await wiki.findExact('Elden Ring')).toMatchObject({ kind: 'matched', url: expect.stringContaining('pcgamingwiki.com/wiki/'), minimum: expect.any(String) });
+expect(await wiki.fetchExactGameData('No exact page')).toEqual({ kind: 'unmatched', warning: 'PCGamingWiki page not found' });
+expect(await wiki.fetchExactGameData('Elden Ring')).toMatchObject({ kind: 'matched', url: expect.stringContaining('pcgamingwiki.com/wiki/'), minimum: expect.any(String) });
 expect(geminiSdk.models.generateContent).not.toHaveBeenCalled(); // deterministic input already supplied RAM
-const interpreted = await gemini.interpret('Minimum RAM: eight gigabytes', ['requirements.minimum.ramGb'], 'pcgamingwiki', 'https://www.pcgamingwiki.com/wiki/Example');
+const interpreted = await gemini.extractMissingRequirements('Minimum RAM: eight gigabytes', ['requirements.minimum.ramGb'], 'pcgamingwiki', 'https://www.pcgamingwiki.com/wiki/Example');
 expect(interpreted['requirements.minimum.ramGb']).toMatchObject({ source: 'pcgamingwiki', extractedBy: 'gemini' });
 ```
 
@@ -201,7 +201,7 @@ export async function assertGameEnrichmentTopology(
 }
 ```
 
-#66 creates its producer channel with `RabbitMqService.createConfirmChannel(assertGameEnrichmentTopology)` before sending to `GAME_ENRICHMENT_QUEUE`. #64's worker setup first awaits `assertGameEnrichmentTopology(channel)`, then applies `prefetch(1)` and consumes the main queue. Import `MessagingModule`, `DatabaseModule`, `EntityManager`, and Task 1's `CandidateValues`. Keep `mergeAndSaveAllowedValues(tx: EntityManager, game: Game, job: GameEnrichmentJob, candidates: CandidateValues): Promise<void>` private to the worker: it saves allowlisted metadata/provenance and requirement tiers plus `status='completed'`, `missingFields`, and `warnings` in that same transaction.
+#66 creates its producer channel with `RabbitMqService.createConfirmChannel(assertGameEnrichmentTopology)` before sending to `GAME_ENRICHMENT_QUEUE`. #64's worker setup first awaits `assertGameEnrichmentTopology(channel)`, then applies `prefetch(1)` and consumes the main queue. Import `MessagingModule`, `DatabaseModule`, `EntityManager`, and Task 1's `CandidateValues`. Keep `persistAllowedCandidateValues(tx: EntityManager, game: Game, job: GameEnrichmentJob, candidates: CandidateValues): Promise<void>` private to the worker: it saves allowlisted metadata/provenance and requirement tiers plus `status='completed'`, `missingFields`, and `warnings` in that same transaction.
 
 The write boundary must follow this order; the test should pause before commit and race #65's status change:
 
@@ -216,7 +216,7 @@ await dataSource.transaction(async (tx) => {
         await tx.save(job);
         return;
     }
-    await mergeAndSaveAllowedValues(tx, game, job, candidates);
+    await persistAllowedCandidateValues(tx, game, job, candidates);
 });
 channel.ack(message); // only after transaction resolves
 ```
