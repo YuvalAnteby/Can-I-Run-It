@@ -5,6 +5,8 @@ import { FilterGameDto } from './dto/filter-game.dto';
 import { Game } from './entities/game.entity';
 import { IGamesRepository } from './igames.repository';
 
+const GAME_NAME_SIMILARITY_THRESHOLD = 0.15;
+
 @Injectable()
 export class TypeOrmGamesRepository implements IGamesRepository {
     private readonly repo: Repository<Game>;
@@ -22,13 +24,28 @@ export class TypeOrmGamesRepository implements IGamesRepository {
         const queryBuilder = this.repo.createQueryBuilder('game');
         queryBuilder.where('game.status = :status', { status: 'published' });
 
-        if (search) {
-            queryBuilder.andWhere('game.name ILIKE :search', {
-                search: `%${search}%`,
-            });
+        const normalizedSearch = search?.trim().toLowerCase();
+        if (normalizedSearch) {
+            queryBuilder.andWhere(
+                `(LOWER(game.name) LIKE :search
+                  OR word_similarity(:query, LOWER(game.name)) > :threshold)`,
+                {
+                    search: `%${normalizedSearch}%`,
+                    query: normalizedSearch,
+                    threshold: GAME_NAME_SIMILARITY_THRESHOLD,
+                },
+            );
         }
 
-        if (sortBy) {
+        if (normalizedSearch && !sortBy) {
+            queryBuilder
+                .orderBy(
+                    'CASE WHEN LOWER(game.name) LIKE :search THEN 0 ELSE 1 END',
+                    'ASC',
+                )
+                .addOrderBy('word_similarity(:query, LOWER(game.name))', 'DESC')
+                .addOrderBy('game.releaseDate', 'DESC');
+        } else if (sortBy) {
             // sortBy is already validated by FilterGameDto @IsIn,
             // but we use an explicit check here for defense-in-depth.
             const allowedFields = [

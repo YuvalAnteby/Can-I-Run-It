@@ -95,7 +95,7 @@ export const HeroSearch = (): ReactElement => {
   };
 
   return (
-    <div className="relative bg-[#0f1115] overflow-hidden pt-[80px] pb-[100px] px-5 text-center">
+    <div className="relative bg-[#0f1115] pt-[80px] pb-[100px] px-5 text-center">
       <div className="absolute inset-0 [background:radial-gradient(circle_at_top,#1c232b_0%,#0f1115_70%)] z-0"></div>
 
       <div className="relative z-10 max-w-[900px] mx-auto">
@@ -151,7 +151,7 @@ export const HeroSearch = (): ReactElement => {
           {/* Search Dropdown */}
           {dropdownOpen && (
             <ul
-              className="absolute top-[calc(100%+6px)] left-0 right-0 z-[100] m-0 py-1.5 list-none bg-[#1c2330] border border-[#30363d] rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden animate-dropdown-fade"
+              className="absolute top-[calc(100%+6px)] left-0 right-0 z-[100] m-0 max-h-[60vh] overflow-y-auto py-1.5 list-none bg-[#1c2330] border border-[#30363d] rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.5)] animate-dropdown-fade"
               aria-label="Search results"
             >
               {isLoading &&
@@ -201,9 +201,6 @@ export const HeroSearch = (): ReactElement => {
                       onClick={() => handleSelect(game)}
                       disabled={selection.isPending}
                     >
-                      <span className="text-[0.7rem] uppercase tracking-wide text-gray-400 shrink-0">
-                        {game.source === 'local' ? 'Local' : 'Select RAWG'}
-                      </span>
                       <span className="text-[0.9375rem] text-gray-200 whitespace-nowrap overflow-hidden text-ellipsis">
                         {game.name}
                       </span>

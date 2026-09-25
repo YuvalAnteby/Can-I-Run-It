@@ -8,6 +8,7 @@ describe('TypeOrmGamesRepository', () => {
         where: jest.fn().mockReturnThis(),
         andWhere: jest.fn().mockReturnThis(),
         orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
         skip: jest.fn().mockReturnThis(),
         take: jest.fn().mockReturnThis(),
         getManyAndCount: jest.fn(),
@@ -41,8 +42,8 @@ describe('TypeOrmGamesRepository', () => {
             { status: 'published' },
         );
         expect(queryBuilder.andWhere).toHaveBeenCalledWith(
-            'game.name ILIKE :search',
-            { search: '%cyber%' },
+            expect.stringContaining('word_similarity'),
+            { search: '%cyber%', query: 'cyber', threshold: 0.15 },
         );
         expect(queryBuilder.skip).toHaveBeenCalledWith(5);
         expect(queryBuilder.take).toHaveBeenCalledWith(5);
