@@ -16,6 +16,7 @@ import { CheckRateLimitGuard } from '../../common/guards/check-rate-limit.guard'
 import { ClientGameDto } from './dto/client-game.dto';
 import { DiscoverGamesDto } from './dto/discover-games.dto';
 import { FilterGameDto } from './dto/filter-game.dto';
+import { GameIdParamsDto } from './dto/game-id-params.dto';
 import {
     GameDiscoveryResponse,
     GameDiscoveryService,
@@ -110,11 +111,8 @@ export class GamesController {
     @ApiOperation({ summary: 'Get a selected pending game by internal ID' })
     @ApiOkResponse({ type: ClientGameDto })
     async getPendingGame(
-        @Param('id', ParseIntPipe) id: number,
+        @Param() { id }: GameIdParamsDto,
     ): Promise<ClientGameDto> {
-        if (id <= 0) {
-            throw new BadRequestException('Game ID must be a positive integer');
-        }
         return this.gamesService.findPendingPageById(id);
     }
 }
