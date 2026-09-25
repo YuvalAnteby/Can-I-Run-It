@@ -4,12 +4,11 @@ import { CheckRateLimitGuard } from '../../common/guards/check-rate-limit.guard'
 import { DatabaseModule } from '../../database/database.module';
 import { MessagingModule } from '../messaging/messaging.module';
 import { EnrichmentPublisher } from './enrichment-publisher.service';
-import { GameDiscoveryService } from './game-discovery.service';
 import { GamesController } from './games.controller';
 import { GamesService } from './games.service';
 import { TypeOrmGamesRepository } from './games.typeorm.repository';
 import { IGamesRepositoryToken } from './igames.repository';
-import { RawgService } from './rawg.service';
+import { RawgClient } from './rawg.client';
 
 @Module({
     imports: [DatabaseModule, MessagingModule],
@@ -17,9 +16,8 @@ import { RawgService } from './rawg.service';
     providers: [
         CheckRateLimitGuard,
         GamesService,
-        RawgService,
+        RawgClient,
         EnrichmentPublisher,
-        GameDiscoveryService,
         {
             provide: IGamesRepositoryToken,
             useClass: TypeOrmGamesRepository,

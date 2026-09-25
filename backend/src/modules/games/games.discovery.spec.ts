@@ -4,8 +4,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { EnrichmentPublisher } from './enrichment-publisher.service';
 import { Game } from './entities/game.entity';
 import { GameEnrichmentJob } from './entities/game-enrichment-job.entity';
-import { GameDiscoveryService } from './game-discovery.service';
-import { RawgService } from './rawg.service';
+import { GamesService } from './games.service';
+import { RawgClient } from './rawg.client';
 
 const localGame = (overrides: Partial<Game> = {}): Game =>
     ({
@@ -44,8 +44,8 @@ const rawgDetail = (overrides: Record<string, unknown> = {}) => ({
     ...overrides,
 });
 
-describe('GameDiscoveryService', () => {
-    let service: GameDiscoveryService;
+describe('GamesService discovery', () => {
+    let service: GamesService;
     let gamesRepository: Record<string, jest.Mock>;
     let rawgService: { search: jest.Mock; getById: jest.Mock };
     let publisher: { publishInitial: jest.Mock; replayQueued: jest.Mock };
@@ -99,15 +99,15 @@ describe('GameDiscoveryService', () => {
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
-                GameDiscoveryService,
+                GamesService,
                 { provide: 'IGamesRepository', useValue: gamesRepository },
-                { provide: RawgService, useValue: rawgService },
+                { provide: RawgClient, useValue: rawgService },
                 { provide: EnrichmentPublisher, useValue: publisher },
                 { provide: 'DATA_SOURCE', useValue: dataSource },
             ],
         }).compile();
 
-        service = module.get(GameDiscoveryService);
+        service = module.get(GamesService);
     });
 
     it('keeps local published results when RAWG is unavailable without writing or publishing', async () => {

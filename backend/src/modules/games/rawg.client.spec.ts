@@ -1,6 +1,6 @@
 import { ConfigService } from '@nestjs/config';
 
-import { RawgService } from './rawg.service';
+import { RawgClient } from './rawg.client';
 
 const rawgSearchHit = {
     id: 3498,
@@ -36,7 +36,7 @@ const requestUrl = (value: RequestInfo | URL): string => {
     return value.url;
 };
 
-describe('RawgService', () => {
+describe('RawgClient', () => {
     let fetchSpy: jest.SpiedFunction<typeof fetch>;
 
     beforeEach(() => {
@@ -78,7 +78,7 @@ describe('RawgService', () => {
             ),
         );
 
-        const service = new RawgService(makeConfig('server-only-key'));
+        const service = new RawgClient(makeConfig('server-only-key'));
         const result = await service.search('  Cyberpunk 2077  ');
 
         expect(result).toEqual({
@@ -110,7 +110,7 @@ describe('RawgService', () => {
             new Response(JSON.stringify({ results: [] }), { status: 200 }),
         );
 
-        const service = new RawgService(makeConfig('server-only-key'));
+        const service = new RawgClient(makeConfig('server-only-key'));
         await service.search('x'.repeat(101));
 
         const [request] = fetchSpy.mock.calls[0];
@@ -146,7 +146,7 @@ describe('RawgService', () => {
                 fetchSpy.mockResolvedValue(failure);
             }
 
-            const service = new RawgService(makeConfig(key));
+            const service = new RawgClient(makeConfig(key));
             const result = await service.search('Elden Ring');
 
             expect(result).toEqual({ available: false, results: [] });
@@ -169,7 +169,7 @@ describe('RawgService', () => {
             ),
         );
 
-        const service = new RawgService(makeConfig('server-only-key'));
+        const service = new RawgClient(makeConfig('server-only-key'));
         const result = await service.getById(3498);
 
         expect(result).toMatchObject({

@@ -19,18 +19,14 @@ import { FilterGameDto } from './dto/filter-game.dto';
 import { GameIdParamsDto } from './dto/game-id-params.dto';
 import {
     GameDiscoveryResponse,
-    GameDiscoveryService,
+    GamesService,
     SelectedRawgGame,
-} from './game-discovery.service';
-import { GamesService } from './games.service';
+} from './games.service';
 
 @ApiTags('games')
 @Controller('games')
 export class GamesController {
-    constructor(
-        private readonly gameDiscoveryService: GameDiscoveryService,
-        private readonly gamesService: GamesService,
-    ) {}
+    constructor(private readonly gamesService: GamesService) {}
 
     /* ── V1 Endpoints (Mock) ─────────────────────────────────── */
 
@@ -84,7 +80,7 @@ export class GamesController {
                 'Search query must be between 1 and 100 characters',
             );
         }
-        return this.gameDiscoveryService.discover(query);
+        return this.gamesService.discover(query);
     }
 
     @Post('rawg/:rawgId/select')
@@ -95,7 +91,7 @@ export class GamesController {
     async selectRawgGame(
         @Param('rawgId', ParseIntPipe) rawgId: number,
     ): Promise<SelectedRawgGame> {
-        return this.gameDiscoveryService.selectRawgGame(rawgId);
+        return this.gamesService.selectRawgGame(rawgId);
     }
 
     @Get(':slug')

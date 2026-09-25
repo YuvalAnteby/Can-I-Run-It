@@ -1,43 +1,34 @@
 import { BadRequestException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { GameDiscoveryService } from './game-discovery.service';
 import { MOCK_GAMES } from './games.constants';
 import { GamesController } from './games.controller';
 import { GamesService } from './games.service';
-import { IGamesRepositoryToken } from './igames.repository';
 
 describe('GamesController', () => {
     let controller: GamesController;
 
-    const mockGamesRepository = {
-        findAll: jest.fn(),
-        findBySlug: jest.fn(),
-    };
-    const mockGameDiscoveryService = {
-        discover: jest.fn(),
-        selectRawgGame: jest.fn(),
-    };
     const mockGamesService = {
-        getMockGames: jest.fn(),
-        searchMockGames: jest.fn(),
+        getMockGames: jest.fn().mockResolvedValue(MOCK_GAMES),
+        searchMockGames: jest
+            .fn()
+            .mockResolvedValue(
+                MOCK_GAMES.filter((game) => game.name.includes('Cyberpunk')),
+            ),
         findPaged: jest.fn(),
         findBySlug: jest.fn(),
         findPendingPageById: jest.fn(),
+        discover: jest.fn(),
+        selectRawgGame: jest.fn(),
     };
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             controllers: [GamesController],
             providers: [
-                GamesService,
                 {
-                    provide: IGamesRepositoryToken,
-                    useValue: mockGamesRepository,
-                },
-                {
-                    provide: GameDiscoveryService,
-                    useValue: mockGameDiscoveryService,
+                    provide: GamesService,
+                    useValue: mockGamesService,
                 },
             ],
         }).compile();
@@ -60,10 +51,9 @@ describe('GamesController', () => {
         expect(result[0].name).toContain('Cyberpunk');
     });
 
-    it('requires both service dependencies in Nest wiring', async () => {
+    it('requires the games service in Nest wiring', async () => {
         const module = Test.createTestingModule({
             controllers: [GamesController],
-            providers: [{ provide: GamesService, useValue: mockGamesService }],
         });
 
         await expect(module.compile()).rejects.toThrow();
@@ -83,7 +73,6 @@ describe('GamesController', () => {
         const discoveryController = (): DiscoveryController =>
             new GamesController(
                 discoveryService as never,
-                mockGamesService as never,
             ) as DiscoveryController;
 
         beforeEach(() => {

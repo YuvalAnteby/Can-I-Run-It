@@ -16,7 +16,7 @@ import {
     assertGameEnrichmentTopology,
     GAME_ENRICHMENT_QUEUE,
 } from '../src/modules/games/game-lifecycle.contract';
-import { RawgService } from '../src/modules/games/rawg.service';
+import { RawgClient } from '../src/modules/games/rawg.client';
 import { GeminiService } from '../src/modules/gemini/gemini.service';
 import { RabbitMqService } from '../src/modules/messaging/rabbitmq.service';
 
@@ -135,7 +135,7 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
         const moduleFixture: TestingModule = await Test.createTestingModule({
             imports: [AppModule],
         })
-            .overrideProvider(RawgService)
+            .overrideProvider(RawgClient)
             .useValue(rawg)
             .compile();
 

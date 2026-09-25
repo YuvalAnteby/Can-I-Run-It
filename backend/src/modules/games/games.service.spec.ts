@@ -1,9 +1,11 @@
 import { NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { EnrichmentPublisher } from './enrichment-publisher.service';
 import { MOCK_GAMES } from './games.constants';
 import { GamesService } from './games.service';
 import { IGamesRepositoryToken } from './igames.repository';
+import { RawgClient } from './rawg.client';
 
 describe('GamesService', () => {
     let service: GamesService;
@@ -21,6 +23,18 @@ describe('GamesService', () => {
                 {
                     provide: IGamesRepositoryToken,
                     useValue: mockGamesRepository,
+                },
+                {
+                    provide: RawgClient,
+                    useValue: { search: jest.fn(), getById: jest.fn() },
+                },
+                {
+                    provide: EnrichmentPublisher,
+                    useValue: { publishInitial: jest.fn() },
+                },
+                {
+                    provide: 'DATA_SOURCE',
+                    useValue: { transaction: jest.fn() },
                 },
             ],
         }).compile();

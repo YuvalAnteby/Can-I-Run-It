@@ -52,8 +52,8 @@ const safeImageUrl = (value: unknown): string | null => {
 };
 
 @Injectable()
-export class RawgService {
-    private readonly logger = new Logger(RawgService.name);
+export class RawgClient {
+    private readonly logger = new Logger(RawgClient.name);
     private readonly apiKey: string | undefined;
 
     constructor(private readonly config: ConfigService) {
