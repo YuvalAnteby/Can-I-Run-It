@@ -1,6 +1,18 @@
 import { ApiProperty } from '@nestjs/swagger';
 
+import type { GameStatus } from '../game-lifecycle.contract';
 import { ClientGameRequirementDto } from './client-game-requirement.dto';
+
+export class PublicAttributionDto {
+    @ApiProperty({ enum: ['rawg', 'pcgamingwiki'] })
+    source: 'rawg' | 'pcgamingwiki';
+
+    @ApiProperty({ enum: ['RAWG', 'PCGamingWiki'] })
+    label: 'RAWG' | 'PCGamingWiki';
+
+    @ApiProperty({ example: 'https://rawg.io/games/cyberpunk-2077' })
+    url: string;
+}
 
 /**
  * Data Transfer Object representing game information sent to the client.
@@ -23,6 +35,9 @@ export class ClientGameDto {
         example: 'Cyberpunk 2077',
     })
     name: string;
+
+    @ApiProperty({ enum: ['pending_approval', 'published'] })
+    status: Exclude<GameStatus, 'rejected'>;
 
     @ApiProperty({
         description: 'The URL of the cover image',
@@ -72,7 +87,7 @@ export class ClientGameDto {
         example: ['ray-tracing', 'open-world', 'cpu-heavy'],
         nullable: true,
     })
-    tags: string[] | null;
+    tags: string[];
 
     @ApiProperty({
         description: 'Whether the game supports ray tracing',
@@ -115,5 +130,8 @@ export class ClientGameDto {
         type: () => [ClientGameRequirementDto],
         description: 'The requirements of the game',
     })
-    requirements?: ClientGameRequirementDto[];
+    requirements: ClientGameRequirementDto[];
+
+    @ApiProperty({ type: () => [PublicAttributionDto], required: false })
+    attributions?: PublicAttributionDto[];
 }

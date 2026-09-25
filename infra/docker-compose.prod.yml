@@ -16,6 +16,7 @@ services:
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
       - RABBITMQ_URL=${RABBITMQ_URL:?RABBITMQ_URL must be set}
+      - RAWG_API_KEY=${RAWG_API_KEY:-}
     env_file:
       - .env
     ports:

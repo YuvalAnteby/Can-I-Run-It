@@ -22,6 +22,15 @@ function executionContextFor(request: {
 }
 
 describe('CheckRateLimitGuard', () => {
+    const methodGuards = (
+        method: 'discoverGames' | 'selectRawgGame',
+    ): unknown =>
+        Reflect.getMetadata(
+            GUARDS_METADATA,
+            Object.getOwnPropertyDescriptor(GamesController.prototype, method)
+                ?.value as object,
+        );
+
     beforeEach(() => {
         jest.spyOn(Date, 'now').mockReturnValue(0);
     });
@@ -78,14 +87,17 @@ describe('CheckRateLimitGuard', () => {
         );
     });
 
-    it('attaches protection to checks and leaves game and health reads open', () => {
+    it('attaches protection to checks and public RAWG routes while leaving reads open', () => {
         expect(Reflect.getMetadata(GUARDS_METADATA, CheckController)).toEqual([
             CheckRateLimitGuard,
         ]);
-        for (const controller of [GamesController, HealthController]) {
-            expect(
-                Reflect.getMetadata(GUARDS_METADATA, controller),
-            ).toBeUndefined();
-        }
+        expect(
+            Reflect.getMetadata(GUARDS_METADATA, GamesController),
+        ).toBeUndefined();
+        expect(methodGuards('discoverGames')).toEqual([CheckRateLimitGuard]);
+        expect(methodGuards('selectRawgGame')).toEqual([CheckRateLimitGuard]);
+        expect(
+            Reflect.getMetadata(GUARDS_METADATA, HealthController),
+        ).toBeUndefined();
     });
 });
