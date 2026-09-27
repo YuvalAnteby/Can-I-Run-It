@@ -1,5 +1,3 @@
-import type { ConfirmChannel } from 'amqplib';
-
 import {
     assertGameEnrichmentTopology,
     canTransitionGame,
@@ -24,47 +22,48 @@ describe('game lifecycle contract', () => {
         expect(canTransitionGame('rejected', 'rejected')).toBe(false);
     });
 
-    it('asserts one shared durable main/retry/dead topology in a stable order', async () => {
-        const assertQueue = jest.fn().mockResolvedValue({});
+    it('declares the shared dead, main, and retry topology in the frozen order', async () => {
         const channel = {
-            assertQueue,
-        } as unknown as ConfirmChannel;
+            assertQueue: jest.fn().mockResolvedValue({}),
+        };
 
-        await assertGameEnrichmentTopology(channel);
+        await assertGameEnrichmentTopology(channel as never);
 
-        expect(assertQueue).toHaveBeenCalledTimes(3);
-        expect(assertQueue).toHaveBeenNthCalledWith(
-            1,
-            GAME_ENRICHMENT_DEAD_QUEUE,
-            {
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                arguments: {},
-            },
-        );
-        expect(assertQueue).toHaveBeenNthCalledWith(2, GAME_ENRICHMENT_QUEUE, {
-            durable: true,
-            exclusive: false,
-            autoDelete: false,
-            arguments: {
-                'x-dead-letter-exchange': '',
-                'x-dead-letter-routing-key': GAME_ENRICHMENT_DEAD_QUEUE,
-            },
-        });
-        expect(assertQueue).toHaveBeenNthCalledWith(
-            3,
-            GAME_ENRICHMENT_RETRY_QUEUE,
-            {
-                durable: true,
-                exclusive: false,
-                autoDelete: false,
-                arguments: {
-                    'x-message-ttl': GAME_ENRICHMENT_RETRY_TTL_MS,
-                    'x-dead-letter-exchange': '',
-                    'x-dead-letter-routing-key': GAME_ENRICHMENT_QUEUE,
+        expect(channel.assertQueue.mock.calls).toEqual([
+            [
+                GAME_ENRICHMENT_DEAD_QUEUE,
+                {
+                    durable: true,
+                    exclusive: false,
+                    autoDelete: false,
+                    arguments: {},
                 },
-            },
-        );
+            ],
+            [
+                GAME_ENRICHMENT_QUEUE,
+                {
+                    durable: true,
+                    exclusive: false,
+                    autoDelete: false,
+                    arguments: {
+                        'x-dead-letter-exchange': '',
+                        'x-dead-letter-routing-key': GAME_ENRICHMENT_DEAD_QUEUE,
+                    },
+                },
+            ],
+            [
+                GAME_ENRICHMENT_RETRY_QUEUE,
+                {
+                    durable: true,
+                    exclusive: false,
+                    autoDelete: false,
+                    arguments: {
+                        'x-message-ttl': GAME_ENRICHMENT_RETRY_TTL_MS,
+                        'x-dead-letter-exchange': '',
+                        'x-dead-letter-routing-key': GAME_ENRICHMENT_QUEUE,
+                    },
+                },
+            ],
+        ]);
     });
 });

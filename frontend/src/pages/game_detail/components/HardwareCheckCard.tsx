@@ -1,13 +1,8 @@
 import React from 'react';
 import { HardwareCheckForm } from './HardwareCheckForm';
 import { CompatibilityResult } from './CompatibilityResult';
-import {
-  SettingPreset,
-  CheckResponse,
-  TargetFps,
-} from '../../../@types/check.types';
-import { ClientCpuDto } from '../../../@types/cpu.types';
-import { ClientGpuDto } from '../../../@types/gpu.types';
+import type { ClientGameDto } from '../../../@types/game.types';
+import { useGameDetailForm } from '../useGameDetailForm';
 
 const DEFAULT_RESOLUTIONS = [
   { label: '720p (HD)', width: 1280, height: 720 },
@@ -17,86 +12,21 @@ const DEFAULT_RESOLUTIONS = [
 ];
 
 interface HardwareCheckCardProps {
-  // Search
-  gpuResults: ClientGpuDto[];
-  isLoadingGpus: boolean;
-  onGpuSearch: (query: string) => void;
-  onGpuSelect: (id: string) => void;
-
-  cpuResults: ClientCpuDto[];
-  isLoadingCpus: boolean;
-  onCpuSearch: (query: string) => void;
-  onCpuSelect: (id: string) => void;
-
-  // Selection
-  selectedGpu: string;
-  selectedGpuName?: string;
-  selectedCpu: string;
-  selectedCpuName?: string;
-  selectedRam: number;
-  onRamChange: (ram: number) => void;
-  selectedStorage: string;
-  onStorageChange: (storage: string) => void;
-  selectedPreset: SettingPreset;
-  onPresetChange: (preset: SettingPreset) => void;
-  selectedTargetFps: TargetFps;
-  onTargetFpsChange: (targetFps: TargetFps) => void;
-  selectedResolutionKey: string;
-  onResolutionKeyChange: (key: string) => void;
-  customWidth: number;
-  onCustomWidthChange: (width: number) => void;
-  customHeight: number;
-  onCustomHeightChange: (height: number) => void;
-
-  // Status
-  hasAttemptedSubmit: boolean;
-  isChecking: boolean;
-  checkResult: CheckResponse | undefined;
-  checkError: string | undefined;
-  isFormValid: boolean;
-
-  // Handlers
-  onCheck: () => void;
+  game: ClientGameDto;
+  slug: string | undefined;
+  activeTier?: string;
 }
 
 export const HardwareCheckCard: React.FC<HardwareCheckCardProps> = ({
-  gpuResults,
-  isLoadingGpus,
-  onGpuSearch,
-  onGpuSelect,
-  cpuResults,
-  isLoadingCpus,
-  onCpuSearch,
-  onCpuSelect,
-  selectedGpu,
-  selectedGpuName,
-  selectedCpu,
-  selectedCpuName,
-  selectedRam,
-  onRamChange,
-  selectedStorage,
-  onStorageChange,
-  selectedPreset,
-  onPresetChange,
-  selectedTargetFps,
-  onTargetFpsChange,
-  selectedResolutionKey,
-  onResolutionKeyChange,
-  customWidth,
-  onCustomWidthChange,
-  customHeight,
-  onCustomHeightChange,
-  hasAttemptedSubmit,
-  isChecking,
-  checkResult,
-  checkError,
-  isFormValid,
-  onCheck,
+  game,
+  slug,
+  activeTier,
 }) => {
+  const form = useGameDetailForm(game, slug, activeTier);
   const resolutionLabel =
-    selectedResolutionKey === 'custom'
-      ? `${customWidth}x${customHeight}`
-      : selectedResolutionKey;
+    form.selectedResolutionKey === 'custom'
+      ? `${form.customWidth}x${form.customHeight}`
+      : form.selectedResolutionKey;
 
   return (
     <div className="bg-[#13131a] border border-[#1e1e2a] rounded-xl p-6 sticky top-[72px]">
@@ -108,63 +38,63 @@ export const HardwareCheckCard: React.FC<HardwareCheckCardProps> = ({
       </div>
 
       <HardwareCheckForm
-        gpuResults={gpuResults}
-        isLoadingGpus={isLoadingGpus}
-        onGpuSearch={onGpuSearch}
-        onGpuSelect={onGpuSelect}
-        selectedGpu={selectedGpu}
-        selectedGpuName={selectedGpuName}
-        cpuResults={cpuResults}
-        isLoadingCpus={isLoadingCpus}
-        onCpuSearch={onCpuSearch}
-        onCpuSelect={onCpuSelect}
-        selectedCpu={selectedCpu}
-        selectedCpuName={selectedCpuName}
-        selectedRam={selectedRam}
-        onRamChange={onRamChange}
-        selectedStorage={selectedStorage}
-        onStorageChange={onStorageChange}
-        selectedPreset={selectedPreset}
-        onPresetChange={onPresetChange}
-        selectedTargetFps={selectedTargetFps}
-        onTargetFpsChange={onTargetFpsChange}
-        selectedResolutionKey={selectedResolutionKey}
-        onResolutionKeyChange={onResolutionKeyChange}
-        customWidth={customWidth}
-        onCustomWidthChange={onCustomWidthChange}
-        customHeight={customHeight}
-        onCustomHeightChange={onCustomHeightChange}
-        hasAttemptedSubmit={hasAttemptedSubmit}
+        gpuResults={form.gpuResults}
+        isLoadingGpus={form.isLoadingGpus}
+        onGpuSearch={form.setGpuQuery}
+        onGpuSelect={form.handleGpuSelect}
+        selectedGpu={form.selectedGpu}
+        selectedGpuName={form.selectedGpuObj?.name}
+        cpuResults={form.cpuResults}
+        isLoadingCpus={form.isLoadingCpus}
+        onCpuSearch={form.setCpuQuery}
+        onCpuSelect={form.handleCpuSelect}
+        selectedCpu={form.selectedCpu}
+        selectedCpuName={form.selectedCpuObj?.name}
+        selectedRam={form.selectedRam}
+        onRamChange={form.setSelectedRam}
+        selectedStorage={form.selectedStorage}
+        onStorageChange={form.setSelectedStorage}
+        selectedPreset={form.selectedPreset}
+        onPresetChange={form.setSelectedPreset}
+        selectedTargetFps={form.selectedTargetFps}
+        onTargetFpsChange={form.setSelectedTargetFps}
+        selectedResolutionKey={form.selectedResolutionKey}
+        onResolutionKeyChange={form.setSelectedResolutionKey}
+        customWidth={form.customWidth}
+        onCustomWidthChange={form.setCustomWidth}
+        customHeight={form.customHeight}
+        onCustomHeightChange={form.setCustomHeight}
+        hasAttemptedSubmit={form.hasAttemptedSubmit}
         resolutions={DEFAULT_RESOLUTIONS}
       />
 
       <button
-        onClick={onCheck}
-        disabled={isChecking}
+        onClick={form.handleCheck}
+        disabled={form.isChecking}
         className={`w-full py-3 text-white border-none rounded-md text-sm font-bold cursor-pointer transition-all mt-2 active:scale-[0.98] ${
-          isChecking
+          form.isChecking
             ? 'bg-blue-800 cursor-not-allowed opacity-70'
-            : isFormValid
+            : form.isFormValid
               ? 'bg-blue-500 hover:bg-blue-600 shadow-lg shadow-blue-500/20'
               : 'bg-[#2a2a3a] text-gray-500 cursor-not-allowed'
         }`}
       >
-        {isChecking ? 'Checking...' : 'Check Compatibility'}
+        {form.isChecking ? 'Checking...' : 'Check Compatibility'}
       </button>
 
-      {checkError && (
+      {form.checkError && (
         <p
           role="alert"
           aria-live="polite"
           className="mt-3 rounded-md bg-red-500/10 p-3 text-sm text-red-300"
         >
-          {checkError}
+          {form.checkError}
         </p>
       )}
 
-      {checkResult && (
+      {form.checkResult && (
         <CompatibilityResult
-          checkResult={checkResult}
+          checkResult={form.checkResult}
           resolutionLabel={resolutionLabel}
         />
       )}

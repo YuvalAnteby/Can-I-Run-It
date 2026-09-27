@@ -6,7 +6,10 @@ import { SettingsDto } from '../check/dto/settings.dto';
 import { Cpu } from '../cpu/entities/cpu.entity';
 import { Game } from '../games/entities/game.entity';
 import { Gpu } from '../gpu/entities/gpu.entity';
-import { SettingPreset } from '../performance/entities/performance-record.entity';
+import {
+    SettingPreset,
+    UpscalerType,
+} from '../performance/entities/performance-record.entity';
 
 export interface GeminiEstimate {
     fps: {
@@ -102,16 +105,23 @@ export class GeminiService {
         settings: SettingsDto,
     ): string {
         const resLabel = `${settings.resolutionWidth}x${settings.resolutionHeight}`;
-        return [
+        const prompt = [
             `Game: ${game.name}`,
             `GPU: ${gpu.name}`,
             `CPU: ${cpu.name}`,
             `RAM: ${ramGb ?? 16}GB`, // SettingsDto may not carry RAM; default to 16
             `Target resolution: ${resLabel}`,
             `Requested preset: ${settings.preset ?? SettingPreset.HIGH}`,
+        ];
+        prompt.push(`Upscaler: ${settings.upscaler ?? UpscalerType.OFF}`);
+        if (settings.upscalerQuality != null) {
+            prompt.push(`Upscaler quality: ${settings.upscalerQuality}`);
+        }
+        prompt.push(
             '',
             'Estimate average FPS at all four presets (low, med, high, ultra) for this exact hardware and game.',
-        ].join('\n');
+        );
+        return prompt.join('\n');
     }
 
     private async callGemini(userPrompt: string): Promise<string> {

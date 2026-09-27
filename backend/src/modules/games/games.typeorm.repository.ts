@@ -1,9 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, Repository } from 'typeorm';
 
 import { FilterGameDto } from './dto/filter-game.dto';
 import { Game } from './entities/game.entity';
 import { IGamesRepository } from './igames.repository';
+
+const GAME_NAME_SIMILARITY_THRESHOLD = 0.15;
 
 @Injectable()
 export class TypeOrmGamesRepository implements IGamesRepository {
@@ -22,13 +24,28 @@ export class TypeOrmGamesRepository implements IGamesRepository {
         const queryBuilder = this.repo.createQueryBuilder('game');
         queryBuilder.where('game.status = :status', { status: 'published' });
 
-        if (search) {
-            queryBuilder.andWhere('game.name ILIKE :search', {
-                search: `%${search}%`,
-            });
+        const normalizedSearch = search?.trim().toLowerCase();
+        if (normalizedSearch) {
+            queryBuilder.andWhere(
+                `(LOWER(game.name) LIKE :search
+                  OR word_similarity(:query, LOWER(game.name)) > :threshold)`,
+                {
+                    search: `%${normalizedSearch}%`,
+                    query: normalizedSearch,
+                    threshold: GAME_NAME_SIMILARITY_THRESHOLD,
+                },
+            );
         }
 
-        if (sortBy) {
+        if (normalizedSearch && !sortBy) {
+            queryBuilder
+                .orderBy(
+                    'CASE WHEN LOWER(game.name) LIKE :search THEN 0 ELSE 1 END',
+                    'ASC',
+                )
+                .addOrderBy('word_similarity(:query, LOWER(game.name))', 'DESC')
+                .addOrderBy('game.releaseDate', 'DESC');
+        } else if (sortBy) {
             // sortBy is already validated by FilterGameDto @IsIn,
             // but we use an explicit check here for defense-in-depth.
             const allowedFields = [
@@ -61,5 +78,24 @@ export class TypeOrmGamesRepository implements IGamesRepository {
                 'requirements.gpu',
             ],
         });
+    }
+
+    async findPendingPageById(id: number): Promise<Game | null> {
+        return await this.repo.findOne({
+            where: {
+                id,
+                status: In(['pending_approval', 'published']),
+            },
+            relations: ['requirements', 'requirements.cpu', 'requirements.gpu'],
+        });
+    }
+
+    async findByRawgId(rawgId: number): Promise<Game | null> {
+        return await this.repo.findOne({ where: { rawgId } });
+    }
+
+    async findByRawgIds(rawgIds: number[]): Promise<Game[]> {
+        if (rawgIds.length === 0) return [];
+        return await this.repo.find({ where: { rawgId: In(rawgIds) } });
     }
 }

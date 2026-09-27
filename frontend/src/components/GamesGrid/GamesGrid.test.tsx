@@ -9,19 +9,21 @@ const makeGame = (id: number, name: string): ClientGameDto => ({
   id,
   slug: `game-${id}`,
   name,
+  status: 'published',
   coverImageUrl: null,
   releaseDate: null,
   developer: null,
   publisher: null,
   genre: null,
   description: null,
-  tags: null,
+  tags: [],
   supportsRayTracing: false,
   supportsDlss: false,
   supportsFsr: false,
   supportsXeSS: false,
   isTrending: false,
   trendingRank: null,
+  requirements: [],
 });
 
 describe('GamesGrid', () => {

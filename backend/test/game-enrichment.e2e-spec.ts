@@ -19,6 +19,7 @@ import {
     PcGamingWikiProviderError,
     PcGamingWikiService,
 } from '../src/modules/game-enrichment/pcgamingwiki.service';
+import { EnrichmentPublisher } from '../src/modules/games/enrichment-publisher.service';
 import {
     assertGameEnrichmentTopology,
     GAME_ENRICHMENT_DEAD_QUEUE,
@@ -103,7 +104,10 @@ describe('Game enrichment worker (e2e)', () => {
     const startApp = async (): Promise<void> => {
         const moduleFixture: TestingModule = await Test.createTestingModule({
             imports: [AppModule],
-        }).compile();
+        })
+            .overrideProvider(EnrichmentPublisher)
+            .useValue({})
+            .compile();
 
         app = moduleFixture.createNestApplication();
         app.setGlobalPrefix('api');

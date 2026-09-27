@@ -1,5 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { IsNull } from 'typeorm';
 
+import { Game } from '../games/entities/game.entity';
 import { GeminiService } from '../gemini/gemini.service';
 import {
     PerformanceRecord,
@@ -8,6 +10,9 @@ import {
     UpscalerType,
 } from '../performance/entities/performance-record.entity';
 import { CheckService } from './check.service';
+
+const containing = <T extends object>(value: T): T =>
+    expect.objectContaining(value) as T;
 
 describe('CheckService', () => {
     let service: CheckService;
@@ -42,6 +47,7 @@ describe('CheckService', () => {
     const mockGpuRepo = { findOneBy: jest.fn() };
     const mockPerfRepo = {
         find: jest.fn(),
+        findOne: jest.fn(),
         create: jest.fn(),
         save: jest.fn(),
     };
@@ -116,9 +122,20 @@ describe('CheckService', () => {
         mockCpuRepo.findOneBy.mockResolvedValue(userCpu);
         mockGpuRepo.findOneBy.mockResolvedValue(userGpu);
         mockPerfRepo.find.mockResolvedValue([]);
+        mockPerfRepo.findOne.mockResolvedValue(null);
         mockPerfRepo.create.mockReturnValue({});
         mockGeminiService.estimate.mockResolvedValue(null);
     });
+
+    const checkPending = (gameId: number, request: Record<string, unknown>) =>
+        (
+            service as unknown as {
+                checkPendingCompatibility(
+                    id: number,
+                    dto: Record<string, unknown>,
+                ): Promise<unknown>;
+            }
+        ).checkPendingCompatibility(gameId, request);
 
     it('uses measured data before provider data and only the six core fields as identity', async () => {
         mockPerfRepo.find.mockResolvedValue([
@@ -134,7 +151,7 @@ describe('CheckService', () => {
         expect(result.verdict).toBe('Can run');
         expect(mockPerfRepo.find).toHaveBeenCalledWith(
             expect.objectContaining({
-                where: {
+                where: containing({
                     game: { id: 1 },
                     cpu: { id: 2 },
                     gpu: { id: 2 },
@@ -142,24 +159,67 @@ describe('CheckService', () => {
                     resolutionWidth: 1920,
                     resolutionHeight: 1080,
                     settings: SettingPreset.HIGH,
-                },
+                    upscaler: UpscalerType.OFF,
+                    upscalerQuality: IsNull(),
+                }),
             }),
         );
     });
 
-    it('uses quality preference within the preferred upscaler and source group', async () => {
+    it('does not use a published record from another normalized upscaler or quality', async () => {
+        const mismatchedRecord = record({
+            upscaler: UpscalerType.DLSS,
+            upscalerQuality: UpscalerQualityMode.QUALITY,
+            fpsAvg: 144,
+        });
+        mockPerfRepo.find.mockImplementation(
+            (options: { where: Record<string, unknown> }) =>
+                Promise.resolve(
+                    options.where.upscaler === UpscalerType.OFF
+                        ? []
+                        : [mismatchedRecord],
+                ),
+        );
+
+        const result = await service.checkCompatibility(validRequest());
+
+        expect(result.source).toBe('estimate');
+        expect(result.sub).toContain('Expect ~');
+        expect(mockPerfRepo.find).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: containing({
+                    upscaler: UpscalerType.OFF,
+                    upscalerQuality: IsNull(),
+                }),
+            }),
+        );
+    });
+
+    it('uses SQL IS NULL for an explicitly null published quality', async () => {
+        await service.checkCompatibility(
+            validRequest({
+                upscaler: UpscalerType.DLSS,
+                upscalerQuality: null,
+            }),
+        );
+
+        expect(mockPerfRepo.find).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: containing({
+                    upscaler: UpscalerType.DLSS,
+                    upscalerQuality: IsNull(),
+                }),
+            }),
+        );
+    });
+
+    it('selects the newest measured row among exact upscaler and quality matches', async () => {
         mockPerfRepo.find.mockResolvedValue([
             record({
                 source: 'gemini',
                 upscaler: UpscalerType.DLSS,
                 upscalerQuality: UpscalerQualityMode.QUALITY,
                 fpsAvg: 120,
-            }),
-            record({
-                upscaler: UpscalerType.DLSS,
-                upscalerQuality: UpscalerQualityMode.PERFORMANCE,
-                fpsAvg: 60,
-                createdAt: new Date('2026-09-12T00:00:00.000Z'),
             }),
             record({
                 upscaler: UpscalerType.DLSS,
@@ -179,23 +239,6 @@ describe('CheckService', () => {
         expect(result.sub).toContain('70fps');
     });
 
-    it('accepts another upscaler and chooses the newest row when no preference matches', async () => {
-        mockPerfRepo.find.mockResolvedValue([
-            record({ fpsAvg: 60 }),
-            record({
-                upscaler: UpscalerType.DLSS,
-                fpsAvg: 70,
-                createdAt: new Date('2026-09-12T00:00:00.000Z'),
-            }),
-        ]);
-
-        const result = await service.checkCompatibility(
-            validRequest({ upscaler: UpscalerType.FSR }),
-        );
-
-        expect(result.sub).toContain('70fps');
-    });
-
     it('reuses a stored Gemini row without calling or saving the provider', async () => {
         mockPerfRepo.find.mockResolvedValue([
             record({ source: 'gemini', fpsAvg: 64 }),
@@ -209,7 +252,7 @@ describe('CheckService', () => {
         expect(mockPerfRepo.save).not.toHaveBeenCalled();
     });
 
-    it('persists a new Gemini average with provider provenance and off upscaler assumptions', async () => {
+    it('persists a new Gemini average with the normalized request identity', async () => {
         mockGeminiService.estimate.mockResolvedValue({
             fps: { low: 80, med: 70, high: 60, ultra: 45 },
             note: null,
@@ -230,8 +273,8 @@ describe('CheckService', () => {
             resolutionWidth: 1920,
             resolutionHeight: 1080,
             settings: SettingPreset.HIGH,
-            upscaler: UpscalerType.OFF,
-            upscalerQuality: null,
+            upscaler: UpscalerType.DLSS,
+            upscalerQuality: UpscalerQualityMode.BALANCED,
             fpsAvg: 60,
             fps1PercentLow: null,
             verified: false,
@@ -239,6 +282,90 @@ describe('CheckService', () => {
             sourceUrl: null,
         });
         expect(mockPerfRepo.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('reuses a published Gemini cache for an identical upscaled request', async () => {
+        const request = validRequest({
+            upscaler: UpscalerType.DLSS,
+            upscalerQuality: UpscalerQualityMode.QUALITY,
+        });
+        let cached: PerformanceRecord | null = null;
+        mockPerfRepo.create.mockImplementation(
+            (value: Partial<PerformanceRecord>) => ({
+                ...record(value),
+                ...value,
+            }),
+        );
+        mockPerfRepo.save.mockImplementation((value: PerformanceRecord) => {
+            cached = value;
+            return value;
+        });
+        mockPerfRepo.find.mockImplementation(
+            (options: { where: Record<string, unknown> }) =>
+                cached &&
+                options.where.upscaler === UpscalerType.DLSS &&
+                options.where.upscalerQuality === UpscalerQualityMode.QUALITY
+                    ? Promise.resolve([cached])
+                    : Promise.resolve([]),
+        );
+        mockGeminiService.estimate.mockResolvedValue({
+            fps: { low: 80, med: 70, high: 60, ultra: 45 },
+            note: null,
+        });
+
+        await service.checkCompatibility(request);
+        await service.checkCompatibility(request);
+
+        expect(mockGeminiService.estimate).toHaveBeenCalledTimes(1);
+        expect(mockPerfRepo.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                upscaler: UpscalerType.DLSS,
+                upscalerQuality: UpscalerQualityMode.QUALITY,
+            }),
+        );
+    });
+
+    it('shares a Gemini cache identity between omitted and explicit off', async () => {
+        let cached: PerformanceRecord | null = null;
+        mockPerfRepo.create.mockImplementation(
+            (value: Partial<PerformanceRecord>) => record(value),
+        );
+        mockPerfRepo.save.mockImplementation((value: PerformanceRecord) => {
+            cached = value;
+            return value;
+        });
+        mockPerfRepo.find.mockImplementation(() =>
+            Promise.resolve(cached ? [cached] : []),
+        );
+        mockGeminiService.estimate.mockResolvedValue({
+            fps: { low: 80, med: 70, high: 60, ultra: 45 },
+            note: null,
+        });
+
+        await service.checkCompatibility(validRequest());
+        const result = await service.checkCompatibility(
+            validRequest({ upscaler: UpscalerType.OFF }),
+        );
+
+        expect(result.source).toBe('ai');
+        expect(mockGeminiService.estimate).toHaveBeenCalledTimes(1);
+        expect(mockPerfRepo.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                upscaler: UpscalerType.OFF,
+                upscalerQuality: null,
+            }),
+        );
+        expect(mockPerfRepo.find).toHaveBeenCalledTimes(2);
+        for (const [query] of mockPerfRepo.find.mock.calls as Array<
+            [{ where: Record<string, unknown> }]
+        >) {
+            expect(query.where).toEqual(
+                expect.objectContaining({
+                    upscaler: UpscalerType.OFF,
+                    upscalerQuality: IsNull(),
+                }),
+            );
+        }
     });
 
     it('uses the heuristic without persisting it when a requirement is available', async () => {
@@ -276,6 +403,208 @@ describe('CheckService', () => {
             where: { slug: 'test-game', status: 'published' },
             relations: ['requirements', 'requirements.cpu', 'requirements.gpu'],
         });
+        expect(mockPerfRepo.find).not.toHaveBeenCalled();
+        expect(mockGeminiService.estimate).not.toHaveBeenCalled();
+    });
+
+    it('checks a pending game by internal id using only an exact cached Gemini row', async () => {
+        const pendingGame = {
+            ...game,
+            status: 'pending_approval',
+            requirements: [],
+        } as unknown as Game;
+        mockGameRepo.findOne.mockResolvedValue(pendingGame);
+        mockPerfRepo.findOne.mockResolvedValue(
+            record({
+                game: pendingGame,
+                source: 'gemini',
+                upscaler: UpscalerType.DLSS,
+                upscalerQuality: UpscalerQualityMode.QUALITY,
+                fpsAvg: 58,
+            }),
+        );
+
+        const result = await checkPending(1, {
+            hardware: {
+                cpuId: 2,
+                gpuId: 2,
+                ramGb: 16,
+                isSsd: true,
+            },
+            settings: {
+                resolutionWidth: 1920,
+                resolutionHeight: 1080,
+                tier: 'minimum',
+                preset: SettingPreset.HIGH,
+                targetFps: 60,
+                upscaler: UpscalerType.DLSS,
+                upscalerQuality: UpscalerQualityMode.QUALITY,
+            },
+        });
+
+        expect(result).toMatchObject({ source: 'ai', provider: 'gemini' });
+        expect(mockGameRepo.findOne).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: { id: 1, status: 'pending_approval' },
+            }),
+        );
+        expect(mockPerfRepo.findOne).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: containing({
+                    game: { id: 1 },
+                    cpu: { id: 2 },
+                    gpu: { id: 2 },
+                    ramGb: 16,
+                    resolutionWidth: 1920,
+                    resolutionHeight: 1080,
+                    settings: SettingPreset.HIGH,
+                    upscaler: UpscalerType.DLSS,
+                    upscalerQuality: UpscalerQualityMode.QUALITY,
+                    source: 'gemini',
+                }),
+                order: { createdAt: 'DESC' },
+            }),
+        );
+        expect(mockPerfRepo.find).not.toHaveBeenCalled();
+        expect(mockGeminiService.estimate).not.toHaveBeenCalled();
+    });
+
+    it('uses SQL IS NULL for an explicitly null pending quality', async () => {
+        const pendingGame = {
+            ...game,
+            status: 'pending_approval',
+            requirements: [],
+        } as unknown as Game;
+        mockGameRepo.findOne.mockResolvedValue(pendingGame);
+
+        await checkPending(1, {
+            hardware: {
+                cpuId: 2,
+                gpuId: 2,
+                ramGb: 16,
+                isSsd: true,
+            },
+            settings: {
+                resolutionWidth: 1920,
+                resolutionHeight: 1080,
+                preset: SettingPreset.HIGH,
+                upscaler: UpscalerType.DLSS,
+                upscalerQuality: null,
+            },
+        });
+
+        expect(mockPerfRepo.findOne).toHaveBeenCalledWith(
+            expect.objectContaining({
+                where: containing({
+                    upscaler: UpscalerType.DLSS,
+                    upscalerQuality: IsNull(),
+                    source: 'gemini',
+                }),
+            }),
+        );
+    });
+
+    it('caches a pending Gemini estimate with the request identity and no 1%-low value', async () => {
+        const pendingGame = {
+            ...game,
+            status: 'pending_approval',
+            requirements: [],
+        } as unknown as Game;
+        mockGameRepo.findOne.mockResolvedValue(pendingGame);
+        mockGeminiService.estimate.mockResolvedValue({
+            fps: { low: 80, med: 70, high: 60, ultra: 45 },
+            note: null,
+        });
+
+        await checkPending(1, {
+            hardware: {
+                cpuId: 2,
+                gpuId: 2,
+                ramGb: 16,
+                isSsd: true,
+            },
+            settings: {
+                resolutionWidth: 1920,
+                resolutionHeight: 1080,
+                preset: SettingPreset.HIGH,
+                targetFps: 60,
+                upscaler: UpscalerType.DLSS,
+                upscalerQuality: UpscalerQualityMode.BALANCED,
+            },
+        });
+
+        expect(mockPerfRepo.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                game: pendingGame,
+                cpu: userCpu,
+                gpu: userGpu,
+                ramGb: 16,
+                resolutionWidth: 1920,
+                resolutionHeight: 1080,
+                settings: SettingPreset.HIGH,
+                upscaler: UpscalerType.DLSS,
+                upscalerQuality: UpscalerQualityMode.BALANCED,
+                fpsAvg: 60,
+                fps1PercentLow: null,
+                source: 'gemini',
+            }),
+        );
+        expect(mockPerfRepo.save).toHaveBeenCalledTimes(1);
+    });
+
+    it('keeps pending fallback insufficient when RAWG has no structured requirements', async () => {
+        mockGameRepo.findOne.mockResolvedValue({
+            ...game,
+            status: 'pending_approval',
+            requirements: [],
+        });
+
+        const result = await checkPending(1, {
+            hardware: {
+                cpuId: 2,
+                gpuId: 2,
+                ramGb: 16,
+                isSsd: true,
+            },
+            settings: {
+                resolutionWidth: 1920,
+                resolutionHeight: 1080,
+                preset: SettingPreset.HIGH,
+                targetFps: 120,
+            },
+        });
+
+        expect(result).toMatchObject({
+            state: 'insufficient',
+            verdict: 'Insufficient data',
+        });
+        expect(mockPerfRepo.find).not.toHaveBeenCalled();
+        expect(mockGeminiService.estimate).toHaveBeenCalledTimes(1);
+        expect(mockPerfRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('validates CPU and GPU IDs for pending checks before provider or performance work', async () => {
+        mockGameRepo.findOne.mockResolvedValue({
+            ...game,
+            status: 'pending_approval',
+        });
+        mockCpuRepo.findOneBy.mockResolvedValue(null);
+
+        await expect(
+            checkPending(1, {
+                hardware: {
+                    cpuId: 0,
+                    gpuId: 2,
+                    ramGb: 16,
+                    isSsd: true,
+                },
+                settings: {
+                    resolutionWidth: 1920,
+                    resolutionHeight: 1080,
+                    preset: SettingPreset.HIGH,
+                },
+            }),
+        ).rejects.toThrow('CPU with ID');
         expect(mockPerfRepo.find).not.toHaveBeenCalled();
         expect(mockGeminiService.estimate).not.toHaveBeenCalled();
     });

@@ -56,6 +56,7 @@ services:
       - POSTGRES_PASSWORD=changeme
       - POSTGRES_DB=test_db
       - RABBITMQ_URL=amqp://ciri-test:ciri-test-password@rabbitmq:5672
+      - RAWG_API_KEY=${RAWG_API_KEY:-}
     command: >
       sh -c "npm run test && npm run test:e2e"
     volumes:

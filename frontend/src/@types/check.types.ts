@@ -27,7 +27,7 @@ export interface Settings {
 }
 
 export interface CheckRequest {
-  gameSlug: string;
+  gameSlug?: string;
   hardware: Hardware;
   settings: Settings;
 }
