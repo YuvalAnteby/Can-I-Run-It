@@ -587,6 +587,28 @@ describe('GameEnrichmentWorker', () => {
         ).not.toHaveBeenCalled();
     });
 
+    it('asks Gemini to interpret an unstructured recommended tier', async () => {
+        const harness = await createHarness();
+        harness.wiki.fetchExactGameData.mockResolvedValue({
+            ...matchedLookup,
+            minimum: 'RAM: 8 GB\nCPU: Intel Core i5-8400\nGPU: GTX 1060',
+            recommended: 'Recommended RAM: eight gigabytes',
+        });
+
+        await harness.deliver({ gameId: 42 });
+
+        expect(harness.gemini.extractMissingRequirements).toHaveBeenCalledWith(
+            'Recommended RAM: eight gigabytes',
+            expect.arrayContaining([
+                'requirements.recommended.ramGb',
+                'requirements.recommended.cpu',
+                'requirements.recommended.gpu',
+            ]),
+            'pcgamingwiki',
+            matchedLookup.url,
+        );
+    });
+
     it('skips PCGamingWiki when retained RAWG data fills every wiki-capable field', async () => {
         const harness = await createHarness();
         harness.store.game!.rawgPayload = {
@@ -865,6 +887,91 @@ describe('GameEnrichmentWorker', () => {
         ).toEqual({ source: 'admin', sourceUrl: null, extractedBy: null });
     });
 
+    it('persists an explicit false SSD requirement with its provenance', async () => {
+        const harness = await createHarness();
+        harness.wiki.fetchExactGameData.mockResolvedValue({
+            kind: 'unmatched',
+            warning: 'PCGamingWiki page not found',
+        });
+        harness.store.game!.rawgPayload = {
+            id: 12,
+            name: 'Elden Ring',
+            platforms: [
+                {
+                    platform: { id: 4, slug: 'pc', name: 'PC' },
+                    requirements: {
+                        minimum: 'RAM: 8 GB',
+                    },
+                },
+            ],
+        };
+        harness.gemini.extractMissingRequirements.mockResolvedValue({
+            'requirements.minimum.requiresSsd': {
+                value: false,
+                source: 'rawg',
+                sourceUrl: 'https://rawg.io/games/12',
+                extractedBy: 'gemini',
+            },
+        });
+
+        await harness.deliver({ gameId: 42 });
+
+        expect(harness.store.requirementRows[0]?.requiresSsd).toBe(false);
+        expect(
+            harness.store.game?.metadataProvenance[
+                'requirements.minimum.requiresSsd'
+            ],
+        ).toEqual({
+            source: 'rawg',
+            sourceUrl: 'https://rawg.io/games/12',
+            extractedBy: 'gemini',
+        });
+        expect(harness.store.job?.missingFields).not.toContain(
+            'requirements.minimum.requiresSsd',
+        );
+    });
+
+    it('does not replace newer SSD provenance with a stale candidate', async () => {
+        const gate = deferred<void>();
+        const harness = await createHarness({ completionGate: gate });
+        harness.store.game!.rawgPayload = {
+            id: 12,
+            name: 'Elden Ring',
+            platforms: [
+                {
+                    platform: { id: 4, slug: 'pc', name: 'PC' },
+                    requirements: { minimum: 'RAM: 8 GB' },
+                },
+            ],
+        };
+        harness.gemini.extractMissingRequirements.mockResolvedValue({
+            'requirements.minimum.requiresSsd': {
+                value: false,
+                source: 'rawg',
+                sourceUrl: 'https://rawg.io/games/12',
+                extractedBy: 'gemini',
+            },
+        });
+        const delivery = harness.deliver({ gameId: 42 });
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        harness.store.game!.metadataProvenance = {
+            'requirements.minimum.requiresSsd': {
+                source: 'pcgamingwiki',
+                sourceUrl: 'https://www.pcgamingwiki.com/wiki/Elden_Ring',
+                extractedBy: null,
+            },
+        };
+        gate.resolve();
+
+        await delivery;
+
+        expect(
+            harness.store.game?.metadataProvenance[
+                'requirements.minimum.requiresSsd'
+            ]?.source,
+        ).toBe('pcgamingwiki');
+    });
+
     it('preserves an admin-owned blank requirement note', async () => {
         const harness = await createHarness();
         const game = harness.store.game!;
@@ -1122,6 +1229,29 @@ describe('GameEnrichmentWorker', () => {
         gate.resolve();
         await first;
         expect(harness.channel.ack).toHaveBeenCalledTimes(2);
+    });
+
+    it('ACKs a live duplicate without invalidating the third attempt owner', async () => {
+        const gate = deferred<void>();
+        const harness = await createHarness({
+            jobOverrides: { attempts: 2 },
+        });
+        harness.wiki.fetchExactGameData.mockImplementation(async () => {
+            await gate.promise;
+            return matchedLookup;
+        });
+        const first = harness.deliver({ gameId: 42 });
+        await new Promise<void>((resolve) => setImmediate(resolve));
+
+        await harness.deliver({ gameId: 42 });
+
+        expect(harness.store.job?.status).toBe('processing');
+        expect(harness.store.job?.claimToken).not.toBeNull();
+        expect(harness.wiki.fetchExactGameData).toHaveBeenCalledTimes(1);
+
+        gate.resolve();
+        await first;
+        expect(harness.store.job?.status).toBe('completed');
     });
 
     it('marks a RAWG identity mismatch terminal without contacting providers', async () => {

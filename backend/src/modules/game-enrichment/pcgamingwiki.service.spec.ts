@@ -14,6 +14,7 @@ import {
     redirectQueryResponse,
     windowsThenOtherRequirementsParseResponse,
 } from './__fixtures__/pcgamingwiki.fixtures';
+import { extractDeterministicRequirements } from './enrichment-values';
 import {
     PcGamingWikiProviderError,
     PcGamingWikiService,
@@ -271,6 +272,35 @@ describe('PcGamingWikiService', () => {
         expect(result.minimum).toContain('Storage: 60 GB');
         expect(result.recommended).toContain('Storage: 80 GB');
         expect(result.warnings).toEqual([]);
+    });
+
+    it('preserves pipes inside wikilinks in requirement values', async () => {
+        fetchSpy
+            .mockResolvedValueOnce(jsonResponse(exactQueryResponse))
+            .mockResolvedValueOnce(
+                jsonResponse({
+                    parse: {
+                        title: 'Elden Ring',
+                        wikitext:
+                            '{{System requirements|OSfamily=Windows|' +
+                            'mincpu=[[Intel Core i5-8400|Intel i5-8400]]}}',
+                    },
+                }),
+            );
+
+        const result = await service.fetchExactGameData('Elden Ring');
+
+        expect(result.kind).toBe('matched');
+        if (result.kind !== 'matched') return;
+        expect(result.minimum).toBe('CPU: Intel i5-8400');
+        expect(
+            extractDeterministicRequirements(
+                result.minimum ?? '',
+                'minimum',
+                'pcgamingwiki',
+                result.url,
+            )['requirements.minimum.cpu']?.value,
+        ).toBe('Intel i5-8400');
     });
 
     it.each([

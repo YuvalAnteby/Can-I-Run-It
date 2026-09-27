@@ -176,10 +176,12 @@ const labeledValue = (text: string, labels: string[]): string | undefined => {
 
 const gigabytes = (value: string | undefined): number | undefined => {
     if (!value) return undefined;
-    const match = value.match(/(\d+(?:\.\d+)?)\s*(GB|MB)\b/i);
+    const match = value.match(
+        /(?<![\d,])([+-]?\s*(?:\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?)\s*(GB|MB)\b/i,
+    );
     if (!match) return undefined;
 
-    const amount = Number(match[1]);
+    const amount = Number(match[1].replaceAll(/[\s,]/g, ''));
     if (!Number.isFinite(amount) || amount <= 0) return undefined;
     return Math.ceil(match[2].toUpperCase() === 'MB' ? amount / 1024 : amount);
 };

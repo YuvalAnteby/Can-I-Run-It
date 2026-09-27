@@ -208,6 +208,24 @@ describe('enrichment values', () => {
             expect(values['requirements.minimum.vramGb']?.value).toBe(8);
             expect(values['requirements.minimum.storageGb']?.value).toBe(80);
         });
+
+        it('rejects negative memory and parses comma-grouped memory', () => {
+            const negative = extractDeterministicRequirements(
+                'RAM: -8 GB',
+                'minimum',
+                'rawg',
+                null,
+            );
+            const grouped = extractDeterministicRequirements(
+                'RAM: 8,192 MB',
+                'minimum',
+                'rawg',
+                null,
+            );
+
+            expect(negative['requirements.minimum.ramGb']).toBeUndefined();
+            expect(grouped['requirements.minimum.ramGb']?.value).toBe(8);
+        });
     });
 
     describe('mergeCandidateValuesPreservingExisting', () => {

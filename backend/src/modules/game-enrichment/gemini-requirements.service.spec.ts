@@ -1,4 +1,4 @@
-import { Type } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import { ConfigService } from '@nestjs/config';
 
 import { GeminiRequirementsService } from './gemini-requirements.service';
@@ -135,22 +135,22 @@ describe('GeminiRequirementsService', () => {
 
         const request = sdk.models.generateContent.mock.calls[0]?.[0] as {
             config?: {
-                responseSchema?: {
+                responseJsonSchema?: {
                     additionalProperties?: {
                         properties?: {
-                            value?: { anyOf?: Array<{ type?: Type }> };
+                            value?: { anyOf?: Array<{ type?: string }> };
                         };
                     };
                 };
             };
         };
         expect(
-            request.config?.responseSchema?.additionalProperties?.properties
+            request.config?.responseJsonSchema?.additionalProperties?.properties
                 ?.value?.anyOf,
         ).toEqual([
-            { type: Type.STRING },
-            { type: Type.NUMBER },
-            { type: Type.BOOLEAN },
+            { type: 'string' },
+            { type: 'number' },
+            { type: 'boolean' },
         ]);
         expect(values).toEqual({
             'requirements.minimum.ramGb': {
@@ -166,6 +166,66 @@ describe('GeminiRequirementsService', () => {
                 extractedBy: 'gemini',
             },
         });
+    });
+
+    it('preserves the dynamic output schema in the SDK wire request', async () => {
+        const sdk = new GoogleGenAI({ apiKey: 'test-api-key' });
+        const requestSpy = jest
+            .spyOn(
+                (
+                    sdk.models as unknown as {
+                        apiClient: {
+                            request: (...args: never[]) => Promise<unknown>;
+                        };
+                    }
+                ).apiClient,
+                'request',
+            )
+            .mockResolvedValue({
+                json: async () => ({
+                    candidates: [{ content: { parts: [{ text: '{}' }] } }],
+                }),
+                headers: new Headers(),
+            });
+        const service = new GeminiRequirementsService(config);
+        setSdk(
+            service,
+            sdk as unknown as {
+                models: { generateContent: GenerateContentMock };
+            },
+        );
+
+        await service.extractMissingRequirements(
+            'Solid-state media is required',
+            ['requirements.minimum.requiresSsd'],
+            'rawg',
+            null,
+        );
+
+        const request = requestSpy.mock.calls[0]?.[0] as { body?: string };
+        const body = JSON.parse(request.body ?? '{}') as {
+            generationConfig?: {
+                responseSchema?: unknown;
+                responseJsonSchema?: {
+                    type?: string;
+                    additionalProperties?: {
+                        properties?: Record<string, unknown>;
+                    };
+                };
+            };
+        };
+        expect(body.generationConfig?.responseSchema).toBeUndefined();
+        expect(body.generationConfig?.responseJsonSchema).toEqual(
+            expect.objectContaining({
+                type: 'object',
+                additionalProperties: expect.objectContaining({
+                    properties: expect.objectContaining({
+                        value: expect.any(Object),
+                        evidence: expect.any(Object),
+                    }),
+                }),
+            }),
+        );
     });
 
     it('drops model values whose evidence quote is not present in the source', async () => {

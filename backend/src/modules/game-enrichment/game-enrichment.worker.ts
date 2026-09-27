@@ -206,6 +206,14 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             if (game.status !== 'pending_approval') return { kind: 'ack' };
             if (job.status === 'completed') return { kind: 'ack' };
             if (job.status === 'failed') return { kind: 'dead' };
+            if (
+                job.status === 'processing' &&
+                job.claimedAt &&
+                Date.now() - job.claimedAt.getTime() < CLAIM_LEASE_MS
+            ) {
+                return { kind: 'ack' };
+            }
+
             if (job.attempts >= MAX_ATTEMPTS) {
                 job.status = 'failed';
                 job.error = 'Enrichment attempts exhausted';
@@ -213,14 +221,6 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                 job.claimedAt = null;
                 await jobRepository.save(job);
                 return { kind: 'dead' };
-            }
-
-            if (
-                job.status === 'processing' &&
-                job.claimedAt &&
-                Date.now() - job.claimedAt.getTime() < CLAIM_LEASE_MS
-            ) {
-                return { kind: 'ack' };
             }
 
             try {
@@ -314,11 +314,24 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
         }
 
         for (const source of sources) {
+            const tierPrefix = `requirements.${source.tier}.`;
             const missing = listMissingEnrichmentFields(candidates).filter(
-                (path) =>
-                    path === `requirements.${source.tier}.ramGb` ||
-                    path.startsWith(`requirements.${source.tier}.`),
+                (path) => path.startsWith(tierPrefix),
             );
+            if (source.tier === 'recommended' && missing.length === 0) {
+                for (const field of [
+                    'ramGb',
+                    'vramGb',
+                    'storageGb',
+                    'cpu',
+                    'gpu',
+                    'requiresSsd',
+                    'notes',
+                ] as const) {
+                    const path = `${tierPrefix}${field}` as FieldPath;
+                    if (!candidates[path]) missing.push(path);
+                }
+            }
             const requiredMissing = missing.filter((path) =>
                 [
                     `requirements.${source.tier}.ramGb`,
@@ -838,7 +851,11 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
             recordCandidateProvenance('gpu', gpu !== null && !existing?.gpu);
             recordCandidateProvenance(
                 'requiresSsd',
-                existing?.requiresSsd !== true && row.requiresSsd,
+                !metadataProvenance[`requirements.${tier}.requiresSsd`] &&
+                    typeof candidates[`requirements.${tier}.requiresSsd`]
+                        ?.value === 'boolean' &&
+                    row.requiresSsd ===
+                        candidates[`requirements.${tier}.requiresSsd`]?.value,
             );
             if (
                 !isAdminOwned('notes') &&
@@ -898,7 +915,10 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                         metadataProvenance[`requirements.${tier}.gpu`],
                     );
             }
-            if (row.requiresSsd || isAdminOwned('requiresSsd')) {
+            if (
+                row.requiresSsd ||
+                metadataProvenance[`requirements.${tier}.requiresSsd`]
+            ) {
                 persisted[`requirements.${tier}.requiresSsd`] = {
                     value: row.requiresSsd,
                     source: tierSource('requiresSsd'),
@@ -1029,10 +1049,10 @@ export class GameEnrichmentWorker implements OnModuleInit, OnModuleDestroy {
                     ...entry('gpu'),
                     value: row.gpu.name,
                 };
-            if (row.requiresSsd)
+            if (row.requiresSsd || provenance[`${prefix}.requiresSsd`])
                 values[`${prefix}.requiresSsd`] = {
                     ...entry('requiresSsd'),
-                    value: true,
+                    value: row.requiresSsd,
                 };
             if (row.notes)
                 values[`${prefix}.notes`] = {

@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type } from '@google/genai';
+import { GoogleGenAI } from '@google/genai';
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
@@ -163,19 +163,19 @@ export class GeminiRequirementsService {
                     config: {
                         abortSignal: controller.signal,
                         responseMimeType: 'application/json',
-                        responseSchema: {
-                            type: Type.OBJECT,
+                        responseJsonSchema: {
+                            type: 'object',
                             additionalProperties: {
-                                type: Type.OBJECT,
+                                type: 'object',
                                 properties: {
                                     value: {
                                         anyOf: [
-                                            { type: Type.STRING },
-                                            { type: Type.NUMBER },
-                                            { type: Type.BOOLEAN },
+                                            { type: 'string' },
+                                            { type: 'number' },
+                                            { type: 'boolean' },
                                         ],
                                     },
-                                    evidence: { type: Type.STRING },
+                                    evidence: { type: 'string' },
                                 },
                             },
                         },

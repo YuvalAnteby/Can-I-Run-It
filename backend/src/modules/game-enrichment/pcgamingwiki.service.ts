@@ -63,6 +63,12 @@ const nonblank = (value: unknown): value is string =>
 const normalizeTitleForComparison = (value: string): string =>
     value.trim().replaceAll('_', ' ').replace(/\s+/g, ' ').toLocaleLowerCase();
 
+const normalizeWikiLinks = (value: string): string =>
+    value.replace(
+        /\[\[([^|\]]+)(?:\|([^\]]+))?\]\]/g,
+        (_match, target: string, label?: string) => (label ?? target).trim(),
+    );
+
 const sleep = (milliseconds: number): Promise<void> =>
     new Promise((resolve) => setTimeout(resolve, milliseconds));
 
@@ -96,15 +102,22 @@ const splitTopLevelTemplateParameters = (body: string): string[] => {
     const parts: string[] = [];
     let start = 0;
     let depth = 0;
+    let linkDepth = 0;
 
     for (let index = 0; index < body.length; index += 1) {
         if (body.startsWith('{{', index)) {
             depth += 1;
             index += 1;
+        } else if (body.startsWith('[[', index)) {
+            linkDepth += 1;
+            index += 1;
         } else if (body.startsWith('}}', index)) {
             depth = Math.max(0, depth - 1);
             index += 1;
-        } else if (body[index] === '|' && depth === 0) {
+        } else if (body.startsWith(']]', index)) {
+            linkDepth = Math.max(0, linkDepth - 1);
+            index += 1;
+        } else if (body[index] === '|' && depth === 0 && linkDepth === 0) {
             parts.push(body.slice(start, index));
             start = index + 1;
         }
@@ -207,7 +220,7 @@ const extractWindowsRequirements = (
 
         const field = key.replace(/^(?:min|rec)/, '');
         const label = labels[field];
-        if (label) lines[tier].push(`${label}: ${value}`);
+        if (label) lines[tier].push(`${label}: ${normalizeWikiLinks(value)}`);
     }
 
     return {
