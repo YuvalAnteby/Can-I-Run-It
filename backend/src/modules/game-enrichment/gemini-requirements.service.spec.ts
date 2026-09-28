@@ -182,9 +182,10 @@ describe('GeminiRequirementsService', () => {
                 'request',
             )
             .mockResolvedValue({
-                json: async () => ({
-                    candidates: [{ content: { parts: [{ text: '{}' }] } }],
-                }),
+                json: () =>
+                    Promise.resolve({
+                        candidates: [{ content: { parts: [{ text: '{}' }] } }],
+                    }),
                 headers: new Headers(),
             });
         const service = new GeminiRequirementsService(config);
@@ -215,16 +216,13 @@ describe('GeminiRequirementsService', () => {
             };
         };
         expect(body.generationConfig?.responseSchema).toBeUndefined();
-        expect(body.generationConfig?.responseJsonSchema).toEqual(
-            expect.objectContaining({
-                type: 'object',
-                additionalProperties: expect.objectContaining({
-                    properties: expect.objectContaining({
-                        value: expect.any(Object),
-                        evidence: expect.any(Object),
-                    }),
-                }),
-            }),
+        const schema = body.generationConfig?.responseJsonSchema;
+        expect(schema?.type).toBe('object');
+        expect(schema?.additionalProperties?.properties).toHaveProperty(
+            'value',
+        );
+        expect(schema?.additionalProperties?.properties).toHaveProperty(
+            'evidence',
         );
     });
 
