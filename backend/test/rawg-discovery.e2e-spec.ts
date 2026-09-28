@@ -11,6 +11,7 @@ import { DataSource } from 'typeorm';
 
 import { AppModule } from '../src/app.module';
 import { CheckResponseDto } from '../src/modules/check/dto/check-response.dto';
+import { GameEnrichmentWorker } from '../src/modules/game-enrichment/game-enrichment.worker';
 import { EnrichmentPublisher } from '../src/modules/games/enrichment-publisher.service';
 import {
     assertGameEnrichmentTopology,
@@ -55,7 +56,7 @@ type GameBody = {
 };
 
 type ListBody = {
-    meta: { total: number };
+    data: Array<{ id: number }>;
 };
 
 const bodyOf = <T>(response: { body: unknown }): T => response.body as T;
@@ -137,6 +138,8 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
         })
             .overrideProvider(RawgClient)
             .useValue(rawg)
+            .overrideProvider(GameEnrichmentWorker)
+            .useValue({})
             .compile();
 
         app = moduleFixture.createNestApplication();
@@ -524,7 +527,11 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
             .get('/api/v2/games')
             .query({ search: 'Issue 66 Visibility' })
             .expect((response) => {
-                expect(bodyOf<ListBody>(response).meta.total).toBe(0);
+                expect(
+                    bodyOf<ListBody>(response).data.some(
+                        ({ id }) => id === gameId,
+                    ),
+                ).toBe(false);
             });
         await api()
             .post('/api/v1/check')

@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS game_enrichment_jobs (
   status VARCHAR(20) NOT NULL DEFAULT 'queued'
     CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
   missing_fields TEXT[] NOT NULL DEFAULT '{}'::text[],
+  warnings TEXT[] NOT NULL DEFAULT '{}'::text[],
   error TEXT,
   attempts INTEGER NOT NULL DEFAULT 0 CHECK (attempts >= 0),
   claim_token UUID,

@@ -53,6 +53,18 @@ export class GameEnrichmentJob {
     })
     missingFields: string[];
 
+    @Column({
+        type: 'text',
+        array: true,
+        name: 'warnings',
+        default: () => "'{}'::text[]",
+    })
+    @ApiProperty({
+        description: 'Warnings requiring review after enrichment',
+        example: ['PCGamingWiki page not found'],
+    })
+    warnings: string[];
+
     @Column({ type: 'text', nullable: true })
     @ApiProperty({
         description: 'The most recent enrichment error',
