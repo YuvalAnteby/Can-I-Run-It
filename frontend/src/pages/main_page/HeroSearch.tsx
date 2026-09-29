@@ -1,9 +1,14 @@
-import { Gauge, Monitor, Search } from 'lucide-react';
+import { Search } from 'lucide-react';
+import { useMutation } from '@tanstack/react-query';
 import { useEffect, useReducer, useRef } from 'react';
 import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import type { ClientGameDto } from '../../@types/game.types';
+import type {
+  GameSearchResult,
+  RawgSelectionResponse,
+} from '../../@types/game.types';
+import { nestClient } from '../../api/nestClient';
 import { useGameSearch } from './useGameSearch';
 
 // TODO: Re-add HeroSearchProps with userState / user props once the auth module
@@ -41,8 +46,19 @@ export const HeroSearch = (): ReactElement => {
     query: '',
     dropdownOpen: false,
   });
-
-  const { results, isLoading, isError } = useGameSearch(query);
+  const { results, rawgAvailable, isLoading, isError } = useGameSearch(query);
+  const selection = useMutation<RawgSelectionResponse, Error, number>({
+    mutationFn: async (rawgId: number): Promise<RawgSelectionResponse> => {
+      try {
+        const response = await nestClient.post<RawgSelectionResponse>(
+          `/v2/games/rawg/${rawgId}/select`,
+        );
+        return response.data;
+      } catch {
+        throw new Error('Could not select this RAWG game. Please try again.');
+      }
+    },
+  });
   const wrapperRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown on outside click
@@ -59,32 +75,42 @@ export const HeroSearch = (): ReactElement => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = (game: ClientGameDto): void => {
-    dispatch({ type: 'SELECT_GAME', payload: game.name });
-    void navigate(`/games/${game.slug}`);
+  const handleSelect = (game: GameSearchResult): void => {
+    if (game.source === 'local') {
+      dispatch({ type: 'SELECT_GAME', payload: game.name });
+      void navigate(`/games/${game.slug}`);
+      return;
+    }
+
+    selection.mutate(game.rawgId, {
+      onSuccess: (selected) => {
+        dispatch({ type: 'SELECT_GAME', payload: game.name });
+        void navigate(
+          selected.status === 'published'
+            ? `/games/${selected.slug}`
+            : `/pending-games/${selected.id}`,
+        );
+      },
+    });
   };
 
   return (
-    <div className="relative bg-[#0f1115] overflow-hidden pt-[80px] pb-[100px] px-5 text-center">
+    <div className="relative bg-[#0f1115] pt-[80px] pb-[100px] px-5 text-center">
       <div className="absolute inset-0 [background:radial-gradient(circle_at_top,#1c232b_0%,#0f1115_70%)] z-0"></div>
 
       <div className="relative z-10 max-w-[900px] mx-auto">
         {/* Main Heading */}
         <h1 className="text-[2.5rem] md:text-[3.5rem] font-extrabold text-white/[0.87] m-0 mb-5 leading-[1.1] tracking-[-1px]">
-          Will your PC{' '}
-          <span className="bg-gradient-to-r from-red-500 to-orange-500 bg-clip-text text-transparent">
-            survive
-          </span>{' '}
-          or{' '}
-          <span className="bg-gradient-to-r from-blue-400 to-blue-600 bg-clip-text text-transparent">
-            thrive?
-          </span>
+          Can I run it?
         </h1>
 
         {/* Subtitle */}
         <p className="text-xl text-white/60 m-0 mx-auto mb-10 max-w-[650px] leading-relaxed">
-          Stop guessing. Compare your PC hardware against 15,000+ games
-          instantly. No account required to check.
+          Stop guessing!
+          <br />
+          Compare your PC hardware against 15,000+ games instantly.
+          <br />
+          No account required to check.
         </p>
 
         {/* Search Bar */}
@@ -125,8 +151,7 @@ export const HeroSearch = (): ReactElement => {
           {/* Search Dropdown */}
           {dropdownOpen && (
             <ul
-              className="absolute top-[calc(100%+6px)] left-0 right-0 z-[100] m-0 py-1.5 list-none bg-[#1c2330] border border-[#30363d] rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.5)] overflow-hidden animate-dropdown-fade"
-              role="listbox"
+              className="absolute top-[calc(100%+6px)] left-0 right-0 z-[100] m-0 max-h-[60vh] overflow-y-auto py-1.5 list-none bg-[#1c2330] border border-[#30363d] rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.5)] animate-dropdown-fade"
               aria-label="Search results"
             >
               {isLoading &&
@@ -147,6 +172,12 @@ export const HeroSearch = (): ReactElement => {
                 </li>
               )}
 
+              {!isLoading && !isError && !rawgAvailable && (
+                <li className="px-4 py-2 text-xs text-amber-300 text-left">
+                  RAWG unavailable. Local results are still available.
+                </li>
+              )}
+
               {!isLoading && !isError && results.length === 0 && (
                 <li className="px-4 py-3 text-sm text-gray-400 text-left">
                   No games found for &ldquo;{query}&rdquo;
@@ -156,35 +187,63 @@ export const HeroSearch = (): ReactElement => {
               {!isLoading &&
                 !isError &&
                 results.map((game) => (
-                  <li key={game.id}>
+                  <li
+                    key={
+                      game.source === 'local'
+                        ? `local-${game.id}`
+                        : `rawg-${game.rawgId}`
+                    }
+                    className="flex items-center justify-between gap-3 px-4 py-2.5"
+                  >
                     <button
                       type="button"
-                      className="flex items-center justify-between w-full px-4 py-2.5 bg-transparent border-0 text-left cursor-pointer transition-colors duration-[0.12s] gap-3 hover:bg-blue-500/10"
+                      className="flex items-center min-w-0 flex-1 bg-transparent border-0 text-left cursor-pointer transition-colors duration-[0.12s] gap-3 hover:bg-blue-500/10"
+                      aria-label={`Select ${game.name}`}
                       onClick={() => handleSelect(game)}
-                      role="option"
-                      aria-selected={false}
+                      disabled={selection.isPending}
                     >
                       <span className="text-[0.9375rem] text-gray-200 whitespace-nowrap overflow-hidden text-ellipsis">
                         {game.name}
                       </span>
+                      {game.source === 'local' && (
+                        <span className="text-xs text-gray-400 shrink-0">
+                          Local
+                        </span>
+                      )}
                     </button>
+                    {game.source === 'rawg' && (
+                      <a
+                        href={game.rawgUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label="RAWG"
+                        className="text-xs text-blue-300 underline shrink-0"
+                      >
+                        RAWG
+                      </a>
+                    )}
+                    {game.source === 'local' &&
+                      game.attributions?.map((attribution) => (
+                        <a
+                          key={attribution.source}
+                          href={attribution.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          aria-label={`${attribution.label} source`}
+                          className="text-xs text-blue-300 underline shrink-0"
+                        >
+                          Source: {attribution.label}
+                        </a>
+                      ))}
                   </li>
                 ))}
             </ul>
           )}
-        </div>
-
-        {/* Guest Features */}
-        <div className="mt-8 flex justify-center gap-5 text-white/60 text-[0.9rem]">
-          <div className="flex items-center gap-1.5">
-            <Gauge size={16} />
-            <span>Accurate FPS Estimates</span>
-          </div>
-          <span>|</span>
-          <div className="flex items-center gap-1.5">
-            <Monitor size={16} />
-            <span>Auto-Detect Hardware</span>
-          </div>
+          {selection.isError && (
+            <p role="alert" className="mt-2 text-sm text-red-400 text-left">
+              {selection.error.message}
+            </p>
+          )}
         </div>
       </div>
     </div>

@@ -2,20 +2,19 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import type {
-  ClientGameDto,
-  PaginatedGamesResult,
+  GameDiscoveryResponse,
+  GameSearchResult,
 } from '../../@types/game.types';
 import { nestClient } from '../../api/nestClient';
 
-const fetchGameSearch = (q: string): Promise<ClientGameDto[]> =>
+const fetchGameSearch = (q: string): Promise<GameDiscoveryResponse> =>
   nestClient
-    .get<PaginatedGamesResult>('/v2/games', {
-      params: { search: q, limit: 8 },
-    })
-    .then((r) => r.data.data);
+    .get<GameDiscoveryResponse>('/v2/games/discover', { params: { q } })
+    .then((r) => r.data);
 
 interface UseGameSearchResult {
-  results: ClientGameDto[];
+  results: GameSearchResult[];
+  rawgAvailable: boolean;
   isLoading: boolean;
   isError: boolean;
 }
@@ -27,21 +26,26 @@ interface UseGameSearchResult {
  * the v2 games search function on the backend.
  */
 export function useGameSearch(rawQuery: string): UseGameSearchResult {
-  const [debouncedQuery, setDebouncedQuery] = useState<string>(rawQuery);
+  const normalizedQuery = rawQuery.trim();
+  const [debouncedQuery, setDebouncedQuery] = useState<string>(normalizedQuery);
 
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedQuery(rawQuery), 300);
+    const timer = setTimeout(() => setDebouncedQuery(normalizedQuery), 300);
     return () => clearTimeout(timer);
-  }, [rawQuery]);
+  }, [normalizedQuery]);
 
-  const trimmed = debouncedQuery.trim();
-
-  const { data, isLoading, isError } = useQuery<ClientGameDto[]>({
-    queryKey: ['games', 'search', trimmed] as const,
-    queryFn: () => fetchGameSearch(trimmed),
-    enabled: trimmed.length > 0,
+  const { data, isLoading, isError } = useQuery<GameDiscoveryResponse>({
+    queryKey: ['games', 'search', debouncedQuery] as const,
+    queryFn: () => fetchGameSearch(debouncedQuery),
+    enabled: debouncedQuery.length > 0,
     staleTime: 30_000,
   });
+  const isDebouncing = normalizedQuery !== debouncedQuery;
 
-  return { results: data ?? [], isLoading, isError };
+  return {
+    results: isDebouncing ? [] : (data?.data ?? []),
+    rawgAvailable: isDebouncing ? true : (data?.rawgAvailable ?? true),
+    isLoading: isDebouncing || isLoading,
+    isError: !isDebouncing && isError,
+  };
 }

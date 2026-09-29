@@ -1,16 +1,20 @@
 import { Module } from '@nestjs/common';
 
+import { CheckRateLimitGuard } from '../../common/guards/check-rate-limit.guard';
 import { DatabaseModule } from '../../database/database.module';
 import { GamesController } from './games.controller';
 import { GamesService } from './games.service';
 import { TypeOrmGamesRepository } from './games.typeorm.repository';
 import { IGamesRepositoryToken } from './igames.repository';
+import { RawgClient } from './rawg.client';
 
 @Module({
     imports: [DatabaseModule],
     controllers: [GamesController],
     providers: [
+        CheckRateLimitGuard,
         GamesService,
+        RawgClient,
         {
             provide: IGamesRepositoryToken,
             useClass: TypeOrmGamesRepository,

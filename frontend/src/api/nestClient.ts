@@ -1,5 +1,5 @@
 import axios from 'axios';
-import type { AxiosInstance, AxiosError } from 'axios';
+import type { AxiosInstance } from 'axios';
 
 /**
  * Pre-configured Axios instance for all backend API calls.
@@ -23,17 +23,5 @@ const nestClient: AxiosInstance = axios.create({
   },
   timeout: 10_000,
 });
-
-/* ── Response-error interceptor ───────────────────────────────── */
-nestClient.interceptors.response.use(
-  (response) => response,
-  (error: AxiosError) => {
-    // TODO: Add global error handling (e.g. toast notifications, auth redirect on 401)
-    console.error(
-      `[nestClient] ${error.config?.method?.toUpperCase()} ${error.config?.url} → ${String(error.response?.status ?? 'NETWORK_ERROR')}`,
-    );
-    return Promise.reject(error);
-  },
-);
 
 export { nestClient };

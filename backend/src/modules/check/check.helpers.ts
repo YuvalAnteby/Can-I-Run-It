@@ -4,16 +4,16 @@ import {
     PerformanceRecord,
     SettingPreset,
 } from '../performance/entities/performance-record.entity';
-import { CheckResponseDto } from './dto/check-response.dto';
+import { CheckFps } from './dto/check-response.dto';
 
 // ---------------------------------------------------------------------------
 // Normalization constants
 // ---------------------------------------------------------------------------
 
 // Divisors chosen so that a top-tier card scores ~100:
-// RTX 4090 scores ~26000 in 3DMark Time Spy → 26000 / 260 = 100
+// RTX 4090 scores ~19500 in 3DMark Time Spy Extreme → 19500 / 195 = 100
 // Core i9-13900K scores ~60000 in Passmark   → 60000 / 600 = 100
-export const GPU_BENCHMARK_DIVISOR = 260;
+export const GPU_BENCHMARK_DIVISOR = 195;
 export const CPU_BENCHMARK_DIVISOR = 600;
 
 // Allow up to 10% below the requirement score before marking as failing
@@ -61,8 +61,8 @@ export function getHardwareScore(
     if (!hw) return 0;
 
     if (hw.benchmarks) {
-        if (type === 'gpu' && hw.benchmarks['3dmark-time-spy']) {
-            return hw.benchmarks['3dmark-time-spy'] / GPU_BENCHMARK_DIVISOR;
+        if (type === 'gpu' && hw.benchmarks.timespy_extreme) {
+            return hw.benchmarks.timespy_extreme / GPU_BENCHMARK_DIVISOR;
         }
         if (type === 'cpu' && hw.benchmarks['passmark']) {
             return hw.benchmarks['passmark'] / CPU_BENCHMARK_DIVISOR;
@@ -83,10 +83,7 @@ export function getHardwareScore(
  * GPU-only — does not account for CPU bottlenecks.
  * Used exclusively by the fallback path.
  */
-export function estimateFPS(
-    score: number,
-    resolution: number,
-): CheckResponseDto['fps'] {
+export function estimateFPS(score: number, resolution: number): CheckFps {
     let resMultiplier = 1;
     if (resolution === 720) resMultiplier = 1.6;
     else if (resolution === 1440) resMultiplier = 0.65;
@@ -109,9 +106,7 @@ export function estimateFPS(
  * Not a substitute for real records — used to fill in the fps breakdown when
  * we only have data for one preset.
  */
-export function estimateFPSFromRecord(
-    record: PerformanceRecord,
-): CheckResponseDto['fps'] {
+export function estimateFPSFromRecord(record: PerformanceRecord): CheckFps {
     const baseFps = record.fpsAvg;
     const preset = record.settings;
 
@@ -142,10 +137,7 @@ export function estimateFPSFromRecord(
  * Maps a SettingPreset enum value to the corresponding key in CheckResponseDto['fps'].
  * Defined once here to avoid duplication across builders.
  */
-export const PRESET_TO_FPS_KEY: Record<
-    SettingPreset,
-    keyof CheckResponseDto['fps']
-> = {
+export const PRESET_TO_FPS_KEY: Record<SettingPreset, keyof CheckFps> = {
     [SettingPreset.LOW]: 'low',
     [SettingPreset.MEDIUM]: 'med',
     [SettingPreset.HIGH]: 'high',

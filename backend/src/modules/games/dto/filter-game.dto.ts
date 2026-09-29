@@ -1,6 +1,14 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import {
+    IsIn,
+    IsInt,
+    IsOptional,
+    IsString,
+    Max,
+    MaxLength,
+    Min,
+} from 'class-validator';
 
 const ALLOWED_SORT_FIELDS = [
     'name',
@@ -23,6 +31,7 @@ export class FilterGameDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(100)
     search?: string;
 
     @ApiPropertyOptional({
@@ -49,6 +58,7 @@ export class FilterGameDto {
     @IsInt()
     @Min(1)
     @Type(() => Number)
+    @Max(10000)
     page?: number = 1;
 
     @ApiPropertyOptional({
