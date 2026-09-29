@@ -39,16 +39,22 @@ and falls back when providers are absent or unavailable.
 
 Fresh volumes use `infra/init-scripts/` and need no migrations. Existing volumes do
 not rerun initialization SQL. Back up the database and stop the old API before upgrading.
-For a database from `main` before this PR, run these once, in order, through the
-Postgres service (replace `$POSTGRES_USER` / `$POSTGRES_DB` with your configured values):
+For a database from `main` before this PR, set `BACKEND_IMAGE` in `infra/.env`
+to the scanned GHCR `sha-<full-commit>` tag. Then run these once, in order.
+The commands expand credentials inside the Postgres container, using its configured
+environment; no host-shell export is required.
 
 ```sh
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml stop backend
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --wait postgres
 docker compose --env-file infra/.env -f infra/docker-compose.prod.yml exec -T postgres \
-  psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  sh -c 'exec psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
   < infra/migrations/001-v2-game-lifecycle.sql
 docker compose --env-file infra/.env -f infra/docker-compose.prod.yml exec -T postgres \
-  psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  sh -c 'exec psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
   < infra/migrations/002-demo-performance-source.sql
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml pull backend
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --no-build
 ```
 
 The first migration preserves game IDs, publishes the existing catalog, and adds RAWG
@@ -67,7 +73,9 @@ publishing the backend image to GHCR:
 
 - `ghcr.io/yuvalanteby/can-i-run-it-backend:sha-<full-commit>`
 
-The backend also receives `latest`; use commit tags for deployment. Provider keys
+The backend also receives `latest`; use commit tags for deployment. Production
+Compose requires `BACKEND_IMAGE` and has no build path, so it runs the scanned artifact
+instead of rebuilding from source. Provider keys
 are never build arguments. This workflow publishes only the backend image; it does
 not deploy the application or upload frontend files to Azure. Require successful PR checks in branch
 protection before merge. A PR cannot itself enforce repository branch-protection settings.

@@ -4,10 +4,7 @@ services:
   backend:
     container_name: ciri-backend-prod
     restart: always
-    build:
-      context: ../backend
-      dockerfile: ../infra/Dockerfile.backend
-      target: prod
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to the scanned GHCR sha tag}
     environment:
       - REACT_URL=${REACT_URL:?REACT_URL must be set}
       - NODE_ENV=production

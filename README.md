@@ -135,10 +135,13 @@ docker compose --env-file infra/.env -f infra/docker-compose.yml down
 Using the production Compose file is similar to development's compose, using the file `infra/docker-compose.prod.yml` instead of `infra/docker-compose.yml`.
 </br>
 </br>
-Build and restart the production stack with the latest images:
+Set `BACKEND_IMAGE` in `infra/.env` to the scanned GHCR `sha-<full-commit>` tag.
+For an existing database, follow the migration runbook before starting the API.
+Pull and run the published artifact:
 
 ```bash
-docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --build
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml pull backend
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --no-build
 ```
 
 Production Compose runs the backend and PostgreSQL. The frontend is built as
