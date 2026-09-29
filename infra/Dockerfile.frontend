@@ -1,5 +1,5 @@
 # Stage 1 - install dependencies
-FROM node:24.14.0-alpine AS dependencies
+FROM node:24-alpine AS dependencies
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci

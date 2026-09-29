@@ -1,7 +1,6 @@
-import { NotFoundException } from '@nestjs/common';
-
 import { Cpu } from '../cpu/entities/cpu.entity';
 import { Game } from '../games/entities/game.entity';
+import { GameRequirement } from '../games/entities/game-requirement.entity';
 import { GeminiEstimate } from '../gemini/gemini.service';
 import { Gpu } from '../gpu/entities/gpu.entity';
 import {
@@ -16,82 +15,99 @@ import {
     PRESET_TO_FPS_KEY,
 } from './check.helpers';
 import {
-    CheckConfidence,
-    CheckDataSource,
     CheckResponseDto,
+    CheckState,
+    CheckVerdict,
 } from './dto/check-response.dto';
 import { HardwareDto } from './dto/hardware.dto';
-import { SettingsDto } from './dto/settings.dto';
+import { SettingsDto, TargetFps } from './dto/settings.dto';
 
-// ---------------------------------------------------------------------------
-// Record builder
-// ---------------------------------------------------------------------------
-
-/**
- * Builds a response from a real benchmark record.
- * Most accurate path — FPS values are measured, not estimated.
- * gpuPass/cpuPass are derived from the recorded FPS directly rather than from
- * score comparisons, since the record is ground truth for that hardware combo.
- */
-export function buildResponseFromRecord(
-    record: PerformanceRecord,
-    hardware: HardwareDto,
-): CheckResponseDto {
-    const ramPass = hardware.ramGb >= record.ramGb;
-    // GPU pass = the recorded FPS is playable (≥30).
-    // CPU bottleneck cannot be reliably inferred from a perf record alone.
-    const gpuPass = record.fpsAvg >= 30;
-    const cpuPass = true;
-
-    const confirmedFps = Math.round(record.fpsAvg);
-    const tag = record.verified ? 'Confirmed' : 'Reported';
-    const resLabel = `${record.resolutionHeight}p ${record.settings}`;
-
-    let state: 'can' | 'barely' | 'cant';
-    let verdict: string;
-    let sub: string;
-
-    if (record.fpsAvg >= 60) {
-        state = 'can';
-        verdict = record.fpsAvg >= 100 ? 'Runs great' : 'Runs well';
-        sub = `${tag} ~${confirmedFps}fps at ${resLabel}`;
-    } else if (record.fpsAvg >= 30) {
-        state = 'barely';
-        verdict = 'Playable';
-        sub = `${tag} ~${confirmedFps}fps at ${resLabel}`;
-    } else {
-        state = 'cant';
-        verdict = "Won't run smoothly";
-        sub = `${tag} ~${confirmedFps}fps is below playable threshold`;
-    }
-
-    const source: CheckDataSource = record.verified
-        ? 'db_record_verified'
-        : 'db_record_unverified';
-    const confidence: CheckConfidence = record.verified ? 'high' : 'medium';
+function getDecision(
+    fps: number,
+    targetFps: TargetFps,
+    vramPass: boolean | null,
+    likely: boolean,
+): { state: CheckState; verdict: CheckVerdict } {
+    const canRun = fps >= targetFps && vramPass !== false;
 
     return {
-        state,
-        verdict,
-        sub,
-        gpuPass,
-        cpuPass,
-        ramPass,
-        fps: estimateFPSFromRecord(record),
-        source,
-        confidence,
+        state: canRun ? 'can' : 'cant',
+        verdict: likely
+            ? canRun
+                ? 'Likely can run'
+                : "Likely can't run"
+            : canRun
+              ? 'Can run'
+              : "Can't run",
     };
 }
 
-// ---------------------------------------------------------------------------
-// Gemini builder
-// ---------------------------------------------------------------------------
+function getWarnings(
+    requirement: GameRequirement | null,
+    gpu: Gpu,
+    hardware: HardwareDto,
+): Pick<CheckResponseDto, 'vramPass' | 'ssdPass' | 'notes'> {
+    const vramPass =
+        requirement?.vramGb == null ? null : gpu.vramGb >= requirement.vramGb;
+    const ssdPass = requirement
+        ? !requirement.requiresSsd || hardware.isSsd
+        : null;
 
-/**
- * Builds a response from a Gemini estimate.
- * Pass/fail flags are derived from requirement scores (same as fallback) since
- * there is no measured record to anchor against.
- */
+    return {
+        vramPass,
+        ssdPass,
+        notes:
+            ssdPass === false
+                ? ['An SSD is recommended for smoother asset streaming.']
+                : [],
+    };
+}
+
+function findRequirement(
+    game: Game,
+    settings: SettingsDto,
+): GameRequirement | null {
+    return (
+        game.requirements?.find((requirement) =>
+            settings.tier ? requirement.tier === settings.tier : false,
+        ) ??
+        game.requirements?.[0] ??
+        null
+    );
+}
+
+export function buildResponseFromRecord(
+    record: PerformanceRecord,
+    hardware: HardwareDto,
+    requirement: GameRequirement | null = null,
+    targetFps: TargetFps = 60,
+): CheckResponseDto {
+    const measured = record.source === 'measured';
+    const warnings = getWarnings(requirement, record.gpu, hardware);
+    const decision = getDecision(
+        record.fpsAvg,
+        targetFps,
+        warnings.vramPass,
+        !measured,
+    );
+    const fps = Math.round(record.fpsAvg);
+    const origin = measured ? 'Measured' : `${record.source} estimate`;
+
+    return {
+        ...decision,
+        sub: `${origin} ~${fps}fps at ${record.resolutionHeight}p ${record.settings}`,
+        source: measured ? 'measured' : 'ai',
+        provider: measured ? null : record.source,
+        confidence: measured ? 'high' : 'medium',
+        targetFps,
+        fps: estimateFPSFromRecord(record),
+        gpuPass: null,
+        cpuPass: null,
+        ramPass: null,
+        ...warnings,
+    };
+}
+
 export function buildResponseFromGemini(
     estimate: GeminiEstimate,
     game: Game,
@@ -99,155 +115,100 @@ export function buildResponseFromGemini(
     userGpu: Gpu,
     hardware: HardwareDto,
     settings: SettingsDto,
+    targetFps: TargetFps = settings.targetFps ?? 60,
 ): CheckResponseDto {
     const preset = settings.preset ?? SettingPreset.HIGH;
     const userFps = estimate.fps[PRESET_TO_FPS_KEY[preset]];
-
-    const currentReq =
-        game.requirements?.find((r) => r.tier === settings.tier) ||
-        game.requirements?.[0];
-
-    const gpuPass = currentReq
+    const requirement = findRequirement(game, settings);
+    const warnings = getWarnings(requirement, userGpu, hardware);
+    const gpuPass = requirement?.gpu
         ? getHardwareScore(userGpu, 'gpu') >=
-          getHardwareScore(currentReq.gpu, 'gpu') * MIN_PASS_RATIO
-        : true;
-    const cpuPass = currentReq
+          getHardwareScore(requirement.gpu, 'gpu') * MIN_PASS_RATIO
+        : null;
+    const cpuPass = requirement?.cpu
         ? getHardwareScore(userCpu, 'cpu') >=
-          getHardwareScore(currentReq.cpu, 'cpu') * MIN_PASS_RATIO
-        : true;
-    const ramPass = currentReq ? hardware.ramGb >= currentReq.ramGb : true;
-
-    const resLabel = `${settings.resolutionHeight}p ${preset}`;
-
-    let state: 'can' | 'barely' | 'cant';
-    let verdict: string;
-    let sub: string;
-
-    if (userFps >= 60) {
-        state = 'can';
-        verdict = userFps >= 100 ? 'Runs great' : 'Runs well';
-        sub = `Estimated ~${userFps}fps at ${resLabel}`;
-    } else if (userFps >= 30) {
-        state = 'barely';
-        verdict = 'Playable';
-        sub = `Estimated ~${userFps}fps at ${resLabel}`;
-    } else {
-        state = 'cant';
-        verdict = "Won't run smoothly";
-        sub = `Estimated ~${userFps}fps at ${resLabel} (below playable threshold)`;
-    }
-
-    // Append Gemini's note on a second line if present
-    if (estimate.note) {
-        sub = `${sub}\n${estimate.note}`;
-    }
+          getHardwareScore(requirement.cpu, 'cpu') * MIN_PASS_RATIO
+        : null;
+    const ramPass = requirement ? hardware.ramGb >= requirement.ramGb : null;
 
     return {
-        state,
-        verdict,
-        sub,
+        ...getDecision(userFps, targetFps, warnings.vramPass, true),
+        sub: `Estimated ~${userFps}fps at ${settings.resolutionHeight}p ${preset}`,
+        source: 'ai',
+        provider: 'gemini',
+        confidence: 'medium',
+        targetFps,
+        fps: estimate.fps,
         gpuPass,
         cpuPass,
         ramPass,
-        fps: estimate.fps,
-        source: 'gemini',
-        confidence: 'medium',
+        ...warnings,
     };
 }
 
-// ---------------------------------------------------------------------------
-// Fallback builder
-// ---------------------------------------------------------------------------
-
-/**
- * Builds a response using score-based heuristics when no better data exists.
- * Significantly less accurate — used only as a last resort until the ML model
- * and Gemini flows are implemented or available.
- */
 export function buildResponseFromFallback(
     game: Game,
     userCpu: Cpu,
     userGpu: Gpu,
     hardware: HardwareDto,
     settings: SettingsDto,
+    targetFps: TargetFps = settings.targetFps ?? 60,
 ): CheckResponseDto {
-    const currentReq =
-        game.requirements?.find((r) => r.tier === settings.tier) ||
-        game.requirements?.[0];
+    const requirement = findRequirement(game, settings);
 
-    if (!currentReq) {
-        throw new NotFoundException(
-            `Requirements for game "${game.slug}" not found`,
-        );
+    if (!requirement) {
+        return buildInsufficientResponse(targetFps);
     }
 
-    const userGpuScore = getHardwareScore(userGpu, 'gpu');
-    const userCpuScore = getHardwareScore(userCpu, 'cpu');
-    const reqGpuScore = getHardwareScore(currentReq.gpu, 'gpu');
-    const reqCpuScore = getHardwareScore(currentReq.cpu, 'cpu');
-
-    const gpuPass = userGpuScore >= reqGpuScore * MIN_PASS_RATIO;
-    const cpuPass = userCpuScore >= reqCpuScore * MIN_PASS_RATIO;
-    const ramPass = hardware.ramGb >= currentReq.ramGb;
-
-    // Find the absolute minimum requirement to determine if the game can run AT ALL
-    const minReq =
-        game.requirements?.find((r) => r.tier === 'minimum') ||
-        game.requirements?.[0];
-    const minGpuScore = minReq ? getHardwareScore(minReq.gpu, 'gpu') : 0;
-    const minCpuScore = minReq ? getHardwareScore(minReq.cpu, 'cpu') : 0;
-    const minRam = minReq?.ramGb || 0;
-
-    const failsMinimumHard =
-        userGpuScore < minGpuScore * MIN_PASS_RATIO ||
-        userCpuScore < minCpuScore * MIN_PASS_RATIO ||
-        hardware.ramGb < minRam;
-
-    const estimatedFpsObj = estimateFPS(
-        userGpuScore,
+    const gpuPass = requirement.gpu
+        ? getHardwareScore(userGpu, 'gpu') >=
+          getHardwareScore(requirement.gpu, 'gpu') * MIN_PASS_RATIO
+        : null;
+    const cpuPass = requirement.cpu
+        ? getHardwareScore(userCpu, 'cpu') >=
+          getHardwareScore(requirement.cpu, 'cpu') * MIN_PASS_RATIO
+        : null;
+    const ramPass = hardware.ramGb >= requirement.ramGb;
+    const fps = estimateFPS(
+        getHardwareScore(userGpu, 'gpu'),
         settings.resolutionHeight,
     );
-    const userFps = estimatedFpsObj[PRESET_TO_FPS_KEY[settings.preset]];
-
-    const resLabel = `${settings.resolutionHeight}p ${settings.preset}`;
-
-    let state: 'can' | 'barely' | 'cant';
-    let verdict: string;
-    let sub: string;
-
-    if (failsMinimumHard) {
-        state = 'cant';
-        verdict = "Won't run smoothly";
-        if (hardware.ramGb < minRam) {
-            sub = `Insufficient RAM (Minimum: ${minRam}GB)`;
-        } else if (userGpuScore < minGpuScore * MIN_PASS_RATIO) {
-            sub = 'GPU below minimum requirements';
-        } else {
-            sub = 'CPU below minimum requirements';
-        }
-    } else if (userFps >= 60) {
-        state = 'can';
-        verdict = userFps >= 100 ? 'Runs great' : 'Runs well';
-        sub = `Expect ~${userFps}fps at ${resLabel}`;
-    } else if (userFps >= 30) {
-        state = 'barely';
-        verdict = 'Playable';
-        sub = `Expect ~${userFps}fps at ${resLabel}`;
-    } else {
-        state = 'cant';
-        verdict = "Won't run smoothly";
-        sub = `Expect ~${userFps}fps at ${resLabel} (below playable threshold)`;
-    }
+    const preset = settings.preset ?? SettingPreset.HIGH;
+    const userFps = fps[PRESET_TO_FPS_KEY[preset]];
+    const warnings = getWarnings(requirement, userGpu, hardware);
 
     return {
-        state,
-        verdict,
-        sub,
+        ...getDecision(userFps, targetFps, warnings.vramPass, true),
+        sub: `Expect ~${userFps}fps at ${settings.resolutionHeight}p ${preset}`,
+        source: 'estimate',
+        provider: null,
+        confidence: 'low',
+        targetFps,
+        fps,
         gpuPass,
         cpuPass,
         ramPass,
-        fps: estimatedFpsObj,
-        source: 'fallback',
-        confidence: 'low',
+        ...warnings,
+    };
+}
+
+export function buildInsufficientResponse(
+    targetFps: TargetFps,
+): CheckResponseDto {
+    return {
+        state: 'insufficient',
+        verdict: 'Insufficient data',
+        sub: 'No performance data is available for this configuration.',
+        source: null,
+        provider: null,
+        confidence: null,
+        targetFps,
+        fps: null,
+        gpuPass: null,
+        cpuPass: null,
+        ramPass: null,
+        vramPass: null,
+        ssdPass: null,
+        notes: [],
     };
 }

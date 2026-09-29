@@ -1,4 +1,6 @@
 import React from 'react';
+import { Sparkles } from 'lucide-react';
+
 import { CheckResponse } from '../../../@types/check.types';
 
 interface CompatibilityResultProps {
@@ -6,18 +8,45 @@ interface CompatibilityResultProps {
   resolutionLabel: string;
 }
 
+const sourceLabels = {
+  measured: 'Verified',
+  estimate: 'Estimate',
+} as const;
+const VRAM_FAILURE = "GPU doesn't have enough VRAM for the selected settings.";
+const SSD_ADVISORY = 'An SSD is recommended for smoother asset streaming.';
+
+function renderPassStatus(pass: boolean | null): React.ReactNode {
+  if (pass === null) {
+    return <span className="text-gray-400 font-medium">Not available</span>;
+  }
+
+  return pass ? (
+    <span className="text-green-500 font-medium">✓ Passes</span>
+  ) : (
+    <span className="text-red-500 font-medium">✕ Below req</span>
+  );
+}
+
 export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
   checkResult,
   resolutionLabel,
 }) => {
+  const notes = [
+    ...(checkResult.vramPass === false ? [VRAM_FAILURE] : []),
+    ...(checkResult.ssdPass === false ? [SSD_ADVISORY] : []),
+  ];
+
   return (
-    <div className="mt-5 rounded-lg overflow-hidden border border-[#1e1e2a] block animate-in fade-in zoom-in-95 duration-300">
+    <div
+      role="status"
+      className="mt-5 rounded-lg overflow-hidden border border-[#1e1e2a] block animate-in fade-in zoom-in-95 duration-300"
+    >
       <div
         className={`p-3.5 flex items-center gap-2.5 border-b ${
           checkResult.state === 'cant'
             ? 'bg-red-500/10 border-red-500/20'
-            : checkResult.state === 'barely'
-              ? 'bg-orange-500/10 border-orange-500/20'
+            : checkResult.state === 'insufficient'
+              ? 'bg-white/5 border-[#2a2a3a]'
               : 'bg-green-500/10 border-green-500/20'
         }`}
       >
@@ -25,28 +54,45 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
           className={`w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0 ${
             checkResult.state === 'cant'
               ? 'bg-red-500/20 text-red-500'
-              : checkResult.state === 'barely'
-                ? 'bg-orange-500/20 text-orange-500'
+              : checkResult.state === 'insufficient'
+                ? 'bg-white/10 text-gray-300'
                 : 'bg-green-500/20 text-green-500'
           }`}
+          aria-hidden="true"
         >
           {checkResult.state === 'cant'
             ? '✕'
-            : checkResult.state === 'barely'
+            : checkResult.state === 'insufficient'
               ? '!'
               : '✓'}
         </div>
-        <div>
-          <div
-            className={`text-sm font-bold ${
-              checkResult.state === 'cant'
-                ? 'text-red-500'
-                : checkResult.state === 'barely'
-                  ? 'text-orange-500'
-                  : 'text-green-500'
-            }`}
-          >
-            {checkResult.verdict}
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <div
+              className={`text-sm font-bold ${
+                checkResult.state === 'cant'
+                  ? 'text-red-500'
+                  : checkResult.state === 'insufficient'
+                    ? 'text-gray-200'
+                    : 'text-green-500'
+              }`}
+            >
+              {checkResult.verdict}
+            </div>
+            {checkResult.source === 'ai' ? (
+              <span
+                role="img"
+                aria-label={`AI ${checkResult.provider}`}
+                title={`AI ${checkResult.provider}`}
+                className="inline-flex items-center text-gray-300"
+              >
+                <Sparkles className="h-4 w-4" aria-hidden="true" />
+              </span>
+            ) : checkResult.source ? (
+              <span className="rounded-md bg-white/10 px-2 py-0.5 text-xs font-bold text-gray-200">
+                {sourceLabels[checkResult.source]}
+              </span>
+            ) : null}
           </div>
           <div className="text-[0.7rem] text-gray-300 mt-0.5 font-medium">
             {checkResult.sub}
@@ -57,34 +103,32 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
         {/* Performance Indicators */}
         <div className="flex justify-between items-center py-1 text-xs">
           <span className="text-gray-300 font-medium">GPU</span>
-          {checkResult.gpuPass ? (
-            <span className="text-green-500 font-medium">✓ Passes</span>
-          ) : (
-            <span className="text-red-500 font-medium">✕ Below req</span>
-          )}
+          {renderPassStatus(checkResult.gpuPass)}
         </div>
         <div className="flex justify-between items-center py-1 text-xs">
           <span className="text-gray-300 font-medium">CPU</span>
-          {checkResult.cpuPass ? (
-            <span className="text-green-500 font-medium">✓ Passes</span>
-          ) : (
-            <span className="text-red-500 font-medium">✕ Below req</span>
-          )}
+          {renderPassStatus(checkResult.cpuPass)}
         </div>
         <div className="flex justify-between items-center py-1 text-xs">
           <span className="text-gray-300 font-medium">RAM</span>
-          {checkResult.ramPass ? (
-            <span className="text-green-500 font-medium">✓ Passes</span>
-          ) : (
-            <span className="text-red-500 font-medium">✕ Below req</span>
-          )}
+          {renderPassStatus(checkResult.ramPass)}
         </div>
 
-        {/* Estimated Frame Rates */}
-        {checkResult.state !== 'cant' && (
+        {notes.length > 0 && (
+          <ul
+            aria-label="Compatibility notes"
+            className="mt-3 space-y-1.5 border-t border-[#1e1e2a] pt-3 text-xs text-amber-300"
+          >
+            {notes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        )}
+
+        {checkResult.fps !== null && (
           <div className="mt-3 pt-3 border-t border-[#1e1e2a]">
             <div className="text-[0.7rem] text-gray-400 uppercase tracking-wider mb-2 font-bold">
-              Estimated FPS @ {resolutionLabel}
+              FPS @ {resolutionLabel} · Target: {checkResult.targetFps} FPS
             </div>
             <div className="flex flex-col gap-1.5">
               {[
@@ -113,7 +157,7 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
                   key={tier.label}
                   className="flex items-center gap-2 text-[0.7rem]"
                 >
-                  <div className="w-8 text-gray-400 text-right shrink-0 font-bold">
+                  <div className="w-7 text-gray-400 text-right shrink-0 font-bold">
                     {tier.label}
                   </div>
                   <div className="flex-1 h-1.5 bg-[#1e1e2a] rounded-full overflow-hidden">
@@ -125,7 +169,7 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
                       }}
                     />
                   </div>
-                  <div className="w-10 text-white font-bold text-right">
+                  <div className="w-11 text-white font-bold text-right">
                     {tier.val} fps
                   </div>
                 </div>

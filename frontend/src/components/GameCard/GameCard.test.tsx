@@ -9,6 +9,7 @@ const mockGame: ClientGameDto = {
   id: 1,
   slug: 'test-game',
   name: 'Test Game',
+  status: 'published',
   coverImageUrl: null,
   releaseDate: '2024-01-01',
   developer: 'Test Dev',
@@ -22,6 +23,7 @@ const mockGame: ClientGameDto = {
   supportsXeSS: false,
   isTrending: false,
   trendingRank: null,
+  requirements: [],
 };
 
 describe('GameCard', () => {
@@ -44,6 +46,57 @@ describe('GameCard', () => {
     };
     render(<GameCard game={gameWithImage} />);
     expect(screen.getByRole('img', { name: 'Test Game' })).toBeInTheDocument();
+  });
+
+  it('renders a visible RAWG attribution for imported catalog cards', () => {
+    render(
+      <GameCard
+        game={{
+          ...mockGame,
+          attributions: [
+            {
+              source: 'rawg',
+              label: 'RAWG',
+              url: 'https://rawg.io/games/test-game',
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('link', { name: /RAWG/i })).toHaveAttribute(
+      'href',
+      'https://rawg.io/games/test-game',
+    );
+  });
+
+  it('keeps attribution links outside the main card action', () => {
+    render(
+      <GameCard
+        game={{
+          ...mockGame,
+          attributions: [
+            {
+              source: 'rawg',
+              label: 'RAWG',
+              url: 'https://rawg.io/games/test-game',
+            },
+          ],
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('button')).not.toContainElement(
+      screen.getByRole('link', { name: /RAWG/i }),
+    );
+  });
+
+  it('keeps the card heading outside the main button', () => {
+    render(<GameCard game={mockGame} />);
+
+    expect(screen.getByRole('button')).not.toContainElement(
+      screen.getByRole('heading', { name: 'Test Game' }),
+    );
   });
 
   it('calls onClick with the game object when clicked', () => {
