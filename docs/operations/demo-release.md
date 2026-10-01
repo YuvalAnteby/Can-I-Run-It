@@ -50,6 +50,9 @@ results stay fresh. Record the actual Gemini model/tier RPM, TPM, RPD, spend-cap
 billing settings, and the RAWG key's plan/allowance before launch. The application
 defaults do not establish provider account hard limits.
 
+For the opt-in Azure Monitor setup, cost limits, trace and log correlation, and
+post-deployment checks, follow the [observability runbook](observability.md).
+
 ## Container App health probes
 
 The backend exposes version-neutral health endpoints. `backend_port` defaults to

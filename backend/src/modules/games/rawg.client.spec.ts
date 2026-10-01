@@ -1,6 +1,7 @@
 import { ConfigService } from '@nestjs/config';
 
 import { AbuseProtectionService } from '../../common/abuse-protection/abuse-protection.service';
+import * as telemetry from '../../common/observability/telemetry';
 import { RawgClient } from './rawg.client';
 
 const rawgSearchHit = {
@@ -206,6 +207,7 @@ describe('RawgClient', () => {
     });
 
     it('coalesces identical normalized searches and keeps distinct queries separate', async () => {
+        const providerSpy = jest.spyOn(telemetry, 'observeProvider');
         const body = deferred<Response>();
         fetchSpy.mockReturnValue(body.promise);
         const service = createClient(
@@ -230,6 +232,11 @@ describe('RawgClient', () => {
             results: [],
         });
         expect(fetchSpy).toHaveBeenCalledTimes(2);
+        expect(providerSpy).toHaveBeenCalledTimes(2);
+        expect(providerSpy.mock.calls.map(([provider]) => provider)).toEqual([
+            'rawg',
+            'rawg',
+        ]);
     });
 
     it('coalesces identical detail requests and clears the pending entry after settlement', async () => {
@@ -279,6 +286,14 @@ describe('RawgClient', () => {
     it('holds a RAWG permit until an ignored-abort response body settles', async () => {
         jest.useFakeTimers();
         const body = deferred<unknown>();
+        const span = { end: jest.fn() };
+        const providerSpy = jest
+            .spyOn(telemetry, 'observeProvider')
+            .mockImplementation(async (_provider, operation) => {
+                const result = await operation();
+                span.end();
+                return result;
+            });
         let signal: AbortSignal | undefined;
         let fetchCount = 0;
         fetchSpy.mockImplementation((_url, init) => {
@@ -316,6 +331,7 @@ describe('RawgClient', () => {
         await Promise.resolve();
         expect(firstResult).toEqual({ available: false, results: [] });
         expect(signal?.aborted).toBe(true);
+        expect(span.end).toHaveBeenCalledTimes(1);
 
         await expect(service.search('second')).resolves.toEqual({
             available: false,
@@ -325,13 +341,13 @@ describe('RawgClient', () => {
 
         body.resolve({ results: [] });
         await first;
-        await Promise.resolve();
-        await Promise.resolve();
+        for (let tick = 0; tick < 8; tick += 1) await Promise.resolve();
         await expect(service.search('third')).resolves.toEqual({
             available: true,
             results: [],
         });
         expect(fetchCount).toBe(2);
+        expect(providerSpy).toHaveBeenCalledTimes(2);
         protection.onApplicationShutdown();
     });
 
@@ -418,7 +434,9 @@ describe('RawgClient', () => {
                 events.filter((event) => event === 'provider.rawg.failure'),
             ).toHaveLength(1);
             expect(events).toContain('provider.rawg.concurrency');
-            expect(events).toContain('provider.rawg.timeout');
+            expect(
+                events.filter((event) => event === 'provider.rawg.timeout'),
+            ).toHaveLength(1);
             protection.onApplicationShutdown();
             jest.useRealTimers();
         },

@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { IsNull } from 'typeorm';
 
+import * as telemetry from '../../common/observability/telemetry';
 import { Game } from '../games/entities/game.entity';
 import { GeminiService } from '../gemini/gemini.service';
 import {
@@ -373,6 +374,21 @@ describe('CheckService', () => {
 
         expect(result.source).toBe('estimate');
         expect(mockPerfRepo.save).not.toHaveBeenCalled();
+    });
+
+    it('records bounded stages for a cache miss that falls back to requirements', async () => {
+        const stageSpy = jest.spyOn(telemetry, 'observeStage');
+
+        await service.checkCompatibility(validRequest());
+
+        expect(stageSpy.mock.calls.map(([stage]) => stage)).toEqual(
+            expect.arrayContaining([
+                'check.inputs',
+                'check.db_lookup',
+                'check.gemini',
+                'check.fallback',
+            ]),
+        );
     });
 
     it('returns insufficient data when requirements and Gemini are unavailable', async () => {

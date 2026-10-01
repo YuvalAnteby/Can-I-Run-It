@@ -41,3 +41,59 @@ variable "secret_environment_variables" {
   default     = {}
   description = "Additional backend environment variables stored as Container App secrets."
 }
+
+variable "observability_enabled" {
+  type        = bool
+  default     = false
+  description = "Whether this module owns optional Azure Monitor resources and injects telemetry settings."
+}
+
+variable "observability_location" {
+  type        = string
+  default     = ""
+  description = "Azure region for optional observability resources. Required when observability_enabled is true."
+
+  validation {
+    condition     = !var.observability_enabled || trimspace(var.observability_location) != ""
+    error_message = "observability_location is required when observability_enabled is true."
+  }
+}
+
+variable "observability_daily_cap_gb" {
+  type        = number
+  default     = 0.1
+  description = "Daily ingestion cap for the owned workspace and Application Insights resource."
+
+  validation {
+    condition     = var.observability_daily_cap_gb > 0
+    error_message = "observability_daily_cap_gb must be positive."
+  }
+}
+
+variable "observability_retention_days" {
+  type        = number
+  default     = 30
+  description = "Retention for owned observability data, in supported Azure Log Analytics days."
+
+  validation {
+    condition     = contains([30, 60, 90, 120, 180, 270, 365, 550, 730], var.observability_retention_days)
+    error_message = "observability_retention_days must be one of Azure's supported retention values: 30, 60, 90, 120, 180, 270, 365, 550, or 730."
+  }
+}
+
+variable "observability_sampling_ratio" {
+  type        = number
+  default     = 0.1
+  description = "Trace sampling ratio passed to the backend's fixed percentage sampler."
+
+  validation {
+    condition     = var.observability_sampling_ratio >= 0 && var.observability_sampling_ratio <= 1
+    error_message = "observability_sampling_ratio must be between 0 and 1."
+  }
+}
+
+variable "observability_action_group_ids" {
+  type        = list(string)
+  default     = []
+  description = "Existing Azure Monitor action group IDs for the optional alerts."
+}

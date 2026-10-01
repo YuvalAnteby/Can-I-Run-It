@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { AbuseProtectionService } from '../../common/abuse-protection/abuse-protection.service';
+import * as telemetry from '../../common/observability/telemetry';
 import { SettingsDto } from '../check/dto/settings.dto';
 import { Cpu } from '../cpu/entities/cpu.entity';
 import { Game } from '../games/entities/game.entity';
@@ -114,6 +115,7 @@ describe('GeminiService', () => {
     });
 
     it('coalesces concurrent identical estimates into one provider call', async () => {
+        const providerSpy = jest.spyOn(telemetry, 'observeProvider');
         fetchSpy.mockResolvedValue(
             new Response(JSON.stringify(validGeminiPayload)),
         );
@@ -130,6 +132,11 @@ describe('GeminiService', () => {
         );
         expect(results.every((result) => result?.fps.high === 55)).toBe(true);
         expect(fetchSpy).toHaveBeenCalledTimes(1);
+        expect(providerSpy).toHaveBeenCalledTimes(1);
+        expect(providerSpy).toHaveBeenCalledWith(
+            'gemini',
+            expect.any(Function),
+        );
     });
 
     it('fails fast for a third distinct Gemini request and admits work after settlement', async () => {
@@ -221,6 +228,7 @@ describe('GeminiService', () => {
         }).compile();
         const timeoutService = module.get(GeminiService);
         const timeoutAbuseProtection = module.get(AbuseProtectionService);
+        const eventSpy = jest.spyOn(timeoutAbuseProtection, 'recordEvent');
         const underlying = deferred<{ text: string }>();
         let signal: AbortSignal | undefined;
         const generateContent = jest
@@ -262,6 +270,11 @@ describe('GeminiService', () => {
         await jest.advanceTimersByTimeAsync(100);
         await expect(first).resolves.toBeNull();
         expect(signal?.aborted).toBe(true);
+        expect(
+            eventSpy.mock.calls.filter(
+                ([event]) => event === 'provider.gemini.timeout',
+            ),
+        ).toHaveLength(1);
 
         await expect(estimate('Distinct While Settling')).resolves.toBeNull();
         await expect(estimate('Timeout Game')).resolves.toBeNull();
@@ -278,6 +291,11 @@ describe('GeminiService', () => {
         for (let tick = 0; tick < 6; tick += 1) await Promise.resolve();
         await expect(estimate('After Settlement')).resolves.not.toBeNull();
         expect(generateContent).toHaveBeenCalledTimes(2);
+        expect(
+            eventSpy.mock.calls.filter(
+                ([event]) => event === 'provider.gemini.timeout',
+            ),
+        ).toHaveLength(1);
         expect(jest.getTimerCount()).toBe(0);
         timeoutAbuseProtection.onApplicationShutdown();
     });
