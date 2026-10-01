@@ -2,6 +2,7 @@ import { GoogleGenAI, ThinkingLevel, Type } from '@google/genai';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { AbuseProtectionService } from '../../common/abuse-protection/abuse-protection.service';
 import { SettingsDto } from '../check/dto/settings.dto';
 import { Cpu } from '../cpu/entities/cpu.entity';
 import { Game } from '../games/entities/game.entity';
@@ -39,12 +40,10 @@ Response schema:
   "note": string | null
 }`;
 
-const GEMINI_TIMEOUT_MS = 8_000;
+class GeminiTimeoutError extends Error {}
 
 @Injectable()
 export class GeminiService {
-    // ponytail: per-process demo budget; use shared quotas before adding replicas.
-    private requestWindow = { count: 0, resetAt: 0 };
     private readonly pending = new Map<
         string,
         Promise<GeminiEstimate | null>
@@ -52,11 +51,19 @@ export class GeminiService {
     private readonly logger = new Logger(GeminiService.name);
     private readonly apiKey: string | undefined;
     private readonly genAI: GoogleGenAI | undefined;
+    private readonly timeoutMs: number;
 
-    constructor(private readonly config: ConfigService) {
-        this.apiKey = this.config.get<string>('GEMINI_API_KEY');
+    constructor(
+        private readonly config: ConfigService,
+        private readonly abuseProtection: AbuseProtectionService,
+    ) {
+        const key = this.config.get<string>('GEMINI_API_KEY');
+        this.apiKey = key?.trim() || undefined;
+        this.timeoutMs = this.config.get<number>('GEMINI_TIMEOUT_MS') ?? 8_000;
         if (this.apiKey) {
             this.genAI = new GoogleGenAI({ apiKey: this.apiKey });
+        } else {
+            this.logger.warn('GEMINI_API_KEY is not configured');
         }
     }
 
@@ -77,7 +84,6 @@ export class GeminiService {
         );
 
         if (!this.apiKey) {
-            this.logger.warn('GEMINI_API_KEY not set — skipping Gemini flow');
             return null;
         }
 
@@ -85,34 +91,34 @@ export class GeminiService {
 
         const existing = this.pending.get(userPrompt);
         if (existing) return existing;
-        const now = Date.now();
-        if (now >= this.requestWindow.resetAt) {
-            this.requestWindow = { count: 0, resetAt: now + 60_000 };
-        }
-        if (this.requestWindow.count >= 30) return null;
-        this.requestWindow.count += 1;
-        const estimate = this.requestEstimate(userPrompt).finally(() => {
-            this.pending.delete(userPrompt);
-        });
+        const release = this.abuseProtection.tryAcquireProvider('gemini');
+        if (!release) return null;
+        const estimate = this.requestEstimate(userPrompt, release);
         this.pending.set(userPrompt, estimate);
         return estimate;
     }
 
     private async requestEstimate(
         userPrompt: string,
+        release: () => void,
     ): Promise<GeminiEstimate | null> {
         let raw: string;
         try {
-            raw = await this.callGemini(userPrompt);
-        } catch {
-            this.logger.error('Gemini API call failed');
+            raw = await this.callGemini(userPrompt, () => {
+                this.pending.delete(userPrompt);
+                release();
+            });
+        } catch (error) {
+            if (!(error instanceof GeminiTimeoutError)) {
+                this.abuseProtection.recordEvent('provider.gemini.failure');
+            }
             return null;
         }
 
         try {
             return this.parseResponse(raw);
         } catch {
-            this.logger.error('Failed to parse Gemini response');
+            this.abuseProtection.recordEvent('provider.gemini.failure');
             return null;
         }
     }
@@ -148,69 +154,70 @@ export class GeminiService {
         return prompt.join('\n');
     }
 
-    private async callGemini(userPrompt: string): Promise<string> {
+    private async callGemini(
+        userPrompt: string,
+        onSettled: () => void,
+    ): Promise<string> {
         if (!this.genAI) {
             throw new Error('GenAI Client is not initialized');
         }
 
         const controller = new AbortController();
         let timeoutId: ReturnType<typeof setTimeout>;
+        const callPromise = Promise.resolve()
+            .then(() =>
+                this.genAI!.models.generateContent({
+                    model: 'gemini-3.1-flash-lite',
+                    contents: userPrompt,
+                    config: {
+                        abortSignal: controller.signal,
+                        httpOptions: { retryOptions: { attempts: 1 } },
+                        systemInstruction: SYSTEM_PROMPT,
+                        thinkingConfig: {
+                            thinkingLevel: ThinkingLevel.MEDIUM,
+                        },
+                        temperature: 0.2, // Low temp → more consistent numeric estimates
+                        responseMimeType: 'application/json',
+                        responseSchema: {
+                            type: Type.OBJECT,
+                            properties: {
+                                // The fps values should be rounded to the nearest integer by the model, but we round again just in case.
+                                fps: {
+                                    type: Type.OBJECT,
+                                    // All four presets must be present in the response
+                                    // even if some have the same value (e.g. low and med might both be 30fps).
+                                    properties: {
+                                        low: { type: Type.INTEGER },
+                                        med: { type: Type.INTEGER },
+                                        high: { type: Type.INTEGER },
+                                        ultra: { type: Type.INTEGER },
+                                    },
+                                    required: ['low', 'med', 'high', 'ultra'],
+                                },
+                                // The note is optional and can be null if there's nothing notable to mention.
+                                note: { type: Type.STRING, nullable: true },
+                            },
+                            required: ['fps'],
+                        },
+                    },
+                }),
+            )
+            .then((response) => {
+                const text = (response as { text?: string }).text;
+                if (!text) throw new Error('Unexpected Gemini response shape');
+                return text.trim();
+            });
+        const settledCall = callPromise.finally(onSettled);
         const timeoutPromise = new Promise<never>((_, reject) => {
             timeoutId = setTimeout(() => {
-                reject(new Error('Gemini API timeout'));
                 controller.abort();
-            }, GEMINI_TIMEOUT_MS);
+                this.abuseProtection.recordEvent('provider.gemini.timeout');
+                reject(new GeminiTimeoutError('Gemini API timeout'));
+            }, this.timeoutMs);
         });
 
         try {
-            const callPromise = this.genAI.models.generateContent({
-                model: 'gemini-3.1-flash-lite',
-                contents: userPrompt,
-                config: {
-                    abortSignal: controller.signal,
-                    systemInstruction: SYSTEM_PROMPT,
-                    thinkingConfig: {
-                        thinkingLevel: ThinkingLevel.MEDIUM,
-                    },
-                    temperature: 0.2, // Low temp → more consistent numeric estimates
-                    responseMimeType: 'application/json',
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            // The fps values should be rounded to the nearest integer by the model, but we round again just in case.
-                            fps: {
-                                type: Type.OBJECT,
-                                // All four presets must be present in the response
-                                // even if some have the same value (e.g. low and med might both be 30fps).
-                                properties: {
-                                    low: { type: Type.INTEGER },
-                                    med: { type: Type.INTEGER },
-                                    high: { type: Type.INTEGER },
-                                    ultra: { type: Type.INTEGER },
-                                },
-                                required: ['low', 'med', 'high', 'ultra'],
-                            },
-                            // The note is optional and can be null if there's nothing notable to mention.
-                            note: { type: Type.STRING, nullable: true },
-                        },
-                        required: ['fps'],
-                    },
-                },
-            });
-
-            // Promise.race doesn't infer well with generic Promises. We assert to the GenerateContentResponse interface shape.
-            const response = (await Promise.race([
-                callPromise,
-                timeoutPromise,
-            ])) as { text?: string };
-
-            const text = response.text;
-
-            if (!text) {
-                throw new Error('Unexpected Gemini response shape');
-            }
-
-            return text.trim();
+            return await Promise.race([settledCall, timeoutPromise]);
         } finally {
             clearTimeout(timeoutId!);
         }

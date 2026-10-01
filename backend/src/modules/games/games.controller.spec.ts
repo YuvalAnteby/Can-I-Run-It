@@ -1,6 +1,9 @@
 import { BadRequestException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AbuseProtectionService } from '../../common/abuse-protection/abuse-protection.service';
+import { CheckRateLimitGuard } from '../../common/guards/check-rate-limit.guard';
 import { MOCK_GAMES } from './games.constants';
 import { GamesController } from './games.controller';
 import { GamesService } from './games.service';
@@ -26,6 +29,16 @@ describe('GamesController', () => {
         const module: TestingModule = await Test.createTestingModule({
             controllers: [GamesController],
             providers: [
+                {
+                    provide: ConfigService,
+                    useValue: {
+                        get: jest.fn(
+                            (_key: string, fallback?: unknown) => fallback,
+                        ),
+                    },
+                },
+                AbuseProtectionService,
+                CheckRateLimitGuard,
                 {
                     provide: GamesService,
                     useValue: mockGamesService,

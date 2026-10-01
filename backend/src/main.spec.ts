@@ -1,16 +1,21 @@
 import { INestApplication } from '@nestjs/common';
 
 describe('bootstrap', () => {
-    it.each([undefined, '1', 'true'])(
-        'trusts one proxy only with explicit configuration %s',
+    it.each([undefined, '0', '1'])(
+        'trusts one proxy only with validated configuration %s',
         async (trustProxy) => {
             const previous = process.env.TRUST_PROXY;
-            if (trustProxy === undefined) delete process.env.TRUST_PROXY;
-            else process.env.TRUST_PROXY = trustProxy;
+            // Keep process.env deliberately different; bootstrap must read the
+            // validated ConfigService value from the Nest application.
+            process.env.TRUST_PROXY = '1';
             const set = jest.fn();
+            const config = {
+                get: jest.fn().mockReturnValue(trustProxy ?? '0'),
+            };
             const enableShutdownHooks = jest.fn();
             const app = {
                 enableShutdownHooks,
+                get: jest.fn().mockReturnValue(config),
                 set,
                 use: jest.fn(),
                 setGlobalPrefix: jest.fn(),

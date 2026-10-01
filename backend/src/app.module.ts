@@ -4,6 +4,8 @@ import { TerminusModule } from '@nestjs/terminus';
 
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AbuseProtectionModule } from './common/abuse-protection/abuse-protection.module';
+import { validateAbuseProtectionConfig } from './config/abuse-protection.config';
 import { DatabaseModule } from './database/database.module';
 import { CheckModule } from './modules/check/check.module';
 import { CpuModule } from './modules/cpu/cpu.module';
@@ -15,7 +17,9 @@ import { HealthModule } from './modules/health/health.module';
     imports: [
         ConfigModule.forRoot({
             isGlobal: true,
+            validate: validateAbuseProtectionConfig,
         }),
+        AbuseProtectionModule,
         TerminusModule,
         DatabaseModule,
         HealthModule,
