@@ -39,3 +39,15 @@ it('rejects a null target FPS', async () => {
         (await validate(dto)).some((error) => error.property === 'targetFps'),
     ).toBe(true);
 });
+
+it('bounds resolution dimensions before database and provider requests', async () => {
+    const dto = plainToInstance(SettingsDto, {
+        resolutionWidth: 16385,
+        resolutionHeight: 16385,
+        preset: 'high',
+    });
+    const errors = await validate(dto);
+    expect(errors.map((error) => error.property)).toEqual(
+        expect.arrayContaining(['resolutionWidth', 'resolutionHeight']),
+    );
+});

@@ -1,6 +1,6 @@
 # Frontend Rules — React (ciri)
 
-This file extends the root `AGENTS.md`, All global rules apply here too.  
+This file extends the root `AGENTS.md`, All global rules apply here too.
 These rules are specific to the `frontend/` workspace.
 
 ## ALWAYS

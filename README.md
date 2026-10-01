@@ -18,7 +18,7 @@ Public demo URL: pending.
 ## Architecture
 
 Browser runs the React SPA, which queries the NestJS REST API.
-Only the NestJS API queries PostgreSQL and the Gemini AI provider.
+Only the NestJS API queries PostgreSQL, RAWG discovery, and the Gemini AI provider.
 </br>
 The frontend and backend are containerized with Docker Compose, using a CICD pipeline to build and test the stack on GitHub Actions.
 
@@ -46,7 +46,7 @@ User input consists of a picked game and hardware combination (CPU, GPU, RAM, op
 </br>
 The Frontend sends a POST request to the API, which returns a source labelled result card with an FPS panel and optional advisory warning.
 </br>
-Results prefer measured data, then stored AI provider data, then a local heuristic estimate, and finally an insufficient-data verdict. Gemini results are chached in DB for future requests.
+Results prefer measured data, then stored AI provider data, then a local heuristic estimate, and finally an insufficient-data verdict. Gemini results are cached in DB for future requests.
 </br>
 
 ```mermaid
@@ -104,8 +104,8 @@ cp infra/.env.example infra/.env
 
 Keep `POSTGRES_HOST=postgres` for containers. `REACT_URL` is the browser-facing
 frontend origin allowed by production CORS. `VITE_API_URL` is compiled into the
-production frontend and must be a browser-reachable backend URL ending in
-`/api`. Set `GEMINI_API_KEY` to a valid key to enable Gemini, or leave it empty
+production frontend and must point to the public HTTPS API URL ending in `/api`. Set `RAWG_API_KEY` to enable external game discovery; without it, local
+search remains available. Set `GEMINI_API_KEY` to a valid key to enable Gemini, or leave it empty
 to use the heuristic/insufficient-data fallback.
 
 Do not commit `infra/.env`.
@@ -135,15 +135,24 @@ docker compose --env-file infra/.env -f infra/docker-compose.yml down
 Using the production Compose file is similar to development's compose, using the file `infra/docker-compose.prod.yml` instead of `infra/docker-compose.yml`.
 </br>
 </br>
-Build and restart the production stack with the latest images:
+Set `BACKEND_IMAGE` in `infra/.env` to the scanned GHCR `sha-<full-commit>` tag.
+For an existing database, follow the migration runbook before starting the API.
+Pull and run the published artifact:
 
 ```bash
-docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --build
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml pull backend
+docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --no-build
 ```
 
-The production frontend is built with `VITE_API_URL`, starts only after the API
-is healthy, and the API starts only after PostgreSQL is healthy. Production
-TypeORM schema synchronization is disabled.
+Production Compose runs the backend and PostgreSQL. The frontend is built as
+static files for Azure hosting, separately from Docker. Build it with the public
+`VITE_API_URL`, configure SPA route fallback on the static host, and point
+`REACT_URL` at its HTTPS origin. The API starts after PostgreSQL is healthy;
+TypeORM synchronization is disabled. PostgreSQL stays private and the API binds
+to host loopback for an HTTPS ingress proxy.
+
+See [demo release operations](docs/operations/demo-release.md) for migrations,
+security assumptions, and the artifacts published after merging to `main`.
 
 ### Tests
 

@@ -1,7 +1,7 @@
 -- ============================================
 -- SEED DATA — CIRI
 -- Rebuilt from hand-verified source CSVs
--- Run order: 01-enums → 02-hardware → 03-games → 04-performance → 05-seed → 06-enrichment
+-- Run order: 01-enums → 02-hardware → 03-games → 04-performance → 05-seed
 -- ============================================
 
 

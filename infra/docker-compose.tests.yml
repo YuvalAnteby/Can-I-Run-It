@@ -18,24 +18,6 @@ services:
     networks:
       - ciri-net-tests
 
-  rabbitmq:
-    image: rabbitmq:4.3.5-alpine
-    hostname: rabbitmq
-    environment:
-      - RABBITMQ_DEFAULT_USER=ciri-test
-      - RABBITMQ_DEFAULT_PASS=ciri-test-password
-      - RABBITMQ_NODENAME=rabbit@rabbitmq
-    volumes:
-      - rabbitmqdata-test:/var/lib/rabbitmq
-    networks:
-      - ciri-net-tests
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 12
-      start_period: 10s
-
   backend:
     build:
       context: ../backend
@@ -44,19 +26,12 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      rabbitmq:
-        condition: service_healthy
     environment:
       - NODE_ENV=test
-      - REACT_URL=http://localhost:3000
-      - ADMIN_USERNAME=test-admin
-      - ADMIN_PASSWORD_HASH=scrypt:16384:8:1:000102030405060708090a0b0c0d0e0f:d7590aca2c9801cf06eeba772a69dc31ce3862591d96522ac4e6bba6ad1f31a52d6f736f2b85adaa6262335eb112e56f014f417a37d74be0def7669b2c51c29e
       - POSTGRES_HOST=postgres
       - POSTGRES_USER=username
       - POSTGRES_PASSWORD=changeme
       - POSTGRES_DB=test_db
-      - RABBITMQ_URL=amqp://ciri-test:ciri-test-password@rabbitmq:5672
-      - RAWG_API_KEY=${RAWG_API_KEY:-}
     command: >
       sh -c "npm run test && npm run test:e2e"
     volumes:
@@ -67,6 +42,3 @@ services:
 
 networks:
   ciri-net-tests:
-
-volumes:
-  rabbitmqdata-test:

@@ -4,23 +4,18 @@ services:
   backend:
     container_name: ciri-backend-prod
     restart: always
-    build:
-      context: ../backend
-      dockerfile: ../infra/Dockerfile.backend
-      target: prod
+    image: ${BACKEND_IMAGE:?Set BACKEND_IMAGE to the scanned GHCR sha tag}
     environment:
       - REACT_URL=${REACT_URL:?REACT_URL must be set}
-      - ADMIN_USERNAME=${ADMIN_USERNAME:?ADMIN_USERNAME must be set}
-      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH:?ADMIN_PASSWORD_HASH must be set}
-      - PORT=${BACKEND_PORT}
+      - NODE_ENV=production
+      - PORT=4000
       - POSTGRES_HOST=postgres
       - POSTGRES_PORT=5432
-      - RABBITMQ_URL=${RABBITMQ_URL:?RABBITMQ_URL must be set}
       - RAWG_API_KEY=${RAWG_API_KEY:-}
     env_file:
       - .env
     ports:
-      - "${BACKEND_PORT}:${BACKEND_PORT}"
+      - "127.0.0.1:${BACKEND_PORT:-4000}:4000"
     depends_on:
       postgres:
         condition: service_healthy
@@ -37,64 +32,22 @@ services:
     networks:
       - ciri-net-prod
 
-  # React Frontend (Production - Nginx)
-  react:
-    container_name: ciri-frontend-prod
-    restart: always
-    build:
-      context: ../frontend
-      dockerfile: ../infra/Dockerfile.frontend
-      target: prod
-      args:
-        VITE_API_URL: ${VITE_API_URL:?VITE_API_URL must be set}
-    ports:
-      - "${REACT_PORT}:80" # Nginx listens on 80 inside the container
-    depends_on:
-      backend:
-        condition: service_healthy
-    networks:
-      - ciri-net-prod
-
   # Postgres (Same as dev, but separate container/volume name to avoid conflicts)
   postgres:
     image: postgres:16-alpine
     container_name: ciri-postgres-prod
     restart: always
-    # TODO: remove port exposing
-    ports:
-      - "${POSTGRES_PORT}:5432"
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER:?POSTGRES_USER must be set}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+      - POSTGRES_DB=${POSTGRES_DB:?POSTGRES_DB must be set}
     volumes:
       - pgdata-prod:/var/lib/postgresql/data
       - ./init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
       - ciri-net-prod
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
-  # RabbitMQ broker (production, no host ports)
-  rabbitmq:
-    image: rabbitmq:4.3.5-alpine
-    hostname: rabbitmq
-    container_name: ciri-rabbitmq-prod
-    restart: always
-    environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER must be set}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS must be set}
-      - RABBITMQ_NODENAME=rabbit@rabbitmq
-    volumes:
-      - rabbitmqdata-prod:/var/lib/rabbitmq
-    networks:
-      - ciri-net-prod
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:?POSTGRES_USER must be set} -d ${POSTGRES_DB:?POSTGRES_DB must be set}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -102,7 +55,6 @@ services:
 
 volumes:
   pgdata-prod:
-  rabbitmqdata-prod:
 
 networks:
   ciri-net-prod:

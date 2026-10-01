@@ -2,13 +2,12 @@
 
 The frontend is a React 19 and Vite TypeScript SPA. React Router handles pages,
 React Query and the shared Axios client handle API state, and Tailwind CSS
-provides styling. Production assets are served by Nginx in Docker locally.
+provides styling. Production assets are built for Azure static hosting; Docker is used for development only.
 
 ## Configuration
 
-Development and production Compose stacks use the repository-level `infra/.env`
-as the single configuration file; the isolated test stack uses deterministic
-values from its Compose file. `VITE_API_URL` must be a browser-reachable NestJS
+The development Compose stack uses the repository-level `infra/.env`.
+For production, set the public API URL in the static frontend build environment. `VITE_API_URL` must be a browser-reachable NestJS
 base URL ending in `/api`; it is compiled into the production bundle. Provider keys and
 database credentials belong to the backend/Compose environment and must never
 be exposed through a `VITE_` variable.
@@ -61,7 +60,8 @@ set. `npm run build` writes the production bundle to `dist/`.
 
 Vitest, React Testing Library, and MSW cover form behavior, API states, result
 provenance/verdicts, warnings, and the About route. CI runs frontend lint,
-type-check, tests, and production build before the Docker-backed backend job.
+type-check, tests, and a static production build. Both frontend and backend checks
+gate the backend image publication; no frontend container image is published.
 
 ## Current limits
 

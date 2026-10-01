@@ -1,9 +1,7 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { EnrichmentPublisher } from './enrichment-publisher.service';
 import { Game } from './entities/game.entity';
-import { GameEnrichmentJob } from './entities/game-enrichment-job.entity';
 import { GamesService } from './games.service';
 import { RawgClient } from './rawg.client';
 
@@ -48,7 +46,6 @@ describe('GamesService discovery', () => {
     let service: GamesService;
     let gamesRepository: Record<string, jest.Mock>;
     let rawgService: { search: jest.Mock; getById: jest.Mock };
-    let publisher: { publishInitial: jest.Mock; replayQueued: jest.Mock };
     let dataSource: {
         transaction: jest.Mock;
         getRepository: jest.Mock;
@@ -81,10 +78,6 @@ describe('GamesService discovery', () => {
             search: jest.fn(),
             getById: jest.fn(),
         };
-        publisher = {
-            publishInitial: jest.fn().mockResolvedValue(undefined),
-            replayQueued: jest.fn().mockResolvedValue(undefined),
-        };
         transactionManager = {
             findOne: jest.fn(),
             save: jest.fn((entity: unknown) => Promise.resolve(entity)),
@@ -102,7 +95,6 @@ describe('GamesService discovery', () => {
                 GamesService,
                 { provide: 'IGamesRepository', useValue: gamesRepository },
                 { provide: RawgClient, useValue: rawgService },
-                { provide: EnrichmentPublisher, useValue: publisher },
                 { provide: 'DATA_SOURCE', useValue: dataSource },
             ],
         }).compile();
@@ -110,7 +102,7 @@ describe('GamesService discovery', () => {
         service = module.get(GamesService);
     });
 
-    it('keeps local published results when RAWG is unavailable without writing or publishing', async () => {
+    it('keeps local published results when RAWG is unavailable without writing', async () => {
         gamesRepository.findAll.mockResolvedValue([[localGame()], 1]);
         rawgService.search.mockResolvedValue({ available: false, results: [] });
 
@@ -135,7 +127,6 @@ describe('GamesService discovery', () => {
         });
         expect(gamesRepository.save).not.toHaveBeenCalled();
         expect(gamesRepository.insert).not.toHaveBeenCalled();
-        expect(publisher.publishInitial).not.toHaveBeenCalled();
     });
 
     it('marks every mixed discovery row with its source and preserves RAWG links', async () => {
@@ -249,10 +240,9 @@ describe('GamesService discovery', () => {
 
         expect(dataSource.transaction).not.toHaveBeenCalled();
         expect(gamesRepository.save).not.toHaveBeenCalled();
-        expect(publisher.publishInitial).not.toHaveBeenCalled();
     });
 
-    it('returns an existing pending selection without changing metadata or job state', async () => {
+    it('returns an existing pending selection without changing metadata', async () => {
         const existing = localGame({
             id: 41,
             slug: 'cyberpunk-2077-rawg-3498',
@@ -270,7 +260,6 @@ describe('GamesService discovery', () => {
         expect(rawgService.getById).not.toHaveBeenCalled();
         expect(dataSource.transaction).not.toHaveBeenCalled();
         expect(gamesRepository.save).not.toHaveBeenCalled();
-        expect(publisher.publishInitial).not.toHaveBeenCalled();
     });
 
     it('returns an existing published selection and rejects an existing rejected selection', async () => {
@@ -302,19 +291,13 @@ describe('GamesService discovery', () => {
         expect(dataSource.transaction).not.toHaveBeenCalled();
     });
 
-    it('converges concurrent selection on one game and one queued job', async () => {
+    it('converges concurrent selection on one game without an enrichment job', async () => {
         const createdGame = localGame({
             id: 61,
             slug: 'cyberpunk-2077-rawg-3498',
             status: 'pending_approval',
             rawgId: 3498,
         });
-        const createdJob = {
-            id: 91,
-            game: createdGame,
-            status: 'queued',
-            attempts: 0,
-        } as unknown as GameEnrichmentJob;
         let transactionCount = 0;
 
         gamesRepository.findByRawgId
@@ -323,9 +306,7 @@ describe('GamesService discovery', () => {
             .mockResolvedValue(createdGame);
         rawgService.getById.mockResolvedValue(rawgDetail());
         transactionManager.findOne.mockResolvedValue(null);
-        transactionManager.save
-            .mockResolvedValueOnce(createdGame)
-            .mockResolvedValueOnce(createdJob);
+        transactionManager.save.mockResolvedValueOnce(createdGame);
         dataSource.transaction.mockImplementation(
             (work: (manager: unknown) => unknown) => {
                 transactionCount += 1;
@@ -352,7 +333,6 @@ describe('GamesService discovery', () => {
                 status: 'pending_approval',
             },
         ]);
-        expect(transactionManager.save).toHaveBeenCalledTimes(2);
-        expect(publisher.publishInitial).toHaveBeenCalledTimes(1);
+        expect(transactionManager.save).toHaveBeenCalledTimes(1);
     });
 });

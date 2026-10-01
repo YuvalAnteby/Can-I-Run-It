@@ -19,18 +19,4 @@ ALTER TABLE games
         OR (status <> 'rejected' AND rejection_reason IS NULL)
     );
 
-CREATE TABLE game_enrichment_jobs (
-    id serial PRIMARY KEY,
-    game_id integer NOT NULL UNIQUE REFERENCES games(id) ON DELETE RESTRICT,
-    status varchar(20) NOT NULL DEFAULT 'queued'
-        CHECK (status IN ('queued', 'processing', 'completed', 'failed')),
-    missing_fields text[] NOT NULL DEFAULT '{}'::text[],
-    error text,
-    attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
-    claim_token uuid,
-    claimed_at timestamptz,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now()
-);
-
 COMMIT;

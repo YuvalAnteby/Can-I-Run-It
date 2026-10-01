@@ -87,6 +87,22 @@ describe('CheckRateLimitGuard', () => {
         );
     });
 
+    it('caps a route group across rotating IPs and resets after one minute', () => {
+        const guard = new CheckRateLimitGuard();
+        const res = { setHeader: jest.fn() };
+        for (let i = 0; i < 100; i++) {
+            guard.canActivate(executionContextFor({ ip: `client-${i}`, res }));
+        }
+        expect(() =>
+            guard.canActivate(executionContextFor({ ip: 'new-client', res })),
+        ).toThrow(TooManyRequestsException);
+        expect(res.setHeader).toHaveBeenLastCalledWith('Retry-After', 60);
+        jest.mocked(Date.now).mockReturnValue(60_000);
+        expect(
+            guard.canActivate(executionContextFor({ ip: 'new-client', res })),
+        ).toBe(true);
+    });
+
     it('attaches protection to checks and public RAWG routes while leaving reads open', () => {
         expect(Reflect.getMetadata(GUARDS_METADATA, CheckController)).toEqual([
             CheckRateLimitGuard,

@@ -12,9 +12,7 @@ import { PaginatedResult } from '../../common/dto/paginated-result.dto';
 import { ClientGameDto, PublicAttributionDto } from './dto/client-game.dto';
 import { ClientGameRequirementDto } from './dto/client-game-requirement.dto';
 import { FilterGameDto } from './dto/filter-game.dto';
-import { EnrichmentPublisher } from './enrichment-publisher.service';
 import { Game } from './entities/game.entity';
-import { GameEnrichmentJob } from './entities/game-enrichment-job.entity';
 import { GameRequirement } from './entities/game-requirement.entity';
 import type { GameStatus } from './game-lifecycle.contract';
 import { MOCK_GAMES } from './games.constants';
@@ -143,7 +141,6 @@ export class GamesService {
         @Inject(IGamesRepositoryToken)
         private readonly gamesRepository: IGamesRepository,
         private readonly rawgClient: RawgClient,
-        private readonly enrichmentPublisher: EnrichmentPublisher,
         @Inject('DATA_SOURCE') private readonly dataSource: DataSource,
     ) {}
 
@@ -211,15 +208,6 @@ export class GamesService {
         const result = await this.createGame(detail);
         if (!result.created) return this.existingSelection(result.game);
 
-        try {
-            await this.enrichmentPublisher.publishInitial({
-                ...({ status: 'queued', attempts: 0 } as GameEnrichmentJob),
-                game: result.game,
-            });
-        } catch {
-            this.logger.warn('Initial enrichment publication unavailable');
-        }
-
         return this.selection(result.game);
     }
 
@@ -263,11 +251,6 @@ export class GamesService {
                         Game,
                         this.toGameValues(detail, slug),
                     );
-                    await manager.save(GameEnrichmentJob, {
-                        game,
-                        status: 'queued',
-                        attempts: 0,
-                    });
                     return { game, created: true };
                 });
             } catch (error: unknown) {

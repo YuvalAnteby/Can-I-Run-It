@@ -1,14 +1,16 @@
 import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
-import { installAdminLoginNoStoreMiddleware } from './modules/admin-auth/admin-login-no-store.middleware';
 
 async function bootstrap() {
-    const app = await NestFactory.create(AppModule);
+    const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
     app.enableShutdownHooks();
-    installAdminLoginNoStoreMiddleware(app);
+    // Only enable behind the private Nginx hop, which replaces forwarded headers.
+    if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
 
     // Global Prefix
     app.setGlobalPrefix('api');
@@ -21,10 +23,7 @@ async function bootstrap() {
                 ? frontendUrl
                     ? [frontendUrl]
                     : []
-                : [
-                      frontendUrl || 'http://localhost:3000',
-                      'http://localhost:3000',
-                  ],
+                : [frontendUrl || 'http://react', 'http://localhost:3000'],
         credentials: true,
     });
 

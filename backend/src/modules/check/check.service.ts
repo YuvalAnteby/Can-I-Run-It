@@ -22,7 +22,6 @@ import { HardwareDto } from './dto/hardware.dto';
 import { PendingCheckRequestDto } from './dto/pending-check-request.dto';
 import { SettingsDto } from './dto/settings.dto';
 
-// TODO: Remove debug logs before merging to staging or main
 @Injectable()
 export class CheckService {
     private readonly logger = new Logger(CheckService.name);
