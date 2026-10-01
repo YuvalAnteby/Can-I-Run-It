@@ -4,13 +4,15 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { CheckController } from '../../modules/check/check.controller';
 import { GamesController } from '../../modules/games/games.controller';
 import { HealthController } from '../../modules/health/health.controller';
+import { AbuseProtectionService } from '../abuse-protection/abuse-protection.service';
 import {
     CheckRateLimitGuard,
     TooManyRequestsException,
 } from './check-rate-limit.guard';
 
 function executionContextFor(request: {
-    ip: string;
+    ip?: string;
+    socket?: { remoteAddress?: string };
     res: { setHeader: jest.Mock };
 }): ExecutionContext {
     return {
@@ -22,6 +24,8 @@ function executionContextFor(request: {
 }
 
 describe('CheckRateLimitGuard', () => {
+    let abuseProtection: AbuseProtectionService;
+
     const methodGuards = (
         method: 'discoverGames' | 'selectRawgGame',
     ): unknown =>
@@ -33,13 +37,17 @@ describe('CheckRateLimitGuard', () => {
 
     beforeEach(() => {
         jest.spyOn(Date, 'now').mockReturnValue(0);
+        abuseProtection = new AbuseProtectionService({
+            get: jest.fn((_key: string, fallback?: unknown) => fallback),
+        } as never);
     });
     afterEach(() => {
+        abuseProtection.onApplicationShutdown();
         jest.restoreAllMocks();
     });
 
     it('allows ten requests and rejects the eleventh for one IP', () => {
-        const guard = new CheckRateLimitGuard();
+        const guard = new CheckRateLimitGuard(abuseProtection);
         const request = { ip: '203.0.113.10', res: { setHeader: jest.fn() } };
         const context = executionContextFor(request);
         for (let attempt = 0; attempt < 10; attempt += 1) {
@@ -60,7 +68,7 @@ describe('CheckRateLimitGuard', () => {
     });
 
     it('keeps a fixed deadline, rounds Retry-After up, and resets at one minute', () => {
-        const guard = new CheckRateLimitGuard();
+        const guard = new CheckRateLimitGuard(abuseProtection);
         const request = { ip: '203.0.113.10', res: { setHeader: jest.fn() } };
         const context = executionContextFor(request);
         guard.canActivate(context);
@@ -88,7 +96,7 @@ describe('CheckRateLimitGuard', () => {
     });
 
     it('caps a route group across rotating IPs and resets after one minute', () => {
-        const guard = new CheckRateLimitGuard();
+        const guard = new CheckRateLimitGuard(abuseProtection);
         const res = { setHeader: jest.fn() };
         for (let i = 0; i < 100; i++) {
             guard.canActivate(executionContextFor({ ip: `client-${i}`, res }));

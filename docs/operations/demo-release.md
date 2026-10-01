@@ -22,18 +22,33 @@ private and binds the API to host loopback port `${BACKEND_PORT:-4000}` for a lo
 HTTPS reverse proxy; it does not provide TLS or an Azure deployment.
 
 The API does not trust forwarded IP headers by default. For an ingress that replaces
-`X-Forwarded-For`, `TRUST_PROXY=1` explicitly trusts exactly one hop. Enable this only
+`X-Forwarded-For`, validated `TRUST_PROXY=1` trusts exactly one hop. Enable this only
 when clients cannot bypass that ingress to reach the API directly. For Azure or a
 multi-proxy topology, verify the actual routing and trusted client-IP configuration
 before enabling it; otherwise visitors may share the ingress's rate-limit bucket.
 
-Compatibility checks and RAWG discovery/selection have per-process IP limits.
-Each guarded route group also allows at most 100 accepted requests per minute across
-all IPs, and Gemini allows at most 30 new calls per minute with concurrent identical
-requests coalesced. These process-local budgets are not a distributed quota or a daily spending cap. Set provider quotas/budgets before
-public deployment, and keep one API replica until shared limits are implemented.
-The API uses provider timeouts, validates responses, renders text without raw HTML,
-and falls back when providers are absent or unavailable.
+The guarded check, pending-check, RAWG discovery, and RAWG selection routes admit at
+most 10 requests per minute per process/IP and 100 accepted requests per minute per
+process across all IPs. Gemini admits 30 new calls per minute with two concurrent
+calls; RAWG admits 60 new calls per minute with four concurrent calls. Identical
+in-flight provider work joins the existing operation before consuming a provider
+permit. Denied work fails fast and does not enter a queue. A provider timeout returns
+the normal fallback promptly while its permit remains held until the underlying SDK
+or fetch and response body settle. These fixed-window budgets are process-local,
+reset on restart, and allow boundary bursts; they are not distributed quotas or
+daily/monthly spending caps. NAT clients share an IP bucket, and a client abort
+cannot guarantee provider billing cancellation.
+
+Provider keys are optional and missing-key warnings occur once at startup. Bounded
+fixed labels (`rate_limit.ip`, `rate_limit.global`, and
+`provider.<name>.<budget|concurrency|timeout|failure>`) can be counted in the
+backend logs; repeated labels are aggregated for 60 seconds and flushed on graceful
+shutdown. The API validates provider responses, avoids raw provider payloads in
+logs, and falls back when providers are absent or unavailable. RAWG uses in-flight
+coalescing only; it intentionally has no completed-response TTL so local moderation
+results stay fresh. Record the actual Gemini model/tier RPM, TPM, RPD, spend-cap and
+billing settings, and the RAWG key's plan/allowance before launch. The application
+defaults do not establish provider account hard limits.
 
 ## Container App health probes
 
@@ -41,10 +56,10 @@ The backend exposes version-neutral health endpoints. `backend_port` defaults to
 4000 and is used for the container `PORT`, HTTPS ingress target, and every HTTP
 probe.
 
-| Endpoint | Dependency | Healthy response | Unavailable response |
-| --- | --- | --- | --- |
-| `/api/health/live` | Running Nest process only | `200 {"status":"ok"}` | The process is not serving |
-| `/api/health/ready` | PostgreSQL only | `200 {"status":"ok"}` | `503 {"status":"unavailable"}` |
+| Endpoint               | Dependency                  | Healthy response                          | Unavailable response             |
+| ---------------------- | --------------------------- | ----------------------------------------- | -------------------------------- |
+| `/api/health/live`     | Running Nest process only   | `200 {"status":"ok"}`                     | The process is not serving       |
+| `/api/health/ready`    | PostgreSQL only             | `200 {"status":"ok"}`                     | `503 {"status":"unavailable"}`   |
 | `/api/health/postgres` | PostgreSQL diagnostic check | Terminus `status`/`info`/`details` result | Terminus diagnostic error result |
 
 Readiness has a 1000 ms PostgreSQL indicator timeout and never calls Gemini or
@@ -59,11 +74,11 @@ keeps one revision and one replica with 0.5 CPU and 1 GiB memory, HTTPS public
 ingress, and 100% traffic on the latest revision. It declares one probe of each
 kind:
 
-| Probe | Path | Initial delay | Interval | Failure threshold | Success threshold | Timeout |
-| --- | --- | ---: | ---: | ---: | ---: | ---: |
-| Startup | `/api/health/live` | 10 s | 10 s | 30 | — | 2 s |
-| Liveness | `/api/health/live` | 10 s | 10 s | 3 | — | 2 s |
-| Readiness | `/api/health/ready` | — | 5 s | 1 | 1 | 2 s |
+| Probe     | Path                | Initial delay | Interval | Failure threshold | Success threshold | Timeout |
+| --------- | ------------------- | ------------: | -------: | ----------------: | ----------------: | ------: |
+| Startup   | `/api/health/live`  |          10 s |     10 s |                30 |                 — |     2 s |
+| Liveness  | `/api/health/live`  |          10 s |     10 s |                 3 |                 — |     2 s |
+| Readiness | `/api/health/ready` |             — |      5 s |                 1 |                 1 |     2 s |
 
 Supply `container_app_name`, `resource_group_name`,
 `container_app_environment_id`, `backend_image`, and optional environment maps
@@ -88,6 +103,24 @@ terraform -chdir=infra/terraform plan -var-file=release.tfvars
 The import and plan inputs must identify the existing Azure resources; this
 configuration does not create a resource group, Container Apps environment,
 database, network, authentication, or deployment automation.
+
+The existing `azurerm_container_app.backend` resource already declares
+`revision_mode = "Single"`, `min_replicas = 1`, `max_replicas = 1`, and 100% traffic
+to the latest revision. Preserve those values on every reviewed deployment. Apply
+the authorized plan through the existing Terraform state workflow, then read back
+the live revision mode, scale settings, traffic, and active revisions with Azure
+CLI. A source declaration or a successful plan alone does not prove the deployed
+app has the required topology. Revision transitions and platform maintenance may
+briefly overlap processes, so one configured replica is not a globally durable
+billing cap; require one active serving revision and no public old-revision labels.
+
+Before enabling `TRUST_PROXY=1`, inspect the selected subscription and deployed
+Container App, confirm HTTP ingress is the only public API path, and verify that
+internal callers cannot bypass ingress to reach Express with attacker-controlled
+forwarding headers. Retain redacted mode/scale/traffic and controlled request-IP
+observations in the release record. Repeat the checks after routing or topology
+changes; local HTTP tests cannot prove Azure's external client network or bypass
+paths.
 
 When the running app loses PostgreSQL, readiness returns 503 while startup and
 liveness continue to succeed for the running process. Restoring database

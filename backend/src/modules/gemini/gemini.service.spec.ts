@@ -2,6 +2,7 @@ import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AbuseProtectionService } from '../../common/abuse-protection/abuse-protection.service';
 import { SettingsDto } from '../check/dto/settings.dto';
 import { Cpu } from '../cpu/entities/cpu.entity';
 import { Game } from '../games/entities/game.entity';
@@ -56,12 +57,23 @@ const validGeminiPayload = {
     ],
 };
 
+const deferred = <T>() => {
+    let resolve!: (value: T) => void;
+    let reject!: (reason?: unknown) => void;
+    const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+        resolve = resolvePromise;
+        reject = rejectPromise;
+    });
+    return { promise, resolve, reject };
+};
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
 
 describe('GeminiService', () => {
     let service: GeminiService;
+    let abuseProtection: AbuseProtectionService;
     let fetchSpy: jest.SpyInstance;
     let errorSpy: jest.SpyInstance;
     let debugSpy: jest.SpyInstance;
@@ -76,6 +88,7 @@ describe('GeminiService', () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 GeminiService,
+                AbuseProtectionService,
                 {
                     provide: ConfigService,
                     useValue: {
@@ -89,6 +102,7 @@ describe('GeminiService', () => {
         }).compile();
 
         service = module.get(GeminiService);
+        abuseProtection = module.get(AbuseProtectionService);
 
         // Mock global fetch
         fetchSpy = jest.spyOn(global, 'fetch');
@@ -116,6 +130,205 @@ describe('GeminiService', () => {
         );
         expect(results.every((result) => result?.fps.high === 55)).toBe(true);
         expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('fails fast for a third distinct Gemini request and admits work after settlement', async () => {
+        const first = deferred<{ text: string }>();
+        const second = deferred<{ text: string }>();
+        const third = deferred<{ text: string }>();
+        const generateContent = jest
+            .spyOn(
+                (
+                    service as unknown as {
+                        genAI: {
+                            models: { generateContent: jest.Mock };
+                        };
+                    }
+                ).genAI.models,
+                'generateContent',
+            )
+            .mockImplementationOnce(() => first.promise)
+            .mockImplementationOnce(() => second.promise)
+            .mockImplementationOnce(() => third.promise);
+
+        const estimate = (name: string) =>
+            service.estimate(
+                { ...mockGame, name } as unknown as Game,
+                mockCpu,
+                mockGpu,
+                mockRamGb,
+                mockSettings,
+            );
+
+        const firstEstimate = estimate('Concurrent Game One');
+        const secondEstimate = estimate('Concurrent Game Two');
+        await Promise.resolve();
+        await Promise.resolve();
+
+        await expect(estimate('Concurrent Game Three')).resolves.toBeNull();
+        expect(generateContent).toHaveBeenCalledTimes(2);
+
+        first.resolve({
+            text: JSON.stringify({
+                fps: { low: 95, med: 72, high: 55, ultra: 38 },
+                note: null,
+            }),
+        });
+        await expect(firstEstimate).resolves.toEqual({
+            fps: { low: 95, med: 72, high: 55, ultra: 38 },
+            note: null,
+        });
+        await Promise.resolve();
+        await Promise.resolve();
+
+        const fourthEstimate = estimate('Concurrent Game Four');
+        await Promise.resolve();
+        second.resolve({
+            text: JSON.stringify({
+                fps: { low: 90, med: 70, high: 50, ultra: 35 },
+                note: null,
+            }),
+        });
+        third.resolve({
+            text: JSON.stringify({
+                fps: { low: 80, med: 60, high: 45, ultra: 30 },
+                note: null,
+            }),
+        });
+        await expect(secondEstimate).resolves.not.toBeNull();
+        await expect(fourthEstimate).resolves.not.toBeNull();
+        expect(generateContent).toHaveBeenCalledTimes(3);
+    });
+
+    it('holds a Gemini permit after timeout until the SDK promise settles', async () => {
+        jest.useFakeTimers();
+        const module: TestingModule = await Test.createTestingModule({
+            providers: [
+                GeminiService,
+                AbuseProtectionService,
+                {
+                    provide: ConfigService,
+                    useValue: {
+                        get: jest.fn((key: string, fallback?: unknown) => {
+                            if (key === 'GEMINI_API_KEY') return 'test-api-key';
+                            if (key === 'GEMINI_TIMEOUT_MS') return 100;
+                            if (key === 'GEMINI_MAX_CONCURRENT') return 1;
+                            return fallback;
+                        }),
+                    },
+                },
+            ],
+        }).compile();
+        const timeoutService = module.get(GeminiService);
+        const timeoutAbuseProtection = module.get(AbuseProtectionService);
+        const underlying = deferred<{ text: string }>();
+        let signal: AbortSignal | undefined;
+        const generateContent = jest
+            .spyOn(
+                (
+                    timeoutService as unknown as {
+                        genAI: {
+                            models: { generateContent: jest.Mock };
+                        };
+                    }
+                ).genAI.models,
+                'generateContent',
+            )
+            .mockImplementationOnce(
+                (request: { config?: { abortSignal?: AbortSignal } }) => {
+                    signal = request.config?.abortSignal;
+                    return underlying.promise;
+                },
+            )
+            .mockResolvedValue({
+                text: JSON.stringify({
+                    fps: { low: 80, med: 60, high: 45, ultra: 30 },
+                    note: null,
+                }),
+            });
+
+        const estimate = (name: string) =>
+            timeoutService.estimate(
+                { ...mockGame, name } as unknown as Game,
+                mockCpu,
+                mockGpu,
+                mockRamGb,
+                mockSettings,
+            );
+
+        const first = estimate('Timeout Game');
+        await Promise.resolve();
+        await Promise.resolve();
+        await jest.advanceTimersByTimeAsync(100);
+        await expect(first).resolves.toBeNull();
+        expect(signal?.aborted).toBe(true);
+
+        await expect(estimate('Distinct While Settling')).resolves.toBeNull();
+        await expect(estimate('Timeout Game')).resolves.toBeNull();
+        expect(generateContent).toHaveBeenCalledTimes(1);
+
+        underlying.resolve({
+            text: JSON.stringify({
+                fps: { low: 80, med: 60, high: 45, ultra: 30 },
+                note: null,
+            }),
+        });
+        await Promise.resolve();
+        await Promise.resolve();
+        for (let tick = 0; tick < 6; tick += 1) await Promise.resolve();
+        await expect(estimate('After Settlement')).resolves.not.toBeNull();
+        expect(generateContent).toHaveBeenCalledTimes(2);
+        expect(jest.getTimerCount()).toBe(0);
+        timeoutAbuseProtection.onApplicationShutdown();
+    });
+
+    it('handles a late Gemini rejection after a timeout without an unhandled promise', async () => {
+        jest.useFakeTimers();
+        const module: TestingModule = await Test.createTestingModule({
+            providers: [
+                GeminiService,
+                AbuseProtectionService,
+                {
+                    provide: ConfigService,
+                    useValue: {
+                        get: jest.fn((key: string, fallback?: unknown) => {
+                            if (key === 'GEMINI_API_KEY') return 'test-api-key';
+                            if (key === 'GEMINI_TIMEOUT_MS') return 100;
+                            return fallback;
+                        }),
+                    },
+                },
+            ],
+        }).compile();
+        const timeoutService = module.get(GeminiService);
+        const timeoutAbuseProtection = module.get(AbuseProtectionService);
+        const underlying = deferred<{ text: string }>();
+        jest.spyOn(
+            (
+                timeoutService as unknown as {
+                    genAI: { models: { generateContent: jest.Mock } };
+                }
+            ).genAI.models,
+            'generateContent',
+        ).mockReturnValue(underlying.promise);
+
+        const first = timeoutService.estimate(
+            mockGame,
+            mockCpu,
+            mockGpu,
+            mockRamGb,
+            mockSettings,
+        );
+        await Promise.resolve();
+        await Promise.resolve();
+        await jest.advanceTimersByTimeAsync(100);
+        await expect(first).resolves.toBeNull();
+
+        underlying.reject(new Error('late provider failure'));
+        await Promise.resolve();
+        await Promise.resolve();
+        expect(jest.getTimerCount()).toBe(0);
+        timeoutAbuseProtection.onApplicationShutdown();
     });
 
     it('caps provider requests across games at thirty per minute and recovers', async () => {
@@ -283,6 +496,7 @@ describe('GeminiService', () => {
         const moduleNoKey: TestingModule = await Test.createTestingModule({
             providers: [
                 GeminiService,
+                AbuseProtectionService,
                 {
                     provide: ConfigService,
                     useValue: { get: () => undefined },
@@ -291,6 +505,8 @@ describe('GeminiService', () => {
         }).compile();
 
         const serviceNoKey = moduleNoKey.get(GeminiService);
+        const noKeyProtection = moduleNoKey.get(AbuseProtectionService);
+        const acquireSpy = jest.spyOn(noKeyProtection, 'tryAcquireProvider');
         const result = await serviceNoKey.estimate(
             mockGame,
             mockCpu,
@@ -301,6 +517,7 @@ describe('GeminiService', () => {
 
         expect(result).toBeNull();
         expect(fetchSpy).not.toHaveBeenCalled();
+        expect(acquireSpy).not.toHaveBeenCalled();
     });
 
     // --- Network / HTTP errors ---
@@ -318,23 +535,26 @@ describe('GeminiService', () => {
         expect(result).toBeNull();
     });
 
-    it('returns null on non-OK HTTP response', async () => {
-        fetchSpy.mockResolvedValueOnce({
-            ok: false,
-            headers: new Headers(),
-            status: 429,
-            text: () => Promise.resolve('Rate limit exceeded'),
-        } as Response);
+    it.each([429, 402, 503])(
+        'returns null on non-OK HTTP response %s',
+        async (status) => {
+            fetchSpy.mockResolvedValueOnce({
+                ok: false,
+                headers: new Headers(),
+                status,
+                text: () => Promise.resolve('Rate limit exceeded'),
+            } as Response);
 
-        const result = await service.estimate(
-            mockGame,
-            mockCpu,
-            mockGpu,
-            mockRamGb,
-            mockSettings,
-        );
-        expect(result).toBeNull();
-    });
+            const result = await service.estimate(
+                mockGame,
+                mockCpu,
+                mockGpu,
+                mockRamGb,
+                mockSettings,
+            );
+            expect(result).toBeNull();
+        },
+    );
 
     it('returns null on request timeout (AbortError)', async () => {
         fetchSpy.mockRejectedValueOnce(
@@ -465,6 +685,7 @@ describe('GeminiService', () => {
     });
 
     it('does not log provider errors, credentials, or stack traces', async () => {
+        const eventSpy = jest.spyOn(abuseProtection, 'recordEvent');
         fetchSpy.mockRejectedValueOnce(
             new Error('provider-secret test-api-key'),
         );
@@ -477,10 +698,12 @@ describe('GeminiService', () => {
                 mockSettings,
             ),
         ).toBeNull();
-        expect(errorSpy).toHaveBeenCalledWith('Gemini API call failed');
+        expect(errorSpy).not.toHaveBeenCalled();
+        expect(eventSpy).toHaveBeenCalledWith('provider.gemini.failure');
     });
 
     it('does not log raw malformed provider output', async () => {
+        const eventSpy = jest.spyOn(abuseProtection, 'recordEvent');
         fetchSpy.mockResolvedValueOnce(
             new Response(
                 JSON.stringify({
@@ -505,9 +728,8 @@ describe('GeminiService', () => {
                 mockSettings,
             ),
         ).toBeNull();
-        expect(errorSpy).toHaveBeenCalledWith(
-            'Failed to parse Gemini response',
-        );
+        expect(errorSpy).not.toHaveBeenCalled();
+        expect(eventSpy).toHaveBeenCalledWith('provider.gemini.failure');
         expect(JSON.stringify(debugSpy.mock.calls)).not.toContain(
             'provider-secret',
         );

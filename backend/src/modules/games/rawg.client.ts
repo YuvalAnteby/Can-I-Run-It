@@ -1,6 +1,8 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { AbuseProtectionService } from '../../common/abuse-protection/abuse-protection.service';
+
 const RAWG_API_ORIGIN = 'https://api.rawg.io';
 const RAWG_PUBLIC_ORIGIN = 'https://rawg.io';
 const RAWG_SLUG_PATTERN = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -55,10 +57,20 @@ const safeImageUrl = (value: unknown): string | null => {
 export class RawgClient {
     private readonly logger = new Logger(RawgClient.name);
     private readonly apiKey: string | undefined;
+    private readonly timeoutMs: number;
+    private readonly pending = new Map<string, Promise<unknown>>();
 
-    constructor(private readonly config: ConfigService) {
+    constructor(
+        private readonly config: ConfigService,
+        private readonly abuseProtection: AbuseProtectionService,
+    ) {
         const key = this.config.get<string>('RAWG_API_KEY');
         this.apiKey = key?.trim() || undefined;
+        this.timeoutMs =
+            this.config.get<number>('RAWG_TIMEOUT_MS') ?? RAWG_TIMEOUT_MS;
+        if (!this.apiKey) {
+            this.logger.warn('RAWG_API_KEY is not configured');
+        }
     }
 
     async search(query: string): Promise<RawgSearchResponse> {
@@ -68,6 +80,9 @@ export class RawgClient {
         });
 
         if (!isRecord(payload) || !Array.isArray(payload.results)) {
+            if (payload !== null) {
+                this.abuseProtection.recordEvent('provider.rawg.failure');
+            }
             return { available: false, results: [] };
         }
 
@@ -83,12 +98,18 @@ export class RawgClient {
         if (!isValidId(rawgId)) return null;
 
         const payload = await this.request(`/api/games/${rawgId}`);
-        if (!isRecord(payload)) return null;
+        if (!isRecord(payload)) {
+            if (payload !== null) {
+                this.abuseProtection.recordEvent('provider.rawg.failure');
+            }
+            return null;
+        }
         if (
             payload.id !== rawgId ||
             !validName(payload.name) ||
             !validSlug(payload.slug)
         ) {
+            this.abuseProtection.recordEvent('provider.rawg.failure');
             return null;
         }
 
@@ -121,9 +142,14 @@ export class RawgClient {
         params?: Record<string, string>,
     ): Promise<unknown> {
         if (!this.apiKey) {
-            this.logger.warn('RAWG_API_KEY is not configured');
             return null;
         }
+
+        const key = `${path}?${new URLSearchParams(params).toString()}`;
+        const existing = this.pending.get(key);
+        if (existing) return existing;
+        const release = this.abuseProtection.tryAcquireProvider('rawg');
+        if (!release) return null;
 
         const url = new URL(path, RAWG_API_ORIGIN);
         url.searchParams.set('key', this.apiKey);
@@ -131,24 +157,72 @@ export class RawgClient {
             url.searchParams.set(key, value);
         }
 
-        try {
-            const response = await fetch(url.toString(), {
-                signal: AbortSignal.timeout(RAWG_TIMEOUT_MS),
-            });
-            if (!response.ok) {
-                this.logger.warn('RAWG provider unavailable');
-                return null;
-            }
-
+        const controller = new AbortController();
+        let timedOut = false;
+        let timeoutId: ReturnType<typeof setTimeout>;
+        const timeout = new Promise<null>((resolve) => {
+            timeoutId = setTimeout(() => {
+                timedOut = true;
+                controller.abort();
+                this.abuseProtection.recordEvent('provider.rawg.timeout');
+                resolve(null);
+            }, this.timeoutMs);
+        });
+        let resolveNonOkFallback!: () => void;
+        const nonOkFallback = new Promise<null>((resolve) => {
+            resolveNonOkFallback = () => resolve(null);
+        });
+        const underlying = (async () => {
             try {
-                return await response.json();
+                const response = await fetch(url.toString(), {
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    resolveNonOkFallback();
+                    if (!timedOut) {
+                        this.abuseProtection.recordEvent(
+                            'provider.rawg.failure',
+                        );
+                    }
+                    try {
+                        await response.body?.cancel();
+                    } catch {
+                        return null;
+                    }
+                    return null;
+                }
+                try {
+                    const payload: unknown = await response.json();
+                    return payload;
+                } catch {
+                    if (!timedOut) {
+                        this.abuseProtection.recordEvent(
+                            'provider.rawg.failure',
+                        );
+                    }
+                    return null;
+                }
             } catch {
-                this.logger.warn('RAWG provider returned malformed data');
+                if (!timedOut) {
+                    this.abuseProtection.recordEvent('provider.rawg.failure');
+                }
                 return null;
+            } finally {
+                clearTimeout(timeoutId!);
             }
-        } catch {
-            this.logger.warn('RAWG provider request failed');
-            return null;
-        }
+        })();
+        const result = Promise.race([underlying, timeout, nonOkFallback]);
+        this.pending.set(key, result);
+        void underlying.then(
+            () => {
+                if (this.pending.get(key) === result) this.pending.delete(key);
+                release();
+            },
+            () => {
+                if (this.pending.get(key) === result) this.pending.delete(key);
+                release();
+            },
+        );
+        return result;
     }
 }
