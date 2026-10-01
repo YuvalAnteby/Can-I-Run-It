@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import type { FindOneOptions } from 'typeorm';
 import { DataSource, IsNull, Repository } from 'typeorm';
 
+import { observeStage } from '../../common/observability/telemetry';
 import { Cpu } from '../cpu/entities/cpu.entity';
 import { Game } from '../games/entities/game.entity';
 import { GeminiService } from '../gemini/gemini.service';
@@ -52,37 +53,43 @@ export class CheckService {
             settings.preset = SettingPreset.HIGH;
         }
 
-        const { game, userCpu, userGpu } = await this.loadInputs(
-            {
-                where: { slug: gameSlug, status: 'published' },
-                relations: [
-                    'requirements',
-                    'requirements.cpu',
-                    'requirements.gpu',
-                ],
-            },
-            hardware,
-            `Game with slug "${gameSlug}" not found`,
+        const { game, userCpu, userGpu } = await observeStage(
+            'check.inputs',
+            () =>
+                this.loadInputs(
+                    {
+                        where: { slug: gameSlug, status: 'published' },
+                        relations: [
+                            'requirements',
+                            'requirements.cpu',
+                            'requirements.gpu',
+                        ],
+                    },
+                    hardware,
+                    `Game with slug "${gameSlug}" not found`,
+                ),
         );
 
         // --- Flow 1: DB lookup ---
-        const records = await this.perfRepo.find({
-            where: {
-                game: { id: game.id },
-                cpu: { id: hardware.cpuId },
-                gpu: { id: hardware.gpuId },
-                ramGb: hardware.ramGb,
-                resolutionWidth: settings.resolutionWidth,
-                resolutionHeight: settings.resolutionHeight,
-                settings: settings.preset,
-                upscaler: settings.upscaler ?? UpscalerType.OFF,
-                upscalerQuality:
-                    settings.upscalerQuality == null
-                        ? IsNull()
-                        : settings.upscalerQuality,
-            },
-            relations: ['gpu'],
-        });
+        const records = await observeStage('check.db_lookup', () =>
+            this.perfRepo.find({
+                where: {
+                    game: { id: game.id },
+                    cpu: { id: hardware.cpuId },
+                    gpu: { id: hardware.gpuId },
+                    ramGb: hardware.ramGb,
+                    resolutionWidth: settings.resolutionWidth,
+                    resolutionHeight: settings.resolutionHeight,
+                    settings: settings.preset,
+                    upscaler: settings.upscaler ?? UpscalerType.OFF,
+                    upscalerQuality:
+                        settings.upscalerQuality == null
+                            ? IsNull()
+                            : settings.upscalerQuality,
+                },
+                relations: ['gpu'],
+            }),
+        );
 
         const candidates = records.some(({ source }) => source === 'measured')
             ? records.filter(({ source }) => source === 'measured')
@@ -108,22 +115,26 @@ export class CheckService {
         // TODO: Implement ML model flow here and call buildResponseFromML when ready
 
         // --- Flow 3: Gemini API ---
-        const geminiEstimate = await this.geminiService.estimate(
-            game,
-            userCpu,
-            userGpu,
-            hardware.ramGb,
-            settings,
-        );
-
-        if (geminiEstimate) {
-            await this.cacheGeminiResult(
-                geminiEstimate,
+        const geminiEstimate = await observeStage('check.gemini', () =>
+            this.geminiService.estimate(
                 game,
                 userCpu,
                 userGpu,
-                hardware,
+                hardware.ramGb,
                 settings,
+            ),
+        );
+
+        if (geminiEstimate) {
+            await observeStage('check.persistence', () =>
+                this.cacheGeminiResult(
+                    geminiEstimate,
+                    game,
+                    userCpu,
+                    userGpu,
+                    hardware,
+                    settings,
+                ),
             );
             return buildResponseFromGemini(
                 geminiEstimate,
@@ -136,12 +147,14 @@ export class CheckService {
         }
 
         // --- Flow 4: Score-based heuristic fallback ---
-        return buildResponseFromFallback(
-            game,
-            userCpu,
-            userGpu,
-            hardware,
-            settings,
+        return observeStage('check.fallback', () =>
+            buildResponseFromFallback(
+                game,
+                userCpu,
+                userGpu,
+                hardware,
+                settings,
+            ),
         );
     }
 
@@ -156,38 +169,44 @@ export class CheckService {
         const { hardware, settings } = dto;
         if (!settings.preset) settings.preset = SettingPreset.HIGH;
 
-        const { game, userCpu, userGpu } = await this.loadInputs(
-            {
-                where: { id: gameId, status: 'pending_approval' },
-                relations: [
-                    'requirements',
-                    'requirements.cpu',
-                    'requirements.gpu',
-                ],
-            },
-            hardware,
-            `Game with ID "${gameId}" not found`,
+        const { game, userCpu, userGpu } = await observeStage(
+            'check.inputs',
+            () =>
+                this.loadInputs(
+                    {
+                        where: { id: gameId, status: 'pending_approval' },
+                        relations: [
+                            'requirements',
+                            'requirements.cpu',
+                            'requirements.gpu',
+                        ],
+                    },
+                    hardware,
+                    `Game with ID "${gameId}" not found`,
+                ),
         );
 
-        const record = await this.perfRepo.findOne({
-            where: {
-                game: { id: gameId },
-                cpu: { id: hardware.cpuId },
-                gpu: { id: hardware.gpuId },
-                ramGb: hardware.ramGb,
-                resolutionWidth: settings.resolutionWidth,
-                resolutionHeight: settings.resolutionHeight,
-                settings: settings.preset,
-                upscaler: settings.upscaler ?? UpscalerType.OFF,
-                upscalerQuality:
-                    settings.upscalerQuality == null
-                        ? IsNull()
-                        : settings.upscalerQuality,
-                source: 'gemini',
-            },
-            order: { createdAt: 'DESC' },
-            relations: ['gpu'],
-        });
+        const record = await observeStage('check.db_lookup', () =>
+            this.perfRepo.findOne({
+                where: {
+                    game: { id: gameId },
+                    cpu: { id: hardware.cpuId },
+                    gpu: { id: hardware.gpuId },
+                    ramGb: hardware.ramGb,
+                    resolutionWidth: settings.resolutionWidth,
+                    resolutionHeight: settings.resolutionHeight,
+                    settings: settings.preset,
+                    upscaler: settings.upscaler ?? UpscalerType.OFF,
+                    upscalerQuality:
+                        settings.upscalerQuality == null
+                            ? IsNull()
+                            : settings.upscalerQuality,
+                    source: 'gemini',
+                },
+                order: { createdAt: 'DESC' },
+                relations: ['gpu'],
+            }),
+        );
 
         const requirement =
             game.requirements?.find(({ tier }) => tier === settings.tier) ??
@@ -202,21 +221,25 @@ export class CheckService {
             );
         }
 
-        const geminiEstimate = await this.geminiService.estimate(
-            game,
-            userCpu,
-            userGpu,
-            hardware.ramGb,
-            settings,
-        );
-        if (geminiEstimate) {
-            await this.cacheGeminiResult(
-                geminiEstimate,
+        const geminiEstimate = await observeStage('check.gemini', () =>
+            this.geminiService.estimate(
                 game,
                 userCpu,
                 userGpu,
-                hardware,
+                hardware.ramGb,
                 settings,
+            ),
+        );
+        if (geminiEstimate) {
+            await observeStage('check.persistence', () =>
+                this.cacheGeminiResult(
+                    geminiEstimate,
+                    game,
+                    userCpu,
+                    userGpu,
+                    hardware,
+                    settings,
+                ),
             );
             return buildResponseFromGemini(
                 geminiEstimate,
@@ -228,12 +251,14 @@ export class CheckService {
             );
         }
 
-        return buildResponseFromFallback(
-            game,
-            userCpu,
-            userGpu,
-            hardware,
-            settings,
+        return observeStage('check.fallback', () =>
+            buildResponseFromFallback(
+                game,
+                userCpu,
+                userGpu,
+                hardware,
+                settings,
+            ),
         );
     }
 
@@ -281,11 +306,12 @@ export class CheckService {
             });
 
             await this.perfRepo.save(record);
-            this.logger.log(
-                `Cached Gemini estimate for game=${game.slug} gpu=${gpu.slug} cpu=${cpu.slug}`,
-            );
+            this.logger.log({ event: 'check.persistence.cached' });
         } catch (err) {
-            this.logger.error('Failed to cache Gemini result', err);
+            this.logger.error({
+                event: 'check.persistence.failed',
+                errorType: err instanceof Error ? err.name : 'UnknownError',
+            });
         }
     }
 

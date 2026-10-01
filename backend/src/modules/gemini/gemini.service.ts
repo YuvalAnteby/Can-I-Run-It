@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { AbuseProtectionService } from '../../common/abuse-protection/abuse-protection.service';
+import { observeProvider } from '../../common/observability/telemetry';
 import { SettingsDto } from '../check/dto/settings.dto';
 import { Cpu } from '../cpu/entities/cpu.entity';
 import { Game } from '../games/entities/game.entity';
@@ -63,7 +64,7 @@ export class GeminiService {
         if (this.apiKey) {
             this.genAI = new GoogleGenAI({ apiKey: this.apiKey });
         } else {
-            this.logger.warn('GEMINI_API_KEY is not configured');
+            this.logger.warn({ event: 'provider.gemini.unconfigured' });
         }
     }
 
@@ -79,9 +80,7 @@ export class GeminiService {
         ramGb: number,
         settings: SettingsDto,
     ): Promise<GeminiEstimate | null> {
-        this.logger.debug(
-            `Estimating with Gemini for ${game.name} on ${cpu.name} + ${gpu.name} + ${ramGb}GB RAM`,
-        );
+        this.logger.debug({ event: 'provider.gemini.request' });
 
         if (!this.apiKey) {
             return null;
@@ -104,10 +103,12 @@ export class GeminiService {
     ): Promise<GeminiEstimate | null> {
         let raw: string;
         try {
-            raw = await this.callGemini(userPrompt, () => {
-                this.pending.delete(userPrompt);
-                release();
-            });
+            raw = await observeProvider('gemini', () =>
+                this.callGemini(userPrompt, () => {
+                    this.pending.delete(userPrompt);
+                    release();
+                }),
+            );
         } catch (error) {
             if (!(error instanceof GeminiTimeoutError)) {
                 this.abuseProtection.recordEvent('provider.gemini.failure');

@@ -1,6 +1,7 @@
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import * as telemetry from '../observability/telemetry';
 import { AbuseProtectionService } from './abuse-protection.service';
 
 const config = (values: Record<string, unknown> = {}): ConfigService =>
@@ -134,7 +135,9 @@ describe('AbuseProtectionService', () => {
         release?.();
         expect(service.tryAcquireProvider('gemini')).toBeNull();
 
-        const warnings = warnSpy.mock.calls.map(([message]) => String(message));
+        const warnings = warnSpy.mock.calls.map(([message]) =>
+            typeof message === 'string' ? message : JSON.stringify(message),
+        );
         expect(warnings).toEqual(
             expect.arrayContaining([
                 expect.stringContaining('provider.gemini.concurrency'),
@@ -162,5 +165,25 @@ describe('AbuseProtectionService', () => {
         service.onApplicationShutdown();
         expect(warnSpy).toHaveBeenCalledTimes(4);
         expect(JSON.stringify(warnSpy.mock.calls)).not.toContain('https://');
+    });
+
+    it('sends every bounded abuse event to telemetry while warnings stay throttled', () => {
+        const telemetrySpy = jest
+            .spyOn(telemetry, 'recordTelemetryEvent')
+            .mockImplementation(() => undefined);
+        const service = makeService();
+
+        service.recordEvent('provider.gemini.failure');
+        service.recordEvent('provider.gemini.failure');
+        service.recordEvent('provider.rawg.timeout');
+        service.recordEvent('rate_limit.ip');
+
+        expect(telemetrySpy.mock.calls.map(([event]) => event)).toEqual([
+            'provider.gemini.failure',
+            'provider.gemini.failure',
+            'provider.rawg.timeout',
+            'rate_limit.ip',
+        ]);
+        expect(warnSpy).toHaveBeenCalledTimes(3);
     });
 });

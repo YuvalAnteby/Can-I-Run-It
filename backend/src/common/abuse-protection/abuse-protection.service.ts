@@ -1,6 +1,8 @@
 import { Injectable, Logger, OnApplicationShutdown } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
+import { recordTelemetryEvent } from '../observability/telemetry';
+
 export type AbuseEvent =
     | 'rate_limit.ip'
     | 'rate_limit.global'
@@ -122,6 +124,7 @@ export class AbuseProtectionService implements OnApplicationShutdown {
     }
 
     recordEvent(event: AbuseEvent): void {
+        recordTelemetryEvent(event);
         const now = Date.now();
         const state = this.events.get(event) ?? {
             count: 0,
@@ -131,9 +134,9 @@ export class AbuseProtectionService implements OnApplicationShutdown {
         state.count += 1;
         if (state.lastEmittedAt === null) {
             state.lastEmittedAt = now;
-            this.logger.warn(`${event} count=1`);
+            this.logger.warn({ event, count: 1 });
         } else if (now - state.lastEmittedAt >= WINDOW_MS) {
-            this.logger.warn(`${event} count=${state.pending + 1}`);
+            this.logger.warn({ event, count: state.pending + 1 });
             state.pending = 0;
             state.lastEmittedAt = now;
         } else {
@@ -145,7 +148,7 @@ export class AbuseProtectionService implements OnApplicationShutdown {
     onApplicationShutdown(): void {
         for (const [event, state] of this.events) {
             if (state.pending > 0) {
-                this.logger.warn(`${event} count=${state.pending}`);
+                this.logger.warn({ event, count: state.pending });
                 state.pending = 0;
             }
         }

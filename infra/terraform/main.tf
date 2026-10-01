@@ -15,6 +15,14 @@ provider "azurerm" {
 
 locals {
   fixed_environment_keys = toset(["NODE_ENV", "PORT"])
+  observability_environment_keys = toset([
+    "TELEMETRY_ENABLED",
+    "LOG_LEVEL",
+    "OTEL_SERVICE_NAME",
+    "OTEL_TRACES_SAMPLER",
+    "OTEL_TRACES_SAMPLER_ARG",
+    "APPLICATIONINSIGHTS_CONNECTION_STRING",
+  ])
   fixed_environment_conflicts = setunion(
     setintersection(toset(keys(var.environment_variables)), local.fixed_environment_keys),
     setintersection(toset(keys(var.secret_environment_variables)), local.fixed_environment_keys),
@@ -23,10 +31,22 @@ locals {
     toset(keys(var.environment_variables)),
     toset(keys(var.secret_environment_variables)),
   )
+  observability_environment_conflicts = setunion(
+    setintersection(toset(keys(var.environment_variables)), local.observability_environment_keys),
+    setintersection(toset(keys(var.secret_environment_variables)), local.observability_environment_keys),
+  )
   secret_environment_keys = nonsensitive(keys(var.secret_environment_variables))
   secret_environment_names = {
     for key in local.secret_environment_keys : key => replace(lower(key), "_", "-")
   }
+  all_secret_names = concat(
+    values(local.secret_environment_names),
+    var.observability_enabled ? ["applicationinsights-connection-string"] : [],
+  )
+  observability_secret_name_conflict = contains(
+    toset(values(local.secret_environment_names)),
+    "applicationinsights-connection-string",
+  )
 }
 
 resource "azurerm_container_app" "backend" {
@@ -45,10 +65,18 @@ resource "azurerm_container_app" "backend" {
       error_message = "An environment key cannot be present in both environment_variables and secret_environment_variables."
     }
     precondition {
-      condition = length(local.secret_environment_names) == length(distinct(values(local.secret_environment_names))) && alltrue([
-        for name in values(local.secret_environment_names) : length(name) <= 64 && can(regex("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$", name))
+      condition     = !var.observability_enabled || length(local.observability_environment_conflicts) == 0
+      error_message = "environment_variables and secret_environment_variables cannot contain reserved observability keys when observability_enabled is true."
+    }
+    precondition {
+      condition     = !var.observability_enabled || !local.observability_secret_name_conflict
+      error_message = "secret_environment_variables cannot reserve applicationinsights-connection-string when observability_enabled is true."
+    }
+    precondition {
+      condition = length(local.all_secret_names) == length(distinct(local.all_secret_names)) && alltrue([
+        for name in local.all_secret_names : length(name) <= 64 && can(regex("^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$", name))
       ])
-      error_message = "Secret environment keys must produce unique valid Azure Container App secret names of at most 64 characters."
+      error_message = "Secret environment keys and the generated observability secret must produce unique valid Azure Container App secret names of at most 64 characters."
     }
   }
 
@@ -58,6 +86,15 @@ resource "azurerm_container_app" "backend" {
     content {
       name  = secret.value
       value = var.secret_environment_variables[secret.key]
+    }
+  }
+
+  dynamic "secret" {
+    for_each = var.observability_enabled ? { APPLICATIONINSIGHTS_CONNECTION_STRING = true } : {}
+
+    content {
+      name  = "applicationinsights-connection-string"
+      value = azurerm_application_insights.observability[0].connection_string
     }
   }
 
@@ -107,6 +144,30 @@ resource "azurerm_container_app" "backend" {
         content {
           name        = env.key
           secret_name = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.observability_enabled ? {
+          TELEMETRY_ENABLED       = "true"
+          LOG_LEVEL               = "info"
+          OTEL_SERVICE_NAME       = "ciri-backend"
+          OTEL_TRACES_SAMPLER     = "microsoft.fixed_percentage"
+          OTEL_TRACES_SAMPLER_ARG = tostring(var.observability_sampling_ratio)
+        } : {}
+
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = var.observability_enabled ? { APPLICATIONINSIGHTS_CONNECTION_STRING = true } : {}
+
+        content {
+          name        = env.key
+          secret_name = "applicationinsights-connection-string"
         }
       }
 

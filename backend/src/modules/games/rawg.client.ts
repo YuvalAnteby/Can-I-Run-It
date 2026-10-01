@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { AbuseProtectionService } from '../../common/abuse-protection/abuse-protection.service';
+import { observeProvider } from '../../common/observability/telemetry';
 
 const RAWG_API_ORIGIN = 'https://api.rawg.io';
 const RAWG_PUBLIC_ORIGIN = 'https://rawg.io';
@@ -69,7 +70,7 @@ export class RawgClient {
         this.timeoutMs =
             this.config.get<number>('RAWG_TIMEOUT_MS') ?? RAWG_TIMEOUT_MS;
         if (!this.apiKey) {
-            this.logger.warn('RAWG_API_KEY is not configured');
+            this.logger.warn({ event: 'provider.rawg.unconfigured' });
         }
     }
 
@@ -172,7 +173,7 @@ export class RawgClient {
         const nonOkFallback = new Promise<null>((resolve) => {
             resolveNonOkFallback = () => resolve(null);
         });
-        const underlying = (async () => {
+        const performRequest = async (): Promise<unknown> => {
             try {
                 const response = await fetch(url.toString(), {
                     signal: controller.signal,
@@ -210,10 +211,14 @@ export class RawgClient {
             } finally {
                 clearTimeout(timeoutId!);
             }
-        })();
-        const result = Promise.race([underlying, timeout, nonOkFallback]);
+        };
+        let physical: Promise<unknown> | undefined;
+        const result = observeProvider('rawg', () => {
+            physical = performRequest();
+            return Promise.race([physical, timeout, nonOkFallback]);
+        });
         this.pending.set(key, result);
-        void underlying.then(
+        void (physical ?? Promise.resolve(null)).then(
             () => {
                 if (this.pending.get(key) === result) this.pending.delete(key);
                 release();
