@@ -86,7 +86,7 @@ export class GamesController {
     @Post('rawg/:rawgId/select')
     @Version('2')
     @UseGuards(CheckRateLimitGuard)
-    @ApiOperation({ summary: 'Select a RAWG game for enrichment' })
+    @ApiOperation({ summary: 'Select a RAWG game for compatibility checks' })
     @ApiOkResponse({ description: 'Selected game identity' })
     async selectRawgGame(
         @Param('rawgId', ParseIntPipe) rawgId: number,

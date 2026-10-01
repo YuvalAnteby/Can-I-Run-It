@@ -9,12 +9,12 @@ when no stored result matches a compatibility request.
 Development and production Docker stacks read the repository-level `infra/.env`;
 the isolated test stack uses deterministic values from its Compose file. Do not
 create a separate backend environment file. Start from `infra/.env.example` and
-keep database credentials and `GEMINI_API_KEY` out of version control.
+keep database credentials, `GEMINI_API_KEY`, and `RAWG_API_KEY` out of version control.
 
 Within Compose, PostgreSQL is available to NestJS as `postgres:5432`.
 Schema synchronization is disabled in every environment; tracked SQL in
 `infra/init-scripts/` creates and seeds a fresh PostgreSQL volume. Apply the
-documented one-time migration before starting the backend against an existing
+[documented migrations](../docs/operations/demo-release.md) before starting the backend against an existing
 V1 volume.
 
 ## Public compatibility API
@@ -56,11 +56,11 @@ The stored-record identity is exactly:
 4. RAM
 5. resolution width and height
 6. settings preset
+7. upscaler and quality
 
-Upscaler and quality only rank matching candidates. Target FPS, requirement
+Upscaler and quality must match exactly. Target FPS, requirement
 tier, SSD choice, and storage capacity do not change the lookup identity.
-Measured rows rank before all provider rows, then an upscaler preference and
-the newest record break ties.
+Measured rows rank before all provider rows; the newest record breaks ties.
 
 A successful response contains the explicit verdict, provenance, selected
 target, FPS data when available, hardware checks, and notes:

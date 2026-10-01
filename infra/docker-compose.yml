@@ -10,11 +10,7 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - REACT_URL=${REACT_URL:-http://localhost:3000}
-      - ADMIN_USERNAME=${ADMIN_USERNAME:-}
-      - ADMIN_PASSWORD_HASH=${ADMIN_PASSWORD_HASH:-}
-      - RABBITMQ_URL=${RABBITMQ_URL:?RABBITMQ_URL must be set}
-      - RAWG_API_KEY=${RAWG_API_KEY:-}
+      - REACT_URL=${REACT_URL:-http://react}
     env_file:
       - .env
     ports:
@@ -38,8 +34,9 @@ services:
     environment:
       - CHOKIDAR_USEPOLLING=true
       - WATCHPACK_POLLING=true
-      - REACT_PORT=${REACT_PORT:-3000}
-      - VITE_API_URL=http://${API_DOMAIN:-localhost}:${BACKEND_PORT:-4000}/api
+      - VITE_API_URL=http://${API_DOMAIN:-localhost}:${BACKEND_PORT}/api
+    env_file:
+      - .env
     ports:
       - "${REACT_PORT:-3000}:${REACT_PORT:-3000}"
     networks:
@@ -55,6 +52,8 @@ services:
     restart: unless-stopped
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
+    env_file:
+      - .env
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-username}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme}
@@ -75,32 +74,8 @@ services:
       retries: 5
       start_period: 10s
 
-  # RabbitMQ broker (development with management UI)
-  rabbitmq:
-    image: rabbitmq:4.3.5-management-alpine
-    hostname: rabbitmq
-    container_name: ciri-rabbitmq
-    restart: unless-stopped
-    environment:
-      - RABBITMQ_DEFAULT_USER=${RABBITMQ_DEFAULT_USER:?RABBITMQ_DEFAULT_USER must be set}
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_DEFAULT_PASS:?RABBITMQ_DEFAULT_PASS must be set}
-      - RABBITMQ_NODENAME=rabbit@rabbitmq
-    ports:
-      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
-    volumes:
-      - rabbitmqdata:/var/lib/rabbitmq
-    networks:
-      - ciri-net
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-
 volumes:
   pgdata:
-  rabbitmqdata:
 
 networks:
   ciri-net:

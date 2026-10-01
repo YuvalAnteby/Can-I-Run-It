@@ -1,15 +1,21 @@
 name: CI - Frontend Checks
 
 on:
+  workflow_call:
   pull_request:
     branches: [staging, main]
     paths:
       - "frontend/**"
+      - "infra/Dockerfile.frontend"
       - ".github/workflows/frontend-ci.yml"
+      - ".github/workflows/backend-cd-prod.yml"
       - "!**/*.md"
 
+permissions:
+  contents: read
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: frontend-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -27,6 +33,7 @@ jobs:
           cache: "npm"
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
+      - run: npm audit --audit-level=high
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test

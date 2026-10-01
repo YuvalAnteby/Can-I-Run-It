@@ -1,29 +1,24 @@
-# Stage 1 - install dependencies
-FROM node:24.14.0-alpine AS dependencies
+FROM node:24-alpine AS dependencies
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 
-# Stage 2 - build the app for dev mode
 FROM dependencies AS dev
 COPY . .
 ENV NODE_ENV=development
 CMD ["npm", "run", "start:dev"]
 
-# Stage 3 - build the app for production
 FROM dependencies AS build
 COPY . .
-RUN npm run build
+RUN npm run build && npm prune --omit=dev
 
-# Stage 4 - serve the production build
-FROM node:24.14.0-alpine AS prod
+FROM node:24-alpine AS prod
 ENV NODE_ENV=production
 WORKDIR /app
-RUN chown node:node /app
-COPY package*.json ./
-USER node
-RUN npm ci --omit=dev
-# Copy only the necessary files from the build stage
+# The runtime only needs Node, compiled application code, and production dependencies.
+RUN rm -rf /usr/local/lib/node_modules/npm /opt/yarn* \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/yarn /usr/local/bin/yarnpkg
+COPY --chown=node:node --from=build /app/node_modules ./node_modules
 COPY --chown=node:node --from=build /app/dist ./dist
-# Run the production build
-CMD ["npm", "run", "start:prod"]
+USER node
+CMD ["node", "dist/main"]

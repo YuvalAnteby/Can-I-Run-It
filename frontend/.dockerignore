@@ -6,10 +6,9 @@ dist/
 build/
 
 # 3. Environment & Secrets
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.env
+.env.*
+!.env.example
 
 # 4. Version Control & IDE
 .git/

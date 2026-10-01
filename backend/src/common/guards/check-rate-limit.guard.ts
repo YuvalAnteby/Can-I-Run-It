@@ -25,6 +25,7 @@ export class CheckRateLimitGuard implements CanActivate {
         { count: number; resetAt: number }
     >();
     private nextCleanupAt = 0;
+    private globalWindow = { count: 0, resetAt: 0 };
 
     canActivate(context: ExecutionContext): boolean {
         const now = Date.now();
@@ -37,6 +38,17 @@ export class CheckRateLimitGuard implements CanActivate {
 
         const http = context.switchToHttp();
         const request = http.getRequest<Request>();
+        if (now >= this.globalWindow.resetAt) {
+            this.globalWindow = { count: 0, resetAt: now + 60_000 };
+        }
+        // Bounds RAWG writes and limiter memory even when callers rotate IPs.
+        if (this.globalWindow.count >= 100) {
+            http.getResponse<Response>().setHeader(
+                'Retry-After',
+                Math.ceil((this.globalWindow.resetAt - now) / 1_000),
+            );
+            throw new TooManyRequestsException();
+        }
         const ip = request.ip ?? request.socket.remoteAddress ?? 'unknown';
         let window = this.windows.get(ip);
         if (!window || now >= window.resetAt) {
@@ -52,6 +64,7 @@ export class CheckRateLimitGuard implements CanActivate {
             throw new TooManyRequestsException();
         }
         window.count += 1;
+        this.globalWindow.count += 1;
         return true;
     }
 }

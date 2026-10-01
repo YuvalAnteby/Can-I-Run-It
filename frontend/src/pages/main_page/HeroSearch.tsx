@@ -198,12 +198,18 @@ export const HeroSearch = (): ReactElement => {
                     <button
                       type="button"
                       className="flex items-center min-w-0 flex-1 bg-transparent border-0 text-left cursor-pointer transition-colors duration-[0.12s] gap-3 hover:bg-blue-500/10"
+                      aria-label={`Select ${game.name}`}
                       onClick={() => handleSelect(game)}
                       disabled={selection.isPending}
                     >
                       <span className="text-[0.9375rem] text-gray-200 whitespace-nowrap overflow-hidden text-ellipsis">
                         {game.name}
                       </span>
+                      {game.source === 'local' && (
+                        <span className="text-xs text-gray-400 shrink-0">
+                          Local
+                        </span>
+                      )}
                     </button>
                     {game.source === 'rawg' && (
                       <a

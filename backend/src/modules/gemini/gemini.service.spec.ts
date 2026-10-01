@@ -99,6 +99,64 @@ describe('GeminiService', () => {
         jest.restoreAllMocks();
     });
 
+    it('coalesces concurrent identical estimates into one provider call', async () => {
+        fetchSpy.mockResolvedValue(
+            new Response(JSON.stringify(validGeminiPayload)),
+        );
+        const results = await Promise.all(
+            Array.from({ length: 5 }, () =>
+                service.estimate(
+                    mockGame,
+                    mockCpu,
+                    mockGpu,
+                    mockRamGb,
+                    mockSettings,
+                ),
+            ),
+        );
+        expect(results.every((result) => result?.fps.high === 55)).toBe(true);
+        expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('caps provider requests across games at thirty per minute and recovers', async () => {
+        jest.spyOn(Date, 'now').mockReturnValue(0);
+        fetchSpy.mockImplementation(() =>
+            Promise.resolve(new Response(JSON.stringify(validGeminiPayload))),
+        );
+        for (let i = 0; i < 30; i++) {
+            expect(
+                await service.estimate(
+                    mockGame,
+                    mockCpu,
+                    mockGpu,
+                    mockRamGb,
+                    mockSettings,
+                ),
+            ).not.toBeNull();
+        }
+        expect(
+            await service.estimate(
+                mockGame,
+                mockCpu,
+                mockGpu,
+                mockRamGb,
+                mockSettings,
+            ),
+        ).toBeNull();
+        expect(fetchSpy).toHaveBeenCalledTimes(30);
+        jest.mocked(Date.now).mockReturnValue(60_000);
+        expect(
+            await service.estimate(
+                mockGame,
+                mockCpu,
+                mockGpu,
+                mockRamGb,
+                mockSettings,
+            ),
+        ).not.toBeNull();
+        expect(fetchSpy).toHaveBeenCalledTimes(31);
+    });
+
     // --- Happy path ---
 
     it('returns fps estimate and null note on a valid response', async () => {
@@ -300,42 +358,48 @@ describe('GeminiService', () => {
     describe.each(['low', 'med', 'high', 'ultra'])(
         '%s FPS validation',
         (key) => {
-            it.each(['-1', '0', '0.1', '1e400', '-1e400', 'null', '"60"'])(
-                'returns null for %s',
-                async (value) => {
-                    const fps = { low: 95, med: 72, high: 55, ultra: 38 };
-                    const fields = Object.entries(fps).map(
-                        ([name, valid]) =>
-                            `"${name}":${name === key ? value : valid}`,
-                    );
-                    fetchSpy.mockResolvedValueOnce(
-                        new Response(
-                            JSON.stringify({
-                                candidates: [
-                                    {
-                                        content: {
-                                            parts: [
-                                                {
-                                                    text: `{"fps":{${fields.join(',')}}}`,
-                                                },
-                                            ],
-                                        },
+            it.each([
+                '-1',
+                '0',
+                '0.1',
+                '10001',
+                '1e400',
+                '-1e400',
+                'null',
+                '"60"',
+            ])('returns null for %s', async (value) => {
+                const fps = { low: 95, med: 72, high: 55, ultra: 38 };
+                const fields = Object.entries(fps).map(
+                    ([name, valid]) =>
+                        `"${name}":${name === key ? value : valid}`,
+                );
+                fetchSpy.mockResolvedValueOnce(
+                    new Response(
+                        JSON.stringify({
+                            candidates: [
+                                {
+                                    content: {
+                                        parts: [
+                                            {
+                                                text: `{"fps":{${fields.join(',')}}}`,
+                                            },
+                                        ],
                                     },
-                                ],
-                            }),
-                        ),
-                    );
-                    expect(
-                        await service.estimate(
-                            mockGame,
-                            mockCpu,
-                            mockGpu,
-                            mockRamGb,
-                            mockSettings,
-                        ),
-                    ).toBeNull();
-                },
-            );
+                                },
+                            ],
+                        }),
+                    ),
+                );
+                expect(
+                    await service.estimate(
+                        mockGame,
+                        mockCpu,
+                        mockGpu,
+                        mockRamGb,
+                        mockSettings,
+                    ),
+                ).toBeNull();
+            });
         },
     );
 

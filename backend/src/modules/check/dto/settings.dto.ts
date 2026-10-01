@@ -6,6 +6,8 @@ import {
     IsNotEmpty,
     IsOptional,
     IsString,
+    Max,
+    MaxLength,
     Min,
     ValidateIf,
 } from 'class-validator';
@@ -32,6 +34,7 @@ export class SettingsDto {
     })
     @IsInt()
     @Min(1)
+    @Max(16384)
     resolutionWidth: number;
 
     @ApiProperty({
@@ -40,6 +43,7 @@ export class SettingsDto {
     })
     @IsInt()
     @Min(1)
+    @Max(16384)
     resolutionHeight: number;
 
     @ApiProperty({
@@ -50,6 +54,7 @@ export class SettingsDto {
     @IsString()
     @IsNotEmpty()
     @IsOptional()
+    @MaxLength(50)
     tier?: string;
 
     @ApiProperty({

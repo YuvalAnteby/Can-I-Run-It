@@ -1,56 +1,63 @@
-name: CD - Backend to Production
+name: CD - Backend Production Image
 
 on:
   push:
-    branches: [ main ]
-    paths:
-      - 'backend/**'
-      - 'infra/**'
+    branches: [main]
 
-# Define variables for reuse
-env:
-  REGISTRY: ghcr.io
-  # github.repository returns "owner/repo"
-  IMAGE_NAME: ${{ github.repository }}-backend
+permissions:
+  contents: read
+
+concurrency:
+  group: production-images
+  cancel-in-progress: false
 
 jobs:
+  backend-checks:
+    uses: ./.github/workflows/backend-ci.yml
+  frontend-checks:
+    uses: ./.github/workflows/frontend-ci.yml
+
   build-and-push:
+    needs: [backend-checks, frontend-checks]
     runs-on: ubuntu-latest
-    
-    # Give permissions to write to GitHub Packages
     permissions:
       contents: read
       packages: write
-
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
-
-      # Login to GitHub Container Registry
-      - name: Log in to the Container registry
-        uses: docker/login-action@v3
+      - uses: docker/login-action@v3
         with:
-          registry: ${{ env.REGISTRY }}
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-
-      # Lowercase image name for GHCR
-      # This step fixes that automatically.
-      - name: Extract metadata (tags, labels)
+      - name: Image tags
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ghcr.io/${{ github.repository }}-backend
           tags: |
             type=raw,value=latest
             type=sha,format=long
-
-      - name: Build and Push
+      - name: Build tested production image
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           file: infra/Dockerfile.backend
-          push: true
-          # Use generated tags
+          target: prod
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+      - name: Scan production image
+        run: |
+          image=$(printf '%s\n' "$IMAGE_TAGS" | head -n 1)
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
+            aquasec/trivy:0.74.0 image --scanners vuln --severity HIGH,CRITICAL \
+            --exit-code 1 "$image"
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+      - name: Publish scanned image
+        run: |
+          while IFS= read -r image; do docker push "$image"; done <<< "$IMAGE_TAGS"
+        env:
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}

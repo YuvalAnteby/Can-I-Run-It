@@ -11,14 +11,8 @@ import { DataSource } from 'typeorm';
 
 import { AppModule } from '../src/app.module';
 import { CheckResponseDto } from '../src/modules/check/dto/check-response.dto';
-import { EnrichmentPublisher } from '../src/modules/games/enrichment-publisher.service';
-import {
-    assertGameEnrichmentTopology,
-    GAME_ENRICHMENT_QUEUE,
-} from '../src/modules/games/game-lifecycle.contract';
 import { RawgClient } from '../src/modules/games/rawg.client';
 import { GeminiService } from '../src/modules/gemini/gemini.service';
-import { RabbitMqService } from '../src/modules/messaging/rabbitmq.service';
 
 type RawgDetail = {
     id: number;
@@ -55,6 +49,7 @@ type GameBody = {
 };
 
 type ListBody = {
+    data: Array<{ id: number; status: string }>;
     meta: { total: number };
 };
 
@@ -104,27 +99,6 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
             .expect((response) => {
                 expect([200, 201]).toContain(response.status);
             });
-
-    const drainMainQueue = async (): Promise<Array<{ gameId: number }>> => {
-        const rabbitMq = app.get(RabbitMqService);
-        const channel = rabbitMq.createConfirmChannel(
-            assertGameEnrichmentTopology,
-        );
-        await channel.waitForConnect();
-        const messages: Array<{ gameId: number }> = [];
-        for (;;) {
-            const message = await channel.get(GAME_ENRICHMENT_QUEUE, {
-                noAck: false,
-            });
-            if (message === false) break;
-            messages.push(
-                JSON.parse(message.content.toString()) as { gameId: number },
-            );
-            channel.ack(message);
-        }
-        await channel.close();
-        return messages;
-    };
 
     beforeAll(async () => {
         rawg = {
@@ -179,14 +153,6 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
                 [`${prefix}%`, selectedRawgIds],
             );
             await dataSource.query(
-                `DELETE FROM game_enrichment_jobs
-                 WHERE game_id IN (
-                   SELECT id FROM games
-                   WHERE slug LIKE $1 OR rawg_id = ANY($2::int[])
-                 )`,
-                [`${prefix}%`, selectedRawgIds],
-            );
-            await dataSource.query(
                 `DELETE FROM games
                  WHERE slug LIKE $1 OR rawg_id = ANY($2::int[])`,
                 [`${prefix}%`, selectedRawgIds],
@@ -203,12 +169,11 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
 
     it('returns local results when RAWG is unavailable and keeps discovery read-only', async () => {
         rawg.search.mockResolvedValue({ available: false, results: [] });
-        const [{ gamesBefore, jobsBefore }] = await dataSource.query<
-            { gamesBefore: number; jobsBefore: number }[]
+        const [{ gamesBefore }] = await dataSource.query<
+            { gamesBefore: number }[]
         >(
             `SELECT
-                (SELECT COUNT(*)::int FROM games) AS "gamesBefore",
-                (SELECT COUNT(*)::int FROM game_enrichment_jobs) AS "jobsBefore"`,
+                (SELECT COUNT(*)::int FROM games) AS "gamesBefore"`,
         );
 
         const response = await api()
@@ -226,16 +191,14 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
             }),
         ]);
 
-        const [{ gamesAfter, jobsAfter }] = await dataSource.query<
-            { gamesAfter: number; jobsAfter: number }[]
+        const [{ gamesAfter }] = await dataSource.query<
+            { gamesAfter: number }[]
         >(
             `SELECT
-                (SELECT COUNT(*)::int FROM games) AS "gamesAfter",
-                (SELECT COUNT(*)::int FROM game_enrichment_jobs) AS "jobsAfter"`,
+                (SELECT COUNT(*)::int FROM games) AS "gamesAfter"`,
         );
-        expect({ gamesAfter, jobsAfter }).toEqual({
+        expect({ gamesAfter }).toEqual({
             gamesAfter: gamesBefore,
-            jobsAfter: jobsBefore,
         });
     });
 
@@ -278,7 +241,7 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
             .expect(400);
     });
 
-    it('selects one RAWG identity idempotently under concurrency and persists one initial queued job', async () => {
+    it('selects one RAWG identity idempotently under concurrency without enrichment infrastructure', async () => {
         const rawgId = 910002;
         selectedRawgIds.push(rawgId);
         rawg.getById.mockResolvedValue(
@@ -298,19 +261,15 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
         expect(selectedBody.status).toBe('pending_approval');
 
         const [counts] = await dataSource.query<
-            { games: number; jobs: number; attempts: number; status: string }[]
+            { games: number; status: string }[]
         >(
             `SELECT
                 (SELECT COUNT(*)::int FROM games WHERE rawg_id = $1) AS games,
-                (SELECT COUNT(*)::int FROM game_enrichment_jobs WHERE game_id = $2) AS jobs,
-                (SELECT attempts FROM game_enrichment_jobs WHERE game_id = $2) AS attempts,
                 (SELECT status FROM games WHERE id = $2) AS status`,
             [rawgId, ids[0]],
         );
         expect(counts).toEqual({
             games: 1,
-            jobs: 1,
-            attempts: 0,
             status: 'pending_approval',
         });
 
@@ -323,9 +282,6 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
             name: 'Issue 66 Selected Game',
         });
         expect(stored).not.toHaveProperty('private_provider_field');
-        expect(await drainMainQueue()).toEqual(
-            expect.arrayContaining([{ gameId: ids[0] }]),
-        );
     });
 
     it('does not merge a same-title different RAWG id, and rejected identities remain reserved', async () => {
@@ -357,136 +313,6 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
         expect(status).toBe('rejected');
     });
 
-    it('returns the selected game while broker publication is unavailable and leaves the job queued', async () => {
-        const rawgId = 910005;
-        const publisher = app.get(EnrichmentPublisher);
-        const send = jest
-            .spyOn(publisher, 'publishInitial')
-            .mockRejectedValueOnce(new Error('broker unavailable'));
-        rawg.getById.mockResolvedValue(
-            rawgDetail(rawgId, 'Issue 66 Broker Down', 'issue-66-broker-down'),
-        );
-
-        await select(rawgId);
-        selectedRawgIds.push(rawgId);
-        const [job] = await dataSource.query<
-            { status: string; attempts: number }[]
-        >(
-            `SELECT j.status, j.attempts
-             FROM game_enrichment_jobs j
-             JOIN games g ON g.id = j.game_id
-             WHERE g.rawg_id = $1`,
-            [rawgId],
-        );
-        expect(job).toEqual({ status: 'queued', attempts: 0 });
-        send.mockRestore();
-    });
-
-    it('delivers messages across shared-topology channels in both connection orders', async () => {
-        await drainMainQueue();
-        const rabbitMq = app.get(RabbitMqService);
-        const producerFirst = rabbitMq.createConfirmChannel(
-            assertGameEnrichmentTopology,
-        );
-        await producerFirst.waitForConnect();
-        await producerFirst.sendToQueue(
-            GAME_ENRICHMENT_QUEUE,
-            { gameId: localFixtureId },
-            { persistent: true, timeout: 5_000 },
-        );
-        const queueState = await producerFirst.checkQueue(
-            GAME_ENRICHMENT_QUEUE,
-        );
-        expect(queueState.messageCount).toBeGreaterThan(0);
-
-        const consumerAfterProducer = rabbitMq.createConfirmChannel(
-            assertGameEnrichmentTopology,
-        );
-        await consumerAfterProducer.waitForConnect();
-        const firstMessage = await consumerAfterProducer.get(
-            GAME_ENRICHMENT_QUEUE,
-            {
-                noAck: false,
-            },
-        );
-        expect(firstMessage).not.toBe(false);
-        if (firstMessage !== false) {
-            expect(JSON.parse(firstMessage.content.toString())).toEqual({
-                gameId: localFixtureId,
-            });
-            consumerAfterProducer.ack(firstMessage);
-        }
-        await producerFirst.close();
-        await consumerAfterProducer.close();
-
-        await drainMainQueue();
-        const consumerFirst = rabbitMq.createConfirmChannel(
-            assertGameEnrichmentTopology,
-        );
-        await consumerFirst.waitForConnect();
-        const producerAfterConsumer = rabbitMq.createConfirmChannel(
-            assertGameEnrichmentTopology,
-        );
-        await producerAfterConsumer.waitForConnect();
-        await producerAfterConsumer.sendToQueue(
-            GAME_ENRICHMENT_QUEUE,
-            { gameId: localFixtureId },
-            { persistent: true, timeout: 5_000 },
-        );
-        const secondMessage = await consumerFirst.get(GAME_ENRICHMENT_QUEUE, {
-            noAck: false,
-        });
-        expect(secondMessage).not.toBe(false);
-        if (secondMessage !== false) consumerFirst.ack(secondMessage);
-        await consumerFirst.close();
-        await producerAfterConsumer.close();
-    });
-
-    it('publishes only queued attempts=0 and leaves claimed retry-owned jobs untouched', async () => {
-        const publisher = app.get(EnrichmentPublisher);
-        const jobs = await dataSource.query<{ game_id: number }[]>(
-            `INSERT INTO games (slug, name, status, rawg_id)
-             VALUES
-               ($1, 'Issue 66 job zero', 'pending_approval', $2),
-               ($3, 'Issue 66 job one', 'pending_approval', $4),
-               ($5, 'Issue 66 job two', 'pending_approval', $6)
-             RETURNING id AS game_id`,
-            [
-                `${prefix}-job-zero`,
-                910006,
-                `${prefix}-job-one`,
-                910007,
-                `${prefix}-job-two`,
-                910008,
-            ],
-        );
-        selectedRawgIds.push(910006, 910007, 910008);
-        await dataSource.query(
-            `INSERT INTO game_enrichment_jobs (game_id, status, attempts)
-             VALUES ($1, 'queued', 0), ($2, 'queued', 1), ($3, 'queued', 2)`,
-            [jobs[0].game_id, jobs[1].game_id, jobs[2].game_id],
-        );
-
-        await publisher.replayQueued();
-        const delivered = await drainMainQueue();
-        expect(delivered).toContainEqual({ gameId: jobs[0].game_id });
-        expect(delivered).not.toContainEqual({ gameId: jobs[1].game_id });
-        expect(delivered).not.toContainEqual({ gameId: jobs[2].game_id });
-
-        const stored = await dataSource.query<
-            { attempts: number; status: string }[]
-        >(
-            `SELECT attempts, status FROM game_enrichment_jobs
-             WHERE game_id = ANY($1::int[]) ORDER BY game_id`,
-            [jobs.map(({ game_id }) => game_id)],
-        );
-        expect(stored).toEqual([
-            { attempts: 0, status: 'queued' },
-            { attempts: 1, status: 'queued' },
-            { attempts: 2, status: 'queued' },
-        ]);
-    });
-
     it('keeps pending data hidden, serves the ID page, links attribution, and redirects after approval', async () => {
         const rawgId = 910009;
         rawg.getById.mockResolvedValue(
@@ -496,7 +322,6 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
         const selectedBody = bodyOf<SelectionBody>(selected);
         const gameId = selectedBody.id;
         selectedRawgIds.push(rawgId);
-        await drainMainQueue();
 
         const pending = await api()
             .get(`/api/v2/games/pending/${gameId}`)
@@ -524,7 +349,11 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
             .get('/api/v2/games')
             .query({ search: 'Issue 66 Visibility' })
             .expect((response) => {
-                expect(bodyOf<ListBody>(response).meta.total).toBe(0);
+                const { data } = bodyOf<ListBody>(response);
+                expect(data.some(({ id }) => id === gameId)).toBe(false);
+                expect(data.every(({ status }) => status === 'published')).toBe(
+                    true,
+                );
             });
         await api()
             .post('/api/v1/check')
@@ -544,6 +373,10 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
             source: 'ai',
             provider: 'gemini',
         });
+        await api()
+            .post(`/api/v2/check/pending/${gameId}`)
+            .send(hardwareCheck)
+            .expect(200);
         expect(estimate).toHaveBeenCalledTimes(1);
         const [cached] = await dataSource.query<
             {
