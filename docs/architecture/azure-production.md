@@ -1,6 +1,7 @@
 # Azure production architecture
 
-Status: approved design, implementation pending. Decision date: 2026-10-02.
+Status: approved design; repository implementation under review, Azure acceptance pending.
+Decision date: 2026-10-02. Local implementation record: [acceptance](../operations/azure-acceptance.md).
 Repository baseline: staging, commit `4ef01411a987c4c9d9d8a73ced7124a5683524c9`.
 This document is authoritative for the planned Azure deployment. It supersedes earlier
 customer-VNet/private-database and VM proposals. Existing Compose behavior is separate.

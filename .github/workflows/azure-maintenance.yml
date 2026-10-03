@@ -1,0 +1,66 @@
+name: Azure - Explicit Maintenance
+on:
+  workflow_dispatch:
+    inputs:
+      command:
+        description: Explicit trusted operation; seed is never part of an ordinary release
+        type: choice
+        required: true
+        options: [show, migrate, seed, firewall, export]
+permissions:
+  contents: read
+concurrency:
+  group: azure-production
+  cancel-in-progress: false
+jobs:
+  maintenance:
+    if: github.ref == 'refs/heads/main'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      MAINTENANCE_AUTH_MODE: azure-cli
+      COMMAND: ${{ inputs.command }}
+      MIGRATION_JOB: ${{ vars.AZURE_MIGRATION_JOB_RESOURCE_ID }}
+      FIREWALL_JOB: ${{ vars.AZURE_FIREWALL_JOB_RESOURCE_ID }}
+      CHECKER_JOB: ${{ vars.AZURE_EXPORT_CHECK_JOB_RESOURCE_ID }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+      - run: npm ci --prefix infra/azure
+      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
+        with:
+          client-id: ${{ vars.AZURE_RELEASE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Execute only the explicitly selected finite operation
+        run: |
+          start_and_wait() {
+            node infra/azure/cli.mjs start-job > "$RUNNER_TEMP/execution.json"
+            JOB_EXECUTION_NAME=$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).execution_name' "$RUNNER_TEMP/execution.json")
+            export JOB_EXECUTION_NAME
+            node infra/azure/cli.mjs wait-job
+          }
+          export JOB_RESOURCE_ID="$FIREWALL_JOB" JOB_TIMEOUT_SECONDS=60
+          if [ "$COMMAND" != export ]; then start_and_wait; fi
+          case "$COMMAND" in
+            firewall) ;;
+            show|migrate|seed)
+              export JOB_RESOURCE_ID="$MIGRATION_JOB" JOB_TIMEOUT_SECONDS=600
+              JOB_COMMAND_JSON=$(node -p 'JSON.stringify(["node","/app/dist/database/maintenance.js",process.env.COMMAND])')
+              export JOB_COMMAND_JSON
+              start_and_wait
+              ;;
+            export)
+              export JOB_RESOURCE_ID="$CHECKER_JOB" JOB_TIMEOUT_SECONDS=60
+              export JOB_COMMAND_JSON='["env","EXPORT_MANUAL=true","node","/app/maintenance/cli.mjs","export-check"]'
+              start_and_wait
+              echo 'Checker success confirms an export trigger, not a completed dump. Observe the matching exporter execution and completion manifest before accepting the export.' >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            *) exit 1 ;;
+          esac

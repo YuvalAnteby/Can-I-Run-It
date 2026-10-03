@@ -1,0 +1,42 @@
+name: CI - Azure Infrastructure
+on:
+  workflow_call:
+  pull_request:
+    branches: [staging, main]
+    paths:
+      - "infra/terraform/**"
+      - "infra/azure/**"
+      - "infra/deployment/**"
+      - ".github/workflows/azure-*.yml"
+      - ".github/workflows/backend-cd-prod.yml"
+permissions:
+  contents: read
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: infra/azure/package-lock.json
+      - run: npm ci --prefix infra/azure
+      - run: npm audit --prefix infra/azure --audit-level=high
+      - run: npm test --prefix infra/azure
+      - run: node --test infra/deployment/*.test.mjs
+      - name: Validate GitHub Actions syntax
+        run: docker run --rm -v "$GITHUB_WORKSPACE:/repo" -w /repo rhysd/actionlint:1.7.7 -color
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: "1.11.4"
+          terraform_wrapper: false
+      - name: Validate every Terraform root without Azure credentials or state access
+        run: |
+          terraform fmt -check -recursive infra/terraform
+          for root in infra/terraform infra/terraform/bootstrap/state infra/terraform/bootstrap/privileges; do
+            terraform -chdir="$root" init -backend=false -input=false -lockfile=readonly
+            terraform -chdir="$root" validate
+            terraform -chdir="$root" test
+          done

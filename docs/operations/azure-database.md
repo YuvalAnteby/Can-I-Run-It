@@ -1,6 +1,7 @@
 # Azure database and portable export operations
 
-This is the approved implementation runbook, not evidence of a deployed service.
+This runbook describes the approved policy and implemented database/maintenance tools.
+Local results and unobserved Azure gates are recorded in [acceptance](azure-acceptance.md).
 Read the [architecture](../architecture/azure-production.md) and
 [implementation contract](../architecture/azure-terraform-handoff.md) first.
 
@@ -14,7 +15,7 @@ connects to the selected application database, normally `ciri`.
 | SQL role | Identity mapping | Permissions granted |
 | --- | --- | --- |
 | ciri-runtime | Backend UAMI principal/object ID | CONNECT; public schema USAGE; SELECT on current/future migrator tables; INSERT/UPDATE on cpus, gpus, games, game_requirements, performance_records; USAGE on their ID sequences; enum/domain USAGE |
-| ciri-migrator | Migration UAMI principal/object ID | CONNECT; owns public schema and application objects created by migrations; schema DDL/seed; no CREATEDB, CREATEROLE, replication or bypass-RLS |
+| ciri-migrator | Migration UAMI principal/object ID | CONNECT and TEMPORARY for seed staging; owns public schema and migration objects; no database CREATE, CREATEDB, CREATEROLE, replication or bypass-RLS |
 | ciri-exporter | Export UAMI principal/object ID | CONNECT; public schema USAGE; SELECT on current/future tables and sequences; enum/domain USAGE; no writes/DDL |
 | Human Entra administrator | Explicit server Entra admin | Role mapping, initial ownership/grants, extension setup and exceptional repair |
 
@@ -86,9 +87,13 @@ UAMI has a new principal ID and requires a deliberate mapping transition.
 
 Keep one TypeORM migration ledger and synchronize=false. The current fresh
 `infra/init-scripts/` schema already includes changes from legacy migration 001;
-it is unsafe to apply that migration blindly afterward. Codex must build/test a
-consistent fresh baseline and an existing-database upgrade path, preserving IDs,
-lifecycle/provenance, indexes, enums and all data.
+it is unsafe to apply that migration blindly afterward. The implemented baseline
+creates an empty schema or adopts a complete current/legacy schema, preserving IDs,
+lifecycle/provenance, indexes, enums and data; partial schemas fail for operator review.
+The tools CLI is `node /app/dist/database/maintenance.js migrate|show|seed`.
+See [database tooling](../../infra/database/azure/README.md) for exact environment,
+pool/token/TLS settings and reproducible local verification. Migration/export connection
+checks allow bounded five-minute firewall propagation retry; credential/TLS errors fail.
 
 The finite migration Job uses the matching release tools digest and migrator MI.
 It acquires a database advisory lock and terminates successfully before API
@@ -102,6 +107,14 @@ do not overwrite operator changes or duplicate performance records when rerun.
 Do not run seed on every deployment. Manual maintenance POST/PATCH, API-key guard,
 fail-closed activation, environment example and DTO validation are covered by
 [issue #82](https://github.com/YuvalAnteby/Can-I-Run-It/issues/82).
+
+The protected main-only `Azure - Explicit Maintenance` workflow provides explicit
+`show`, `migrate`, `seed`, `firewall` and `export` operations through existing identity-
+attached finite Jobs. Normal releases invoke migrations only. Manual export starts the
+checker with `EXPORT_MANUAL=true` in that execution; the caller needs only scoped Job
+start/read, while Blob/cost rights remain on the checker UAMI. Checker terminal success
+means the exporter was triggered: require its matching terminal success and verified
+completion manifest before accepting the export. No HTTP administration feature is added.
 
 ## Azure backups and a portable copy
 

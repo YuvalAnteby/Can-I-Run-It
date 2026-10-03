@@ -1,0 +1,120 @@
+name: Azure - Reviewed Platform
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Generate a private plan or apply an already reviewed plan
+        required: true
+        type: choice
+        options: [plan, apply]
+      plan_run_id:
+        description: Reviewed plan run ID, required for apply of the same main commit
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: azure-production
+  cancel-in-progress: false
+
+jobs:
+  platform:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TF_IN_AUTOMATION: "true"
+      TERRAFORM_VERSION: "1.11.4"
+      ARM_USE_OIDC: "true"
+      ARM_USE_AZUREAD: "true"
+      ARM_CLIENT_ID: ${{ vars.AZURE_PLATFORM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+      AZURE_TERRAFORM_VARS_JSON: ${{ vars.AZURE_TERRAFORM_VARS_JSON }}
+      AZURE_COST_EVIDENCE_JSON: ${{ vars.AZURE_COST_EVIDENCE_JSON }}
+      STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_STATE_STORAGE_ACCOUNT }}
+      STATE_CONTAINER: ${{ vars.AZURE_STATE_CONTAINER }}
+      STATE_KEY: ${{ vars.AZURE_STATE_KEY }}
+      OPERATION: ${{ inputs.operation }}
+      PLAN_RUN_ID: ${{ inputs.plan_run_id }}
+    steps:
+      - name: Require main and explicit reviewed-plan selection
+        run: |
+          test "$GITHUB_REF" = refs/heads/main
+          test "$OPERATION" = plan || test "$OPERATION" = apply
+          if [ "$OPERATION" = apply ]; then [[ "$PLAN_RUN_ID" =~ ^[0-9]+$ ]]; fi
+          test -n "$STATE_STORAGE_ACCOUNT" && test -n "$STATE_CONTAINER" && test -n "$STATE_KEY"
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+      - name: Validate current account/cost and reconciliation evidence
+        run: node infra/deployment/contract-cli.mjs prepare "$RUNNER_TEMP/platform.tfvars.json"
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
+        with:
+          client-id: ${{ vars.AZURE_PLATFORM_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Verify authenticated account and registered providers
+        run: |
+          az account show --query '{subscription:id,tenant:tenantId,state:state}' --output json > "$RUNNER_TEMP/account.json"
+          node infra/deployment/verify-account.mjs "$RUNNER_TEMP/account.json"
+          for namespace in Microsoft.App Microsoft.DBforPostgreSQL Microsoft.KeyVault Microsoft.Storage Microsoft.Web Microsoft.OperationalInsights Microsoft.Insights Microsoft.ManagedIdentity Microsoft.Consumption; do
+            test "$(az provider show --namespace "$namespace" --query registrationState --output tsv)" = Registered
+          done
+          az postgres flexible-server list-skus --location "$AZURE_LOCATION" --output json > "$RUNNER_TEMP/pg-skus.json"
+          node infra/deployment/verify-account.mjs "$RUNNER_TEMP/pg-skus.json" sku
+      - name: Initialize Entra/OIDC Blob state and validate
+        run: |
+          terraform -chdir=infra/terraform init -input=false -lockfile=readonly \
+            -backend-config="storage_account_name=$STATE_STORAGE_ACCOUNT" \
+            -backend-config="container_name=$STATE_CONTAINER" -backend-config="key=$STATE_KEY" \
+            -backend-config=use_azuread_auth=true -backend-config=use_oidc=true
+          terraform -chdir=infra/terraform fmt -check -recursive
+          terraform -chdir=infra/terraform validate
+          terraform -chdir=infra/terraform state list
+      - name: Generate and store private review plan
+        if: inputs.operation == 'plan'
+        run: |
+          umask 077
+          terraform -chdir=infra/terraform plan -input=false -lock-timeout=5m \
+            -var-file="$RUNNER_TEMP/platform.tfvars.json" -out="$RUNNER_TEMP/platform.tfplan" > "$RUNNER_TEMP/platform-plan.log"
+          terraform -chdir=infra/terraform show -json "$RUNNER_TEMP/platform.tfplan" > "$RUNNER_TEMP/platform-plan.json"
+          node infra/deployment/contract-cli.mjs plan "$RUNNER_TEMP/platform-plan.json" "$RUNNER_TEMP/platform.tfplan" "$RUNNER_TEMP/receipt.json"
+          for file in platform.tfplan platform-plan.json platform-plan.log receipt.json; do
+            az storage blob upload --auth-mode login --account-name "$STATE_STORAGE_ACCOUNT" \
+              --container-name "$STATE_CONTAINER" --name "plans/$GITHUB_SHA/$GITHUB_RUN_ID/$file" \
+              --file "$RUNNER_TEMP/$file" --overwrite false --only-show-errors --output none
+          done
+          echo "Private plan run ID: $GITHUB_RUN_ID. Review it in the protected state container; authorize apply of this exact main commit within 24 hours." >> "$GITHUB_STEP_SUMMARY"
+      - name: Download, verify and apply exact reviewed plan
+        if: inputs.operation == 'apply'
+        run: |
+          umask 077
+          for file in platform.tfplan receipt.json; do
+            az storage blob download --auth-mode login --account-name "$STATE_STORAGE_ACCOUNT" \
+              --container-name "$STATE_CONTAINER" --name "plans/$GITHUB_SHA/$PLAN_RUN_ID/$file" \
+              --file "$RUNNER_TEMP/$file" --only-show-errors --output none
+          done
+          terraform -chdir=infra/terraform show -json "$RUNNER_TEMP/platform.tfplan" > "$RUNNER_TEMP/platform-plan.json"
+          node infra/deployment/contract-cli.mjs verify "$RUNNER_TEMP/platform-plan.json" "$RUNNER_TEMP/platform.tfplan" "$RUNNER_TEMP/receipt.json"
+          terraform -chdir=infra/terraform apply -input=false -lock-timeout=5m "$RUNNER_TEMP/platform.tfplan"
+          echo 'Applied the exact reviewed platform plan. Human RBAC/SQL bootstrap and live acceptance gates remain separate.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Remove private runner files
+        if: always()
+        run: |
+          rm -f "$RUNNER_TEMP/platform.tfvars.json" "$RUNNER_TEMP/platform.tfplan" \
+            "$RUNNER_TEMP/platform-plan.json" "$RUNNER_TEMP/platform-plan.log" "$RUNNER_TEMP/receipt.json"

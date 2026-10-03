@@ -6,22 +6,22 @@
 \if :{?app_db}
 \else
   \echo 'Missing -v app_db=<database>'
-  \quit 2
+  SELECT 1/0; -- PostgreSQL 16 ignores a numeric argument to \quit; ON_ERROR_STOP must fail.
 \endif
 \if :{?runtime_oid}
 \else
   \echo 'Missing -v runtime_oid=<principal-id>'
-  \quit 2
+  SELECT 1/0;
 \endif
 \if :{?migrator_oid}
 \else
   \echo 'Missing -v migrator_oid=<principal-id>'
-  \quit 2
+  SELECT 1/0;
 \endif
 \if :{?exporter_oid}
 \else
   \echo 'Missing -v exporter_oid=<principal-id>'
-  \quit 2
+  SELECT 1/0;
 \endif
 
 SELECT current_database() = 'postgres' AS on_postgres,
@@ -30,12 +30,12 @@ SELECT current_database() = 'postgres' AS on_postgres,
 \if :on_postgres
 \else
   \echo 'Connect initially to the postgres database.'
-  \quit 2
+  SELECT 1/0;
 \endif
 \if :valid_db
 \else
   \echo 'app_db must be a separate lowercase application database name.'
-  \quit 2
+  SELECT 1/0;
 \endif
 
 BEGIN;
@@ -113,6 +113,8 @@ FROM ciri_bootstrap_context WHERE NOT had_membership
 REVOKE ALL ON DATABASE :"app_db" FROM PUBLIC;
 REVOKE ALL ON DATABASE :"app_db" FROM "ciri-runtime", "ciri-exporter", "ciri-migrator";
 GRANT CONNECT ON DATABASE :"app_db" TO "ciri-runtime", "ciri-exporter", "ciri-migrator";
+-- Explicit seed stages fixture rows in temporary tables. No database CREATE.
+GRANT TEMPORARY ON DATABASE :"app_db" TO "ciri-migrator";
 REVOKE ALL ON SCHEMA public FROM PUBLIC;
 ALTER SCHEMA public OWNER TO "ciri-migrator";
 SET LOCAL ROLE "ciri-migrator";
@@ -122,6 +124,27 @@ REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC, "ciri-runtime", "ciri-exp
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC, "ciri-runtime", "ciri-exporter";
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO "ciri-runtime", "ciri-exporter";
 GRANT SELECT ON ALL SEQUENCES IN SCHEMA public TO "ciri-exporter";
+
+-- Reset global AND schema defaults before the minimal grants. A schema revoke
+-- cannot remove a global grant, and simply adding SELECT leaves drifted writes.
+ALTER DEFAULT PRIVILEGES FOR ROLE "ciri-migrator"
+  REVOKE ALL ON TABLES FROM PUBLIC, "ciri-runtime", "ciri-exporter";
+ALTER DEFAULT PRIVILEGES FOR ROLE "ciri-migrator" IN SCHEMA public
+  REVOKE ALL ON TABLES FROM PUBLIC, "ciri-runtime", "ciri-exporter";
+ALTER DEFAULT PRIVILEGES FOR ROLE "ciri-migrator"
+  REVOKE ALL ON SEQUENCES FROM PUBLIC, "ciri-runtime", "ciri-exporter";
+ALTER DEFAULT PRIVILEGES FOR ROLE "ciri-migrator" IN SCHEMA public
+  REVOKE ALL ON SEQUENCES FROM PUBLIC, "ciri-runtime", "ciri-exporter";
+ALTER DEFAULT PRIVILEGES FOR ROLE "ciri-migrator"
+  REVOKE ALL ON FUNCTIONS FROM PUBLIC, "ciri-runtime", "ciri-exporter";
+ALTER DEFAULT PRIVILEGES FOR ROLE "ciri-migrator" IN SCHEMA public
+  REVOKE ALL ON FUNCTIONS FROM PUBLIC, "ciri-runtime", "ciri-exporter";
+ALTER DEFAULT PRIVILEGES FOR ROLE "ciri-migrator"
+  REVOKE ALL ON TYPES FROM PUBLIC, "ciri-runtime", "ciri-exporter";
+ALTER DEFAULT PRIVILEGES FOR ROLE "ciri-migrator" IN SCHEMA public
+  REVOKE ALL ON TYPES FROM PUBLIC, "ciri-runtime", "ciri-exporter";
+ALTER DEFAULT PRIVILEGES FOR ROLE "ciri-migrator"
+  REVOKE ALL ON SCHEMAS FROM PUBLIC, "ciri-runtime", "ciri-exporter";
 
 ALTER DEFAULT PRIVILEGES FOR ROLE "ciri-migrator" IN SCHEMA public
   GRANT SELECT ON TABLES TO "ciri-runtime", "ciri-exporter";
