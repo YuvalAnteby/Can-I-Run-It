@@ -69,10 +69,10 @@ jobs:
         run: |
           docker run -d --name ciri-azure-db-check -p 127.0.0.1:55436:5432 -e POSTGRES_PASSWORD=ciri-test postgres:16-alpine
           for _attempt in $(seq 1 30); do
-            if docker exec ciri-azure-db-check pg_isready -U postgres; then break; fi
+            if docker exec ciri-azure-db-check pg_isready -h 127.0.0.1 -U postgres; then break; fi
             sleep 1
           done
-          docker exec ciri-azure-db-check pg_isready -U postgres
+          docker exec ciri-azure-db-check pg_isready -h 127.0.0.1 -U postgres
           mkdir -p "$RUNNER_TEMP/ciri-pg-tls"
           openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj '/CN=localhost' \
             -addext 'subjectAltName=DNS:localhost' -keyout "$RUNNER_TEMP/ciri-pg-tls/pg-test.key" \

@@ -41,6 +41,9 @@ with engine/container unavailable. The engine and disposable server were restore
 then all 16 database checks passed. A Windows bootstrap test timed out during CPU
 contention; the unchanged test passed in the final complete 237-test rerun. Neither
 failure was hidden by weakening CI thresholds, test assertions or startup budgets.
+The first dedicated GitHub job exposed a PostgreSQL initialization race: a Unix
+socket probe briefly accepted the temporary server. CI now waits for TCP readiness
+before SQL setup; the fresh disposable server check and workflow lint pass.
 
 ## Reproducible checks
 
