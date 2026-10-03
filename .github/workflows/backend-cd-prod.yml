@@ -1,63 +1,166 @@
-name: CD - Backend Production Image
-
+name: CD - Azure Production
 on:
   push:
     branches: [main]
-
 permissions:
   contents: read
-
 concurrency:
   group: production-images
   cancel-in-progress: false
-
 jobs:
   backend-checks:
     uses: ./.github/workflows/backend-ci.yml
   frontend-checks:
     uses: ./.github/workflows/frontend-ci.yml
-
+  infrastructure-checks:
+    uses: ./.github/workflows/azure-infra-ci.yml
   build-and-push:
-    needs: [backend-checks, frontend-checks]
+    needs: [backend-checks, frontend-checks, infrastructure-checks]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
+    outputs:
+      backend: ${{ steps.publish.outputs.backend }}
+      tools: ${{ steps.publish.outputs.tools }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Image tags
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}-backend
-          tags: |
-            type=raw,value=latest
-            type=sha,format=long
-      - name: Build tested production image
-        uses: docker/build-push-action@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Immutable image names
+        id: names
+        run: |
+          repository="${GITHUB_REPOSITORY,,}"
+          echo "backend=ghcr.io/${repository}-backend:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "tools=ghcr.io/${repository}-tools:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+      - name: Build API
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: ./backend
           file: infra/Dockerfile.backend
           target: prod
           load: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-      - name: Scan production image
-        run: |
-          image=$(printf '%s\n' "$IMAGE_TAGS" | head -n 1)
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:0.74.0 image --scanners vuln --severity HIGH,CRITICAL \
-            --exit-code 1 "$image"
+          tags: ${{ steps.names.outputs.backend }}
+      - name: Build finite database and maintenance tools
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
+        with:
+          context: .
+          file: infra/Dockerfile.tools
+          target: tools
+          load: true
+          tags: ${{ steps.names.outputs.tools }}
+      - name: Scan both images before publishing either
         env:
-          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
-      - name: Publish scanned image
+          BACKEND_TAG: ${{ steps.names.outputs.backend }}
+          TOOLS_TAG: ${{ steps.names.outputs.tools }}
         run: |
-          while IFS= read -r image; do docker push "$image"; done <<< "$IMAGE_TAGS"
+          for image in "$BACKEND_TAG" "$TOOLS_TAG"; do
+            docker run --rm -v /var/run/docker.sock:/var/run/docker.sock aquasec/trivy:0.74.0 image \
+              --scanners vuln --severity HIGH,CRITICAL --exit-code 1 "$image"
+          done
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish scanned images and verify anonymous pulls
+        id: publish
         env:
-          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+          BACKEND_TAG: ${{ steps.names.outputs.backend }}
+          TOOLS_TAG: ${{ steps.names.outputs.tools }}
+        run: |
+          docker push "$BACKEND_TAG"
+          docker push "$TOOLS_TAG"
+          backend=$(docker inspect --format '{{index .RepoDigests 0}}' "$BACKEND_TAG")
+          tools=$(docker inspect --format '{{index .RepoDigests 0}}' "$TOOLS_TAG")
+          docker logout ghcr.io
+          DOCKER_CONFIG=$(mktemp -d) docker manifest inspect "$backend" > /dev/null
+          DOCKER_CONFIG=$(mktemp -d) docker manifest inspect "$tools" > /dev/null
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "tools=$tools" >> "$GITHUB_OUTPUT"
+  deploy:
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' && vars.AZURE_DEPLOY_ENABLED == 'true'
+    environment: production
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: azure-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      MAINTENANCE_AUTH_MODE: azure-cli
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_DATABASE_BOOTSTRAP_VERIFIED: ${{ vars.AZURE_DATABASE_BOOTSTRAP_VERIFIED }}
+      AZURE_RELEASE_ACCEPTANCE_VERIFIED: ${{ vars.AZURE_RELEASE_ACCEPTANCE_VERIFIED }}
+      API_RESOURCE_ID: ${{ vars.AZURE_API_RESOURCE_ID }}
+      MIGRATION_JOB_RESOURCE_ID: ${{ vars.AZURE_MIGRATION_JOB_RESOURCE_ID }}
+      FIREWALL_JOB_RESOURCE_ID: ${{ vars.AZURE_FIREWALL_JOB_RESOURCE_ID }}
+      SWA_RESOURCE_ID: ${{ vars.AZURE_SWA_RESOURCE_ID }}
+      BACKEND_IMAGE: ${{ needs.build-and-push.outputs.backend }}
+      TOOLS_IMAGE: ${{ needs.build-and-push.outputs.tools }}
+      SMOKE_CHECK_JSON: ${{ vars.AZURE_SMOKE_CHECK_JSON }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: infra/azure/package-lock.json
+      - run: npm ci --prefix infra/azure
+      - uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
+        with:
+          client-id: ${{ vars.AZURE_RELEASE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Read only the live release contract
+        run: |
+          az resource show --ids "$API_RESOURCE_ID" --api-version 2025-01-01 \
+            --query '{mode:properties.configuration.activeRevisionsMode,min:properties.template.scale.minReplicas,max:properties.template.scale.maxReplicas,cpu:properties.template.containers[0].resources.cpu,memory:properties.template.containers[0].resources.memory,port:properties.configuration.ingress.targetPort,external:properties.configuration.ingress.external,insecure:properties.configuration.ingress.allowInsecure,fqdn:properties.configuration.ingress.fqdn,image:properties.template.containers[0].image,traffic:properties.configuration.ingress.traffic}' > "$RUNNER_TEMP/api.json"
+          az resource show --ids "$SWA_RESOURCE_ID" --api-version 2023-12-01 \
+            --query '{tier:sku.tier,size:sku.name,hostname:properties.defaultHostname}' > "$RUNNER_TEMP/swa.json"
+          node infra/deployment/verify-release.mjs "$RUNNER_TEMP/api.json" "$RUNNER_TEMP/swa.json"
+      - name: Reconcile exact firewall rules and require terminal success
+        env:
+          JOB_RESOURCE_ID: ${{ vars.AZURE_FIREWALL_JOB_RESOURCE_ID }}
+          JOB_TIMEOUT_SECONDS: "60"
+        run: |
+          node infra/azure/cli.mjs start-job > "$RUNNER_TEMP/firewall.json"
+          JOB_EXECUTION_NAME=$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).execution_name' "$RUNNER_TEMP/firewall.json")
+          export JOB_EXECUTION_NAME
+          node infra/azure/cli.mjs wait-job
+      - name: Run locked migrations before API update
+        env:
+          JOB_RESOURCE_ID: ${{ vars.AZURE_MIGRATION_JOB_RESOURCE_ID }}
+          JOB_IMAGE_DIGEST: ${{ needs.build-and-push.outputs.tools }}
+          JOB_COMMAND_JSON: '["node","/app/dist/database/maintenance.js","migrate"]'
+          JOB_TIMEOUT_SECONDS: "600"
+        run: |
+          node infra/azure/cli.mjs start-job > "$RUNNER_TEMP/migration.json"
+          JOB_EXECUTION_NAME=$(node -p 'JSON.parse(require("fs").readFileSync(process.argv[1], "utf8")).execution_name' "$RUNNER_TEMP/migration.json")
+          export JOB_EXECUTION_NAME
+          node infra/azure/cli.mjs wait-job
+      - name: Update only the API image
+        run: |
+          node infra/deployment/release-image.mjs
+          az resource show --ids "$API_RESOURCE_ID" --api-version 2025-01-01 \
+            --query '{mode:properties.configuration.activeRevisionsMode,min:properties.template.scale.minReplicas,max:properties.template.scale.maxReplicas,cpu:properties.template.containers[0].resources.cpu,memory:properties.template.containers[0].resources.memory,port:properties.configuration.ingress.targetPort,external:properties.configuration.ingress.external,insecure:properties.configuration.ingress.allowInsecure,fqdn:properties.configuration.ingress.fqdn,image:properties.template.containers[0].image,traffic:properties.configuration.ingress.traffic}' > "$RUNNER_TEMP/api.json"
+          node infra/deployment/verify-release.mjs "$RUNNER_TEMP/api.json" "$RUNNER_TEMP/swa.json" after
+      - run: npm ci --prefix frontend
+      - name: Build SPA against the observed API origin
+        run: VITE_API_URL="$API_URL/api" npm run build --prefix frontend
+      - name: Deploy prebuilt SPA
+        uses: Azure/static-web-apps-deploy@4d27395796ac319302594769cfe812bd207490b1 # v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          action: upload
+          app_location: frontend/dist
+          api_location: ""
+          output_location: ""
+          skip_app_build: true
+          skip_api_build: true
+          production_branch: main
+      - name: Smoke readiness, exact CORS and SPA navigation
+        run: node infra/deployment/smoke.mjs

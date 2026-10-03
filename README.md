@@ -40,6 +40,23 @@ flowchart LR
     CI[GitHub Actions] -. CICD .-> Docker
 ```
 
+## Azure production implementation
+
+Terraform, protected OIDC workflows, Entra database connections, locked migrations,
+finite maintenance jobs and portable exports are implemented for local review.
+The platform uses Static Web Apps Free, default-network Container Apps Consumption
+with zero minimum replicas, and PostgreSQL 16 B1ms/32 GiB restricted by exact source-IP
+firewall rules and Entra authentication. It has not been provisioned or verified on Azure.
+
+See the [approved architecture](docs/architecture/azure-production.md),
+[Terraform/CI/CD handoff](docs/architecture/azure-terraform-handoff.md), and
+[database/export runbook](docs/operations/azure-database.md).
+The [Terraform entry point](infra/terraform/README.md) documents the three roots,
+inventory/import and human bootstrap order. The [acceptance record](docs/operations/azure-acceptance.md)
+separates observed local checks from the required account and Azure integration checks.
+Local Compose configuration below remains separate. Manual admin maintenance is tracked in
+[issue #82](https://github.com/YuvalAnteby/Can-I-Run-It/issues/82).
+
 ## Compatibility behavior
 
 User input consists of a picked game and hardware combination (CPU, GPU, RAM, optional SSD/HDD), game settings (resolution, graphic preset) and target FPS.

@@ -1,21 +1,12 @@
 import { DataSource } from 'typeorm';
 
+import { databaseOptions, initializeDatabase } from './connection-options';
+
 export const databaseProviders = [
     {
         provide: 'DATA_SOURCE',
         useFactory: async (): Promise<DataSource> => {
-            const dataSource = new DataSource({
-                type: 'postgres',
-                host: process.env.POSTGRES_HOST || 'postgres',
-                port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
-                username: process.env.POSTGRES_USER || 'username',
-                password: process.env.POSTGRES_PASSWORD || 'changeme',
-                database: process.env.POSTGRES_DB || 'myciridb',
-                entities: [__dirname + '/../**/*.entity.{js,ts}'],
-                synchronize: false,
-            });
-
-            return dataSource.initialize();
+            return initializeDatabase(new DataSource(databaseOptions()));
         },
     },
 ];

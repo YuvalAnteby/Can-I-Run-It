@@ -1,5 +1,11 @@
 # Demo release
 
+This runbook describes the implemented Azure release and the separate local Compose
+path. Read the [architecture](../architecture/azure-production.md),
+[implementation contract](../architecture/azure-terraform-handoff.md),
+[database/export runbook](azure-database.md) and
+[acceptance record](azure-acceptance.md). Azure deployment remains blocked until
+actual account, ownership, cost, human bootstrap and integration evidence is reviewed.
 This release includes the seeded catalog, RAWG discovery and selection, pending-game
 pages, measured-first compatibility checks, and persisted Gemini estimates. It excludes
 admin login, RabbitMQ, enrichment jobs, and automatic performance ingestion.
@@ -8,19 +14,21 @@ checks, but do not join the published catalog automatically. No approval API is 
 
 ## Runtime and secrets
 
-Copy `infra/.env.example` to `infra/.env` and supply a strong database password.
-Set `REACT_URL` to the Azure static frontend HTTPS origin. Build the frontend with
-`VITE_API_URL` set to the public HTTPS API URL ending in `/api`.
-`GEMINI_API_KEY` and `RAWG_API_KEY` are optional, backend-only runtime secrets.
-Never set provider secrets in a `VITE_` variable: those variables become public JavaScript.
-Both Docker build contexts exclude environment files. The frontend receives no runtime secrets.
+For local Compose, copy `infra/.env.example` to `infra/.env` and supply a strong
+PostgreSQL password and the actual frontend origin. The frontend receives only the
+public `VITE_API_URL` ending in `/api`; provider keys never enter browser variables
+or image builds. Production Compose runs the scanned `BACKEND_IMAGE`, keeps
+PostgreSQL private, and binds the API to host loopback for a local HTTPS reverse proxy.
+Compose provides neither TLS termination nor an Azure deployment.
 
-The frontend is static content for Azure hosting; no frontend image is published.
-Configure SPA route fallback to `index.html` on the static host. The backend image
-is deployed separately, behind an HTTPS ingress. Production Compose keeps PostgreSQL
-private and binds the API to host loopback port `${BACKEND_PORT:-4000}` for a local
-HTTPS reverse proxy; it does not provide TLS or an Azure deployment.
-
+Azure uses distinct UAMIs, Entra database tokens and versionless native Key Vault
+references. A human creates provider values outside Terraform after granting the
+API identity vault access. The normal platform/release principals have neither
+Key Vault secret-read nor SQL/RBAC administrator permission. The only inline API
+secret managed by Terraform is generated Application Insights connection metadata.
+SWA's deployment token is held separately as the protected GitHub environment secret
+`AZURE_STATIC_WEB_APPS_API_TOKEN`; Terraform does not retrieve it. Retrieve/rotate it
+through the authorized human procedure and never log it or place it in state/tfvars.
 The API does not trust forwarded IP headers by default. For an ingress that replaces
 `X-Forwarded-For`, validated `TRUST_PROXY=1` trusts exactly one hop. Enable this only
 when clients cannot bypass that ingress to reach the API directly. For Azure or a
@@ -71,52 +79,19 @@ errors, hostnames, credentials, provider details, or other public diagnostics.
 The PostgreSQL endpoint remains diagnostic tooling and is not used for a restart
 probe.
 
-The app-only Terraform configuration expects an existing resource group,
-Container Apps environment, PostgreSQL/database network, and backend image. It
-keeps one revision and one replica with 0.5 CPU and 1 GiB memory, HTTPS public
-ingress, and 100% traffic on the latest revision. It declares one probe of each
-kind:
+The production root owns a default-network Consumption environment and one Single
+revision API, min0/max1, 0.5 CPU/1 GiB, HTTPS ingress on port4000 and100% latest traffic.
+It declares Startup `/api/health/live` every5s with30 failures, Liveness on that path
+every10s with3 failures, and Readiness `/api/health/ready` every5s with1 failure and1
+success. Every probe timeout is2s. Scale-to-zero and platform/revision transitions
+require actual cold-start and active-revision evidence; replica settings are not a
+hard spending cap. Old publicly labeled revision endpoints are forbidden.
 
-| Probe     | Path                | Initial delay | Interval | Failure threshold | Success threshold | Timeout |
-| --------- | ------------------- | ------------: | -------: | ----------------: | ----------------: | ------: |
-| Startup   | `/api/health/live`  |          10 s |     10 s |                30 |                 — |     2 s |
-| Liveness  | `/api/health/live`  |          10 s |     10 s |                 3 |                 — |     2 s |
-| Readiness | `/api/health/ready` |             — |      5 s |                 1 |                 1 |     2 s |
-
-Supply `container_app_name`, `resource_group_name`,
-`container_app_environment_id`, `backend_image`, and optional environment maps
-through an ignored `infra/terraform/*.tfvars` file or CI variables. Keep runtime
-values in `infra/.env`; provider credentials and secrets must come from the
-operator or CI environment, never from committed Terraform or frontend
-variables. Secret environment values are stored as Container App secrets and
-referenced by name. Terraform state and backups can contain sensitive values, so
-use an encrypted, access-controlled remote state backend (or an encrypted local
-state file) and never commit state, tfvars, or provider tokens.
-
-From the repository root, validate or inspect an existing app with:
-
-```sh
-terraform -chdir=infra/terraform init -backend=false
-terraform -chdir=infra/terraform validate
-terraform -chdir=infra/terraform import azurerm_container_app.backend \
-  /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.App/containerApps/<app-name>
-terraform -chdir=infra/terraform plan -var-file=release.tfvars
-```
-
-The import and plan inputs must identify the existing Azure resources; this
-configuration does not create a resource group, Container Apps environment,
-database, network, authentication, or deployment automation.
-
-The existing `azurerm_container_app.backend` resource already declares
-`revision_mode = "Single"`, `min_replicas = 1`, `max_replicas = 1`, and 100% traffic
-to the latest revision. Preserve those values on every reviewed deployment. Apply
-the authorized plan through the existing Terraform state workflow, then read back
-the live revision mode, scale settings, traffic, and active revisions with Azure
-CLI. A source declaration or a successful plan alone does not prove the deployed
-app has the required topology. Revision transitions and platform maintenance may
-briefly overlap processes, so one configured replica is not a globally durable
-billing cap; require one active serving revision and no public old-revision labels.
-
+Use the [Terraform runbook](../../infra/terraform/README.md) to inventory and import
+existing resource ownership before creating anything. AzAPI owns secret-sensitive
+resources and exports only frontend/API hostnames. Release ignores only the API
+container image property in Terraform; security, scale, environment, identity and
+probes remain platform-owned. Do not dump state or raw plan values into public logs.
 Before enabling `TRUST_PROXY=1`, inspect the selected subscription and deployed
 Container App, confirm HTTP ingress is the only public API path, and verify that
 internal callers cannot bypass ingress to reach Express with attacker-controlled
@@ -128,55 +103,86 @@ paths.
 When the running app loses PostgreSQL, readiness returns 503 while startup and
 liveness continue to succeed for the running process. Restoring database
 connectivity returns readiness to 200 without restarting the process. The
-custom DataSource factory still waits for its initial database connection before
-Nest starts listening and has no retry loop. The generous startup budget allows
-slow successful startup, but it does not create application retries or guarantee
-boot during an initial database outage; bootstrap behavior is unchanged.
+custom DataSource factory waits for the initial connection with five bounded attempts.
+Each new pool connection acquires a fresh token in Entra mode and verifies TLS trust
+and hostname. Migration/export connection checks additionally allow bounded firewall
+propagation retries; failed credentials or SQL permissions block release.
+## Database maintenance
 
-## Existing databases
+Fresh local volumes still run `infra/init-scripts/` once; existing volumes do not
+rerun initialization SQL. The tools CLI now adopts a complete current schema without
+replaying legacy001, upgrades complete legacy schemas, or creates an empty schema.
+Partial schemas fail for operator review. Every change uses one TypeORM ledger and
+an advisory lock; the API never runs migrations, seed or synchronization on startup.
 
-Fresh volumes use `infra/init-scripts/` and need no migrations. Existing volumes do
-not rerun initialization SQL. Back up the database and stop the old API before upgrading.
-For a database from `main` before this PR, set `BACKEND_IMAGE` in `infra/.env`
-to the scanned GHCR `sha-<full-commit>` tag. Then run these once, in order.
-The commands expand credentials inside the Postgres container, using its configured
-environment; no host-shell export is required.
+Use the [database tools runbook](../../infra/database/azure/README.md). Migrate with
+`node /app/dist/database/maintenance.js migrate`; inspect with `show`. Seed is an
+explicit human command `seed`, inserts missing stable records and preserves IDs and
+operator edits. Back up and verify restore before upgrading an existing database.
+The migrator owns only the application schema and has TEMPORARY privilege for seed
+staging; it cannot administer roles or databases.
+
+For a local production Compose database, pull the scanned tools digest and run it on
+that Compose network using the central env file and service-name PostgreSQL host:
 
 ```sh
 docker compose --env-file infra/.env -f infra/docker-compose.prod.yml stop backend
 docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --wait postgres
-docker compose --env-file infra/.env -f infra/docker-compose.prod.yml exec -T postgres \
-  sh -c 'exec psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-  < infra/migrations/001-v2-game-lifecycle.sql
-docker compose --env-file infra/.env -f infra/docker-compose.prod.yml exec -T postgres \
-  sh -c 'exec psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-  < infra/migrations/002-demo-performance-source.sql
+docker run --rm --network can-i-run-it-prod_ciri-net-prod --env-file infra/.env \
+  -e POSTGRES_HOST=postgres -e POSTGRES_PORT=5432 \
+  ghcr.io/yuvalanteby/can-i-run-it-tools@sha256:<scanned-digest> \
+  node /app/dist/database/maintenance.js migrate
 docker compose --env-file infra/.env -f infra/docker-compose.prod.yml pull backend
 docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --no-build
 ```
 
-The first migration preserves game IDs, publishes the existing catalog, and adds RAWG
-identity/lifecycle fields. Do not rerun it on an already migrated staging database.
-The second adds performance provenance and recognizes legacy rows with
-`source_url = 'gemini'` as AI estimates. It preserves existing source values.
-Neither migration creates a queue table or drops application data.
+## Artifacts and release gates
 
-## Artifacts and merge gate
+PR checks preserve lint, type checking, unit/seeded-PG E2E tests, frontend build,
+HIGH npm audits and HIGH/CRITICAL container scans. New checks validate the three
+Terraform roots without cloud credentials, contract/maintenance tests, GitHub Actions
+syntax, and the PG16 tools build/scan. These checks cannot configure repository
+branch protection; require them before merging staging/main.
 
-PR checks run lint, type checks, unit tests, seeded PostgreSQL E2E tests, dependency
-audits, the frontend static build, and the backend production Docker build. High/critical npm and container-image
-advisories fail CI. Images are scanned again before GHCR publication.
-On a push to `main`, the production workflow reruns both reusable CI workflows before
-publishing the backend image to GHCR:
+On trusted `main`, `.github/workflows/backend-cd-prod.yml` reruns all three reusable
+checks, builds and scans both images before publishing either, then verifies anonymous
+GHCR manifests. Set both package visibilities to public before enabling deployment:
 
 - `ghcr.io/yuvalanteby/can-i-run-it-backend:sha-<full-commit>`
+- `ghcr.io/yuvalanteby/can-i-run-it-tools:sha-<full-commit>`
 
-The backend also receives `latest`; use commit tags for deployment. Production
-Compose requires `BACKEND_IMAGE` and has no build path, so it runs the scanned artifact
-instead of rebuilding from source. Provider keys
-are never build arguments. This workflow publishes only the backend image; it does
-not deploy the application or upload frontend files to Azure. Require successful PR checks in branch
-protection before merge. A PR cannot itself enforce repository branch-protection settings.
+Deployments use immutable digests, not mutable tags. Normal release is disabled until
+`AZURE_DEPLOY_ENABLED=true` and protected bootstrap/acceptance gates are verified.
+The release UAMI uses environment-bound OIDC, starts the scoped firewall Job and
+requires terminal success, then starts the migration Job with this release's tools
+digest and requires terminal success. A failed/concurrent migration blocks API update.
+It never invokes seed. The image update PATCH preserves the existing API template
+and changes only its image; it does not list secrets. The SPA is built against the
+observed API origin and uploaded with its separately stored SWA token and checked
+navigation fallback. Smoke verifies readiness, exact/denied CORS, DB catalog and a
+human-verified measured compatibility tuple, actual module asset and deep links.
 
-The release was curated onto `main` without importing excluded v2 commits as ancestors,
-so they remain available for a later staging integration.
+The known measured smoke tuple is protected metadata `AZURE_SMOKE_CHECK_JSON`.
+Verify it against the actual database before enabling release and after dataset edits;
+an absent tuple can enter the application's normal provider fallback before the smoke
+rejects its non-measured response. Do not use arbitrary hardware/provider test requests.
+
+Platform changes use `.github/workflows/azure-platform.yml`, main-only, with a dated
+complete account/cost/reconciliation worksheet. Plan files and receipts are uploaded
+to the private state container; review them there. Apply selects an exact same-commit
+plan within24h, checks account/tenant/region/inputs/cost/binary SHA, and applies those
+bytes. It cannot bootstrap RBAC, Entra administrator membership or provider values.
+
+## Rollback and live evidence
+
+Record previous/current API and tools digests, migration ledger, SPA artifact, terminal
+Job execution names, revision/traffic checks and smoke evidence. If migration fails,
+retain the prior API. For an API/SPA regression, use a protected trusted human/release
+session to PATCH the previous scanned digest and upload the previous SPA artifact;
+verify latest-ready revision, no old labels, readiness/CORS/catalog/compatibility again.
+Do not automatically reverse schema migrations. Restore a verified export into an
+isolated PG16 target first and use a reviewed forward fix or restore plan.
+
+[Azure acceptance](azure-acceptance.md) lists all remaining real integration checks.
+Nothing in local checks establishes provisioning, free entitlements or a guaranteed
+one-year budget. Admin POST/PATCH remains [issue82](https://github.com/YuvalAnteby/Can-I-Run-It/issues/82).

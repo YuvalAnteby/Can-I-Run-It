@@ -1,5 +1,10 @@
 # Observability
 
+Azure production defines dedicated workspace-based Application Insights and Log
+Analytics,30-day retention and0.1GB/day caps, with SDK trace sampling10%. This is
+implemented locally; actual ingestion, redaction, cold-starts and billing remain
+[Azure acceptance gates](azure-acceptance.md). There are no paid metric/log alert
+rules by default; intentional replica0 must not raise a low-replica alert.
 The backend is quiet and local by default. `TELEMETRY_ENABLED=false` keeps Azure
 Monitor exporting disabled, while Nest logs remain readable in development. The
 default `LOG_LEVEL=info` records structured startup, request, stage, provider,
@@ -12,64 +17,22 @@ hyphens; unsafe or repeated-line values are replaced with a UUID. The ID is
 available in the backend log envelope and trace attributes, and is safe to echo
 to a support operator. It does not affect authorization or quota identity.
 
-## Opt in from Terraform
+## Terraform ownership and routing
 
-The Terraform module manages the existing Container App and references the
-externally managed Container Apps environment. Monitoring resources are created
-only when `observability_enabled` is true. A complete starting `release.tfvars`
-looks like this (keep it ignored and out of source control):
+The production root owns the default-network Consumption environment, dedicated
+`PerGB2018` workspace and workspace-based Application Insights. Workspace ARM metadata
+is managed without listing shared keys, local authentication is disabled, and Insights
+server sampling100% avoids sampling already sampled SDK traces twice. Terraform sets
+`TELEMETRY_ENABLED=true`, `LOG_LEVEL=info`, `OTEL_SERVICE_NAME=ciri-backend` and
+`OTEL_TRACES_SAMPLER_ARG=0.1`. Generated Insights connection metadata is an API secret
+reference; provider keys stay in native Key Vault references outside Terraform values.
 
-```hcl
-container_app_name           = "ciri-backend"
-resource_group_name          = "<existing-resource-group>"
-container_app_environment_id = "/subscriptions/<subscription>/resourceGroups/<resource-group>/providers/Microsoft.App/managedEnvironments/<environment>"
-backend_image                = "ghcr.io/yuvalanteby/can-i-run-it-backend:sha-<full-commit>"
-
-observability_enabled       = true
-observability_location      = "<same-region-as-the-existing-app>"
-observability_daily_cap_gb  = 0.1
-observability_retention_days = 30
-observability_sampling_ratio = 0.1
-observability_action_group_ids = []
-```
-
-The module creates a dedicated `PerGB2018` Log Analytics workspace and a
-workspace-based Application Insights resource, each with 30-day retention and a
-0.1 GB/day cap. The backend receives `TELEMETRY_ENABLED=true`, `LOG_LEVEL=info`,
-`OTEL_SERVICE_NAME=ciri-backend`,
-`OTEL_TRACES_SAMPLER=microsoft.fixed_percentage`, and the configured sampler
-ratio. The Application Insights connection string is stored as a Container App
-secret and is never a frontend variable or a plain environment value. Existing
-action group IDs are optional; an empty list leaves the rules visible in Azure
-without sending external notifications.
-
-Apply this module only through the existing state workflow after importing or
-confirming ownership of the existing app. Do not create a second Container Apps
-environment or import an environment already managed elsewhere.
-
-## Existing Container Apps log destination
-
-The externally managed environment must send Container Apps logs to Azure
-Monitor before the optional diagnostic setting can be useful. Inspect the
-environment first:
-
-```sh
-az containerapp env show -g <resource-group> -n <environment> \
-  --query "properties.appLogsConfiguration"
-az containerapp env update -g <resource-group> -n <environment> \
-  --logs-destination azure-monitor
-```
-
-The update is an operator action outside this module. Check for existing
-diagnostic settings before adding the Terraform-owned setting, and remove only a
-duplicate setting owned by the same operator after reviewing its consumers.
-Environment-level routing sends `ContainerAppConsoleLogs` and
-`ContainerAppSystemLogs` for every app in that environment to the workspace;
-the 0.1 GB/day cap is therefore shared by those apps. The module deliberately
-does not export `AllMetrics` or ingress HTTP logs to Log Analytics. Azure keeps
-the native Container Apps `Requests`, `Replicas`, `RestartCount`, CPU, and memory
-metrics separately.
-
+The environment sends console/system logs to Azure Monitor through exactly one
+Terraform diagnostic setting to the dedicated workspace. No AllMetrics or ingress
+HTTP diagnostic logs are exported. Before import, reconcile existing environment,
+workspace, Insights and diagnostic ownership; do not duplicate another owner's routes.
+Use the [Terraform bootstrap/import runbook](../../infra/terraform/README.md) and the
+protected reviewed-plan workflow. Local Compose keeps telemetry disabled by default.
 ## What is collected
 
 The SDK initializes before Nest, PostgreSQL, or provider modules load. It traces
@@ -108,15 +71,12 @@ concurrency, and rate-limit metrics exactly once.
 
 ## Alerts and cost limits
 
-The optional rules are intentionally small in number. They alert on fewer than
-one replica for five minutes, at least five non-health 5xx completions and a
-20% error rate across two five-minute buckets, or at least three platform
-unhealthy/crash/backoff events across two buckets, or failed readiness completions
-across two buckets. There is no
-traffic or inactivity alert, so a quiet demo does not page. Platform reason
-strings can vary; after deployment, inspect `ContainerAppSystemLogs` and adjust
-the documented query only after confirming the actual `Reason` and `Log` values.
-
+No paid alert rules, action groups or low-replica alerts are created by default.
+Use budget emails, native metrics and operator queries. Enabling an alert later
+requires a reviewed real regional evaluation/notification price and budget allowance.
+Native Requests, Replicas, RestartCount, CPU and memory metrics remain available.
+A quiet demo intentionally reaches replica0. Monitor crash/backoff, readiness failure,
+request errors, cold-start latency and unexpected jobs using bounded queries first.
 Retention and daily caps are ingestion controls, not hard monthly spending
 limits. A 0.1 GB/day setting is roughly 3 GB/month before Azure cap overshoot;
 cap enforcement can lag and create telemetry gaps. Regional ingestion, alert
@@ -195,21 +155,24 @@ RAWG appears only inside the request trace that admitted its provider call; it
 is not a global metric dimension and does not create outbound HTTP spans. Data
 and alert rows can arrive several minutes after the request.
 
-## Verification
+## Verification and live evidence
 
-Run the Terraform checks before an authorized deployment:
+Run the three Terraform schema/mock-test roots and contract tests as described in
+[Terraform](../../infra/terraform/README.md). Review the protected actual plan and
+resource/state ownership before applying. Local mocks do not establish ingestion or
+price/free eligibility. State and private plan files remain protected even though
+provider keys and deployment tokens are excluded from Terraform reads/inputs.
 
-```sh
-terraform -chdir=infra/terraform fmt -check
-terraform -chdir=infra/terraform init -backend=false
-terraform -chdir=infra/terraform validate
-terraform -chdir=infra/terraform test
-terraform -chdir=infra/terraform plan -var-file=release.tfvars
-```
+After a reviewed deployment, record the actual resource IDs, sole console/system
+route, workspace retention/cap and SDK10% sampling. Exercise measured, provider
+fallback, quota/timeout, failed persistence and outage paths with controlled requests;
+verify X-Request-ID correlation and no bodies, URLs, SQL, credentials, client-IP or
+provider payloads in any exported event. Successful health probes should produce no
+completion/span volume. Check for duplicate console export, AllMetrics, Live Metrics
+and offline files. Confirm Jobs are finite and normal maintenance does not wake API.
 
-Review the plan in both modes. Disabled mode must create no monitoring resources
-and must preserve the existing Container App runtime maps. Enabled mode must
-show only the dedicated workspace, Application Insights, one environment
-diagnostic setting, and three app-scoped alert rules, plus the generated runtime
-secret and settings. Keep Terraform state encrypted and access-controlled;
-state, plan files, tfvars, and connection strings are sensitive.
+Measure idle-to-zero and repeated true cold starts: retain each sample, median and
+p95, min0/max1 settings, latest-ready revision and no old public revision labels.
+Observe usage/cost for24–48h and again over a billing interval. Reconcile every meter
+and subscription-shared grant/expiry against the dated worksheet and student credit
+balance. Caps/alerts can lag and cannot guarantee a one-year budget.

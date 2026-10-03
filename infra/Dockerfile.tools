@@ -1,0 +1,28 @@
+FROM node:24-alpine AS backend-build
+WORKDIR /app
+COPY backend/package*.json ./
+RUN npm ci
+COPY backend/ ./
+RUN npm run build && npm prune --omit=dev
+
+FROM node:24-alpine AS maintenance-dependencies
+WORKDIR /maintenance
+COPY infra/azure/package*.json ./
+RUN npm ci --omit=dev
+
+FROM node:24-alpine AS tools
+ENV NODE_ENV=production
+WORKDIR /app
+RUN apk add --no-cache postgresql16-client ca-certificates \
+    && pg_dump --version | grep ' 16\.' \
+    && rm -rf /usr/local/lib/node_modules/npm /opt/yarn* \
+       /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/yarn /usr/local/bin/yarnpkg
+COPY --chown=node:node --from=backend-build /app/node_modules ./node_modules
+COPY --chown=node:node --from=backend-build /app/dist ./dist
+COPY --chown=node:node infra/azure/ ./maintenance/
+COPY --chown=node:node --from=maintenance-dependencies /maintenance/node_modules ./maintenance/node_modules
+COPY --chown=node:node infra/init-scripts/ ./infra/init-scripts/
+COPY --chown=node:node infra/migrations/ ./infra/migrations/
+COPY --chown=node:node infra/database/azure/ ./infra/database/azure/
+USER node
+CMD ["node", "/app/dist/database/maintenance.js", "show"]

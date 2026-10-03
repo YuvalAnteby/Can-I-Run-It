@@ -1,7 +1,14 @@
 .terraform/
 *.tfstate
 *.tfstate.*
-crash.log
-crash.*.log
 *.tfvars
 *.tfvars.json
+*.tfplan
+*.plan
+crash.log
+crash.*.log
+override.tf
+*_override.tf
+backend.local.hcl
+mock-plan.events.json
+mock-plan.json

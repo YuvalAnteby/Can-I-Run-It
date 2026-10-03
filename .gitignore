@@ -209,9 +209,22 @@ __marimo__/
 # tests results
 **/*-test-results/
 
-/node_modules
+**/node_modules/
 .worktrees/
 **/.DS_Store
 
 .gemini/
 gha-creds-*.json
+
+# Local validation caches and private Terraform artifacts
+.npm-cache/
+.jest-cache/
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+*.tfvars.json
+!*.example.tfvars
+provider-schema.json
+infra/deployment/.tmp/

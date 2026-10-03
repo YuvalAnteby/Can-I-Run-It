@@ -1,15 +1,29 @@
-output "observability_workspace_id" {
-  description = "ID of the optional owned Log Analytics workspace, or null when disabled."
-  value       = try(azurerm_log_analytics_workspace.observability[0].id, null)
-}
-
-output "observability_app_insights_id" {
-  description = "ID of the optional workspace-based Application Insights resource, or null when disabled."
-  value       = try(azurerm_application_insights.observability[0].id, null)
-}
-
-output "observability_connection_string" {
-  description = "Sensitive Application Insights connection string for the Container App secret."
-  value       = try(azurerm_application_insights.observability[0].connection_string, null)
-  sensitive   = true
-}
+output "resource_group_name" { value = azurerm_resource_group.production.name }
+output "backend_url" { value = "https://${azapi_resource.backend.output.properties.configuration.ingress.fqdn}" }
+output "frontend_url" { value = "https://${azapi_resource.frontend.output.properties.defaultHostname}" }
+output "postgres_host" { value = azurerm_postgresql_flexible_server.database.fqdn }
+output "postgres_database" { value = azurerm_postgresql_flexible_server_database.application.name }
+output "postgres_server_id" { value = azurerm_postgresql_flexible_server.database.id }
+output "container_app_id" { value = azapi_resource.backend.id }
+output "migration_job_id" { value = azapi_resource.maintenance["migration"].id }
+output "export_job_id" { value = azapi_resource.maintenance["export"].id }
+output "firewall_job_id" { value = azapi_resource.maintenance["firewall"].id }
+output "export_check_job_id" { value = azapi_resource.maintenance["export-check"].id }
+output "executor_client_ids" { value = { for name, identity in azurerm_user_assigned_identity.executor : name => identity.client_id } }
+output "executor_principal_ids" { value = { for name, identity in azurerm_user_assigned_identity.executor : name => identity.principal_id } }
+output "backend_client_id" { value = azurerm_user_assigned_identity.executor["backend"].client_id }
+output "backend_principal_id" { value = azurerm_user_assigned_identity.executor["backend"].principal_id }
+output "migration_client_id" { value = azurerm_user_assigned_identity.executor["migration"].client_id }
+output "migration_principal_id" { value = azurerm_user_assigned_identity.executor["migration"].principal_id }
+output "export_client_id" { value = azurerm_user_assigned_identity.executor["export"].client_id }
+output "export_principal_id" { value = azurerm_user_assigned_identity.executor["export"].principal_id }
+output "firewall_client_id" { value = azurerm_user_assigned_identity.executor["firewall"].client_id }
+output "firewall_principal_id" { value = azurerm_user_assigned_identity.executor["firewall"].principal_id }
+output "export_check_client_id" { value = azurerm_user_assigned_identity.executor["export-check"].client_id }
+output "export_check_principal_id" { value = azurerm_user_assigned_identity.executor["export-check"].principal_id }
+output "export_storage_account_name" { value = azapi_resource.exports_account.name }
+output "export_container_name" { value = azapi_resource.exports_container["exports"].name }
+output "control_container_name" { value = azapi_resource.exports_container["control"].name }
+output "key_vault_id" { value = azurerm_key_vault.providers.id }
+output "observability_workspace_id" { value = azapi_resource.observability.id }
+output "observability_app_insights_id" { value = azurerm_application_insights.observability.id }

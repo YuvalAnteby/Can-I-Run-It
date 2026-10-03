@@ -7,6 +7,7 @@ on:
     paths:
       - "backend/**"
       - "infra/**"
+      - ".dockerignore"
       - ".github/workflows/backend-ci.yml"
       - ".github/workflows/backend-cd-prod.yml"
       - "!**/*.md"
@@ -52,9 +53,56 @@ jobs:
       - name: Run Docker-backed tests
         run: docker compose -f infra/docker-compose.tests.yml up --build --exit-code-from backend --abort-on-container-exit
 
+  azure_database_tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: static_analysis
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci --prefix backend
+      - name: Start isolated PG16 and trusted local TLS fixture
+        run: |
+          docker run -d --name ciri-azure-db-check -p 127.0.0.1:55436:5432 -e POSTGRES_PASSWORD=ciri-test postgres:16-alpine
+          for _attempt in $(seq 1 30); do
+            if docker exec ciri-azure-db-check pg_isready -h 127.0.0.1 -U postgres; then break; fi
+            sleep 1
+          done
+          docker exec ciri-azure-db-check pg_isready -h 127.0.0.1 -U postgres
+          mkdir -p "$RUNNER_TEMP/ciri-pg-tls"
+          openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj '/CN=localhost' \
+            -addext 'subjectAltName=DNS:localhost' -keyout "$RUNNER_TEMP/ciri-pg-tls/pg-test.key" \
+            -out "$RUNNER_TEMP/ciri-pg-tls/pg-test.crt" 2>/dev/null
+          docker cp "$RUNNER_TEMP/ciri-pg-tls/pg-test.crt" ciri-azure-db-check:/tmp/pg-test.crt
+          docker cp "$RUNNER_TEMP/ciri-pg-tls/pg-test.key" ciri-azure-db-check:/tmp/pg-test.key
+          docker exec ciri-azure-db-check chown postgres:postgres /tmp/pg-test.crt /tmp/pg-test.key
+          docker exec ciri-azure-db-check chmod 600 /tmp/pg-test.key
+          docker exec ciri-azure-db-check psql -X -U postgres -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET ssl='on'"
+          docker exec ciri-azure-db-check psql -X -U postgres -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET ssl_cert_file='/tmp/pg-test.crt'"
+          docker exec ciri-azure-db-check psql -X -U postgres -v ON_ERROR_STOP=1 -c "ALTER SYSTEM SET ssl_key_file='/tmp/pg-test.key'"
+          docker exec ciri-azure-db-check psql -X -U postgres -v ON_ERROR_STOP=1 -c 'SELECT pg_reload_conf()'
+          echo "AZURE_DB_TEST_CA=$RUNNER_TEMP/ciri-pg-tls/pg-test.crt" >> "$GITHUB_ENV"
+      - name: Run actual migration, SQL grants, restore, token-callback and TLS checks
+        env:
+          AZURE_DB_TEST_HOST: "127.0.0.1"
+          AZURE_DB_TEST_PORT: "55436"
+          AZURE_DB_TEST_CONTAINER: ciri-azure-db-check
+        run: |
+          npm run build --prefix backend
+          npm run test:e2e --prefix backend -- azure-database.e2e-spec.ts bootstrap-postgres.e2e-spec.ts database-tls.e2e-spec.ts
+      - name: Remove isolated test server and private TLS fixture
+        if: always()
+        run: |
+          docker rm -f ciri-azure-db-check
+          rm -rf "$RUNNER_TEMP/ciri-pg-tls"
+
   dry_run_build:
     runs-on: ubuntu-latest
-    needs: integration_tests
+    needs: [integration_tests, azure_database_tests]
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
@@ -65,3 +113,10 @@ jobs:
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
           aquasec/trivy:0.74.0 image --scanners vuln --severity HIGH,CRITICAL
           --exit-code 1 temp-check:latest
+      - name: Verify finite tools image build
+        run: docker build -f infra/Dockerfile.tools --target tools -t temp-tools-check:latest .
+      - name: Scan finite tools image
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy:0.74.0 image --scanners vuln --severity HIGH,CRITICAL
+          --exit-code 1 temp-tools-check:latest

@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "seed:postgres": "ts-node src/database/seed-db.ts",
+    "seed:postgres": "npm run seed:initial",
     "build": "nest build",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -19,9 +19,13 @@
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand"
+    "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
+    "seed:initial": "node dist/database/maintenance.js seed",
+    "migration:run": "node dist/database/maintenance.js migrate",
+    "migration:show": "node dist/database/maintenance.js show"
   },
   "dependencies": {
+    "@azure/identity": "^4.13.3",
     "@azure/monitor-opentelemetry": "^1.20.0",
     "@google/genai": "^2.7.0",
     "@nestjs/axios": "^4.0.1",
@@ -54,6 +58,7 @@
     "@types/express": "^5.0.0",
     "@types/jest": "^30.0.0",
     "@types/node": "^22.10.7",
+    "@types/pg": "^8.23.1",
     "@types/supertest": "^6.0.2",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
@@ -70,6 +75,11 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
+  },
+  "overrides": {
+    "@nestjs/swagger": {
+      "js-yaml": "5.4.2"
+    }
   },
   "jest": {
     "moduleFileExtensions": [

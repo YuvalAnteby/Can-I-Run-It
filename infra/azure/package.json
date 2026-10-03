@@ -1,0 +1,8 @@
+{
+  "name": "ciri-azure-maintenance",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": { "test": "node --test policy.test.mjs runtime.test.mjs" },
+  "dependencies": { "@azure/identity": "4.13.1", "@azure/storage-blob": "12.29.1" }
+}
