@@ -40,6 +40,21 @@ flowchart LR
     CI[GitHub Actions] -. CICD .-> Docker
 ```
 
+## Planned Azure deployment
+
+The Azure architecture is approved; the complete platform implementation is pending.
+The target is Static Web Apps Free, managed Container Apps Consumption with zero
+minimum replicas, and PostgreSQL Flexible Server with a public endpoint restricted
+by source-IP firewall rules and Entra authentication.
+
+See the [approved architecture](docs/architecture/azure-production.md),
+[Terraform/CI/CD handoff](docs/architecture/azure-terraform-handoff.md), and
+[database/export runbook](docs/operations/azure-database.md).
+The [Terraform entry point](infra/terraform/README.md) explains the existing
+app-only module's gaps. Local Compose configuration below remains separate from
+the planned Azure deployment. Manual admin maintenance is tracked in
+[issue #82](https://github.com/YuvalAnteby/Can-I-Run-It/issues/82).
+
 ## Compatibility behavior
 
 User input consists of a picked game and hardware combination (CPU, GPU, RAM, optional SSD/HDD), game settings (resolution, graphic preset) and target FPS.

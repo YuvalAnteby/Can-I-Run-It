@@ -1,5 +1,13 @@
 # Demo release
 
+This runbook describes the currently implemented release and app-only Terraform.
+For the approved future Azure platform, use the
+[architecture](../architecture/azure-production.md),
+[implementation contract](../architecture/azure-terraform-handoff.md), and
+[database/export runbook](azure-database.md). Its min=0, native Key Vault references
+and Entra database authentication supersede the Azure target assumptions below
+when that platform is implemented. Compose instructions remain valid separately.
+
 This release includes the seeded catalog, RAWG discovery and selection, pending-game
 pages, measured-first compatibility checks, and persisted Gemini estimates. It excludes
 admin login, RabbitMQ, enrichment jobs, and automatic performance ingestion.
@@ -109,7 +117,8 @@ database, network, authentication, or deployment automation.
 
 The existing `azurerm_container_app.backend` resource already declares
 `revision_mode = "Single"`, `min_replicas = 1`, `max_replicas = 1`, and 100% traffic
-to the latest revision. Preserve those values on every reviewed deployment. Apply
+to the latest revision. These describe the existing module; the approved new Azure platform changes
+minimum replicas to zero while retaining Single revision and maximum one replica. Apply
 the authorized plan through the existing Terraform state workflow, then read back
 the live revision mode, scale settings, traffic, and active revisions with Azure
 CLI. A source declaration or a successful plan alone does not prove the deployed
