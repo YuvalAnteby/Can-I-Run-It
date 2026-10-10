@@ -21,8 +21,8 @@ zero, and oversized results fail closed and retain the current rules.
 Automatic rules use the **ciri-auto-** prefix and exact start/end addresses.
 Separately named operator rules are left untouched. New automatic rules are
 written before replaced addresses are retired. Retirement metadata and the
-reconciliation lease live under **firewall/** in the control container:
-**firewall/state.json** and **firewall/lease**. Replaced rules remain for one
+reconciliation lease both use the **firewall/state.json** metadata blob in the
+control container. Replaced rules remain for one
 hour and a later successful discovery; failed deletions remain recorded and
 are retried on the next run. The control lease lasts 60 seconds while the
 reconciliation deadline is 45 seconds.
