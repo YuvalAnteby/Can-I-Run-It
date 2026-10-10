@@ -1,0 +1,124 @@
+name: Azure - Protected Platform
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Run a private plan or apply the exact previously reviewed plan
+        required: true
+        default: plan
+        type: choice
+        options:
+          - plan
+          - apply
+      reviewed_main_commit:
+        description: 40-character main commit reviewed for this operation; must equal the dispatched SHA
+        required: true
+        type: string
+      plan_id:
+        description: Exact plan run-id and attempt in the form github-run-id-run-attempt; apply only
+        required: false
+        type: string
+      reviewed_plan_sha256:
+        description: SHA-256 of the exact private binary plan approved by the human reviewer; apply only
+        required: false
+        type: string
+      subscription_cost_ack:
+        description: I verified the tenant/subscription, dated regional cost worksheet, credit or free-grant proof, and expiry before this run
+        required: true
+        default: false
+        type: boolean
+      grants_quota_ack:
+        description: I verified provider registration, the actual narrow platform grants, SKU availability, and regional quotas before this run
+        required: true
+        default: false
+        type: boolean
+      state_import_ack:
+        description: I verified the production backend and state inventory, and completed reviewed import or adoption work before this run
+        required: true
+        default: false
+        type: boolean
+      apply_ack:
+        description: I explicitly authorize applying the exact reviewed plan bytes identified above; required only when operation is apply
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: azure-platform-production
+  cancel-in-progress: false
+
+jobs:
+  platform:
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      github.repository == 'YuvalAnteby/Can-I-Run-It' &&
+      github.ref == 'refs/heads/main' &&
+      inputs.reviewed_main_commit == github.sha
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: azure-platform
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      TF_IN_AUTOMATION: "true"
+      TF_INPUT: "false"
+      TF_LOG: "off"
+      ARM_USE_OIDC: "true"
+      ARM_USE_AZUREAD: "true"
+      ARM_CLIENT_ID: ${{ vars.AZURE_PLATFORM_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_PLATFORM_CLIENT_ID: ${{ vars.AZURE_PLATFORM_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+      AZURE_STATE_STORAGE_ACCOUNT: ${{ vars.AZURE_STATE_STORAGE_ACCOUNT }}
+      AZURE_STATE_CONTAINER: ${{ vars.AZURE_STATE_CONTAINER }}
+      AZURE_STATE_KEY: ${{ vars.AZURE_STATE_KEY }}
+      AZURE_STATE_RESOURCE_GROUP: ${{ vars.AZURE_STATE_RESOURCE_GROUP }}
+      AZURE_TERRAFORM_VARS_JSON: ${{ vars.AZURE_TERRAFORM_VARS_JSON }}
+      PLATFORM_OPERATION: ${{ inputs.operation }}
+      PLATFORM_REVIEWED_MAIN_COMMIT: ${{ inputs.reviewed_main_commit }}
+      PLATFORM_PLAN_ID: ${{ inputs.plan_id }}
+      PLATFORM_REVIEWED_PLAN_SHA256: ${{ inputs.reviewed_plan_sha256 }}
+      PLATFORM_SUBSCRIPTION_COST_ACK: ${{ inputs.subscription_cost_ack }}
+      PLATFORM_GRANTS_QUOTA_ACK: ${{ inputs.grants_quota_ack }}
+      PLATFORM_STATE_IMPORT_ACK: ${{ inputs.state_import_ack }}
+      PLATFORM_APPLY_ACK: ${{ inputs.apply_ack }}
+    steps:
+      - name: Checkout the reviewed main commit
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+
+      - name: Validate dispatch and approved environment before Azure login
+        run: node .github/scripts/azure-platform-delivery.mjs validate-dispatch
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: "1.9.8"
+          terraform_wrapper: false
+
+      - name: Authenticate with Azure through protected OIDC
+        uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
+        with:
+          client-id: ${{ vars.AZURE_PLATFORM_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run the protected Terraform operation
+        run: node .github/scripts/azure-platform-delivery.mjs "$PLATFORM_OPERATION"

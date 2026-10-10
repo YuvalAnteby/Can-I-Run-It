@@ -153,6 +153,8 @@ to host loopback for an HTTPS ingress proxy.
 
 See [demo release operations](docs/operations/demo-release.md) for migrations,
 security assumptions, and the artifacts published after merging to `main`.
+See [Azure platform delivery operations](docs/operations/azure-platform.md) for
+the protected reviewed-plan workflow and human bootstrap boundary.
 
 ### Tests
 

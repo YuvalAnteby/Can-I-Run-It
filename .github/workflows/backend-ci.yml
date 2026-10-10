@@ -9,6 +9,8 @@ on:
       - "infra/**"
       - ".github/workflows/backend-ci.yml"
       - ".github/workflows/backend-cd-prod.yml"
+      - ".github/workflows/azure-platform.yml"
+      - ".github/scripts/**"
       - "!**/*.md"
 
 permissions:
@@ -31,6 +33,10 @@ jobs:
           cache-dependency-path: backend/package-lock.json
       - name: Install dependencies
         run: npm ci --prefix backend
+      - name: Check protected platform script
+        run: node --check .github/scripts/azure-platform-delivery.mjs
+      - name: Test protected platform script
+        run: node --test .github/scripts/*.test.mjs
       - name: Audit dependencies
         run: npm audit --prefix backend --audit-level=high
       - name: Lint backend
@@ -65,3 +71,28 @@ jobs:
           docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
           aquasec/trivy:0.74.0 image --scanners vuln --severity HIGH,CRITICAL
           --exit-code 1 temp-check:latest
+
+  terraform_checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: "1.9.8"
+          terraform_wrapper: false
+      - name: Run credential-free Terraform validation
+        run: |
+          test -f infra/terraform/main.tf || { echo "Missing platform Terraform root; stack PR85 before merging this feature." >&2; exit 1; }
+          test -f infra/terraform/bootstrap/main.tf || { echo "Missing platform Terraform bootstrap root; stack PR85 before merging this feature." >&2; exit 1; }
+          test -d infra/terraform/test-fixtures/local-bootstrap || { echo "Missing offline bootstrap fixture; stack PR85 before merging this feature." >&2; exit 1; }
+          terraform -chdir=infra/terraform fmt -check -recursive
+          terraform -chdir=infra/terraform/bootstrap fmt -check -recursive
+          terraform -chdir=infra/terraform init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/terraform/bootstrap init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/terraform validate -no-color
+          terraform -chdir=infra/terraform/bootstrap validate -no-color
+          terraform -chdir=infra/terraform test -no-color
+          terraform -chdir=infra/terraform/bootstrap test -no-color
+          terraform -chdir=infra/terraform/test-fixtures/local-bootstrap init -backend=false -input=false -lockfile=readonly
+          terraform -chdir=infra/terraform/test-fixtures/local-bootstrap test -no-color
