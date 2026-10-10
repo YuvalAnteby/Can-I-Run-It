@@ -32,11 +32,15 @@ services:
       - POSTGRES_USER=username
       - POSTGRES_PASSWORD=changeme
       - POSTGRES_DB=test_db
+      - AZURE_DB_TEST_HOST=postgres
+      - AZURE_DB_TEST_PORT=5432
+      - AZURE_DB_TEST_USER=username
+      - AZURE_DB_TEST_PASSWORD=changeme
     command: >
       sh -c "npm run test && npm run test:e2e"
     volumes:
       - ../backend/test-results:/app/test-results
-      - ../infra/migrations:/infra/migrations:ro
+      - ../infra:/infra:ro
     networks:
       - ciri-net-tests
 
