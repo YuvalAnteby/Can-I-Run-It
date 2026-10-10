@@ -1,0 +1,17 @@
+{
+  "Name": "Ciri Release Operator",
+  "IsCustom": true,
+  "Description": "Operate the trusted CIRI API Container App and maintenance Jobs from the protected release environment.",
+  "Actions": [
+    "Microsoft.App/containerApps/read",
+    "Microsoft.App/containerApps/write",
+    "Microsoft.App/jobs/read",
+    "Microsoft.App/jobs/start/action",
+    "Microsoft.App/jobs/executions/read",
+    "Microsoft.Web/staticSites/read"
+  ],
+  "NotActions": ["Microsoft.Authorization/*"],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": ["/subscriptions/<subscription-id>"]
+}

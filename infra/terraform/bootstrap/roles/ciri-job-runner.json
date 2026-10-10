@@ -1,0 +1,14 @@
+{
+  "Name": "Ciri Job Runner",
+  "IsCustom": true,
+  "Description": "Read and start only the explicitly assigned CIRI maintenance Jobs and read their executions.",
+  "Actions": [
+    "Microsoft.App/jobs/read",
+    "Microsoft.App/jobs/start/action",
+    "Microsoft.App/jobs/executions/read"
+  ],
+  "NotActions": ["Microsoft.Authorization/*"],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": ["/subscriptions/<subscription-id>"]
+}

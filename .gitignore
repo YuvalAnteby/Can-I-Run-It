@@ -215,3 +215,4 @@ __marimo__/
 
 .gemini/
 gha-creds-*.json
+.superpowers/

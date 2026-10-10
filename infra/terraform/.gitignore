@@ -5,3 +5,8 @@ crash.log
 crash.*.log
 *.tfvars
 *.tfvars.json
+bootstrap/.terraform/
+bootstrap/*.tfstate
+bootstrap/*.tfstate.*
+bootstrap-state-backup*.json
+ciri-production-state-backup*.json

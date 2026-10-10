@@ -1,0 +1,17 @@
+{
+  "Name": "Ciri Firewall Operator",
+  "IsCustom": true,
+  "Description": "Read selected Container Apps and Jobs and reconcile exact PostgreSQL firewall rules.",
+  "Actions": [
+    "Microsoft.App/containerApps/read",
+    "Microsoft.App/jobs/read",
+    "Microsoft.DBforPostgreSQL/flexibleServers/read",
+    "Microsoft.DBforPostgreSQL/flexibleServers/firewallRules/read",
+    "Microsoft.DBforPostgreSQL/flexibleServers/firewallRules/write",
+    "Microsoft.DBforPostgreSQL/flexibleServers/firewallRules/delete"
+  ],
+  "NotActions": ["Microsoft.Authorization/*"],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": ["/subscriptions/<subscription-id>"]
+}

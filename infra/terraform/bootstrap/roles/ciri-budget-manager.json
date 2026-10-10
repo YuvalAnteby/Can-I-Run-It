@@ -1,0 +1,14 @@
+{
+  "Name": "Ciri Budget Manager",
+  "IsCustom": true,
+  "Description": "Manage only subscription Cost Management budgets used by the CIRI platform.",
+  "Actions": [
+    "Microsoft.Consumption/budgets/read",
+    "Microsoft.Consumption/budgets/write",
+    "Microsoft.Consumption/budgets/delete"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": ["/subscriptions/<subscription-id>"]
+}
