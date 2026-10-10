@@ -53,6 +53,12 @@ defaults do not establish provider account hard limits.
 For the opt-in Azure Monitor setup, cost limits, trace and log correlation, and
 post-deployment checks, follow the [observability runbook](observability.md).
 
+The protected Azure production workflow, human bootstrap/state boundary, finite
+firewall and migration gates, SWA fallback, and rollback limits are documented
+in the [Azure production delivery runbook](azure-release.md). The local evidence
+ledger must keep Azure deployment and ingress checks unverified until an
+authorized operator runs them.
+
 ## Container App health probes
 
 The backend exposes version-neutral health endpoints. `backend_port` defaults to
@@ -165,18 +171,23 @@ Neither migration creates a queue table or drops application data.
 
 PR checks run lint, type checks, unit tests, seeded PostgreSQL E2E tests, dependency
 audits, the frontend static build, and the backend production Docker build. High/critical npm and container-image
-advisories fail CI. Images are scanned again before GHCR publication.
-On a push to `main`, the production workflow reruns both reusable CI workflows before
-publishing the backend image to GHCR:
+advisories fail CI. The maintenance tools image is built and scanned too. On a
+push to `main`, the production workflow reruns both reusable CI workflows before
+publishing the API and tools images to GHCR:
 
 - `ghcr.io/yuvalanteby/can-i-run-it-backend:sha-<full-commit>`
+- `ghcr.io/yuvalanteby/can-i-run-it-tools:sha-<full-commit>`
 
-The backend also receives `latest`; use commit tags for deployment. Production
-Compose requires `BACKEND_IMAGE` and has no build path, so it runs the scanned artifact
-instead of rebuilding from source. Provider keys
-are never build arguments. This workflow publishes only the backend image; it does
-not deploy the application or upload frontend files to Azure. Require successful PR checks in branch
-protection before merge. A PR cannot itself enforce repository branch-protection settings.
+Both images are resolved through anonymous GHCR pulls that must match the exact
+`@sha256:` digests returned by the authenticated push; production never deploys
+`latest`. Production Compose requires
+`BACKEND_IMAGE` and has no build path, so it runs the scanned artifact instead of
+rebuilding from source. Provider keys are never build arguments. The protected
+production job reconciles firewall rules, runs the matching tools-digest
+migration, updates only the API image, builds/deploys the SPA with its external
+SWA token, and verifies readiness, exact CORS, and revision topology. Require
+successful PR checks in branch protection before merge. A PR cannot itself
+enforce repository branch-protection settings.
 
 The release was curated onto `main` without importing excluded v2 commits as ancestors,
 so they remain available for a later staging integration.

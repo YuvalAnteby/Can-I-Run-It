@@ -7,8 +7,10 @@ on:
     paths:
       - "frontend/**"
       - "infra/Dockerfile.frontend"
+      - "frontend/public/staticwebapp.config.json"
       - ".github/workflows/frontend-ci.yml"
       - ".github/workflows/backend-cd-prod.yml"
+      - ".github/scripts/**"
       - "!**/*.md"
 
 permissions:

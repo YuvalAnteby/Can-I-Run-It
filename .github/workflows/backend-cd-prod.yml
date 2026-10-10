@@ -1,4 +1,4 @@
-name: CD - Backend Production Image
+name: CD - Production release
 
 on:
   push:
@@ -8,56 +8,225 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-images
+  group: production-release
   cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
 
 jobs:
   backend-checks:
     uses: ./.github/workflows/backend-ci.yml
+
   frontend-checks:
     uses: ./.github/workflows/frontend-ci.yml
 
-  build-and-push:
+  build-and-publish:
     needs: [backend-checks, frontend-checks]
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: read
       packages: write
+    outputs:
+      api_image_digest: ${{ steps.digests.outputs.api_image_digest }}
+      tools_image_digest: ${{ steps.digests.outputs.tools_image_digest }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
+
+      - name: Resolve immutable commit tags
+        id: image_tags
+        shell: bash
+        run: |
+          repository="${GITHUB_REPOSITORY,,}"
+          echo "api_tag=ghcr.io/${repository}-backend:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+          echo "tools_tag=ghcr.io/${repository}-tools:sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
       - uses: docker/login-action@v3
         with:
-          registry: ghcr.io
+          registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Image tags
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ghcr.io/${{ github.repository }}-backend
-          tags: |
-            type=raw,value=latest
-            type=sha,format=long
-      - name: Build tested production image
-        uses: docker/build-push-action@v5
+
+      - name: Build API image once
+        uses: docker/build-push-action@v6
         with:
           context: ./backend
           file: infra/Dockerfile.backend
           target: prod
           load: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-      - name: Scan production image
+          tags: ${{ steps.image_tags.outputs.api_tag }}
+
+      - name: Build maintenance tools image once
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/Dockerfile.tools
+          target: tools
+          load: true
+          tags: ${{ steps.image_tags.outputs.tools_tag }}
+
+      - name: Scan API image before publication
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy:0.74.0 image --scanners vuln --severity HIGH,CRITICAL
+          --exit-code 1 "${{ steps.image_tags.outputs.api_tag }}"
+
+      - name: Scan maintenance tools image before publication
+        run: >-
+          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock
+          aquasec/trivy:0.74.0 image --scanners vuln --severity HIGH,CRITICAL
+          --exit-code 1 "${{ steps.image_tags.outputs.tools_tag }}"
+
+      - name: Publish scanned full-SHA images and capture registry digests
+        id: published
+        shell: bash
         run: |
-          image=$(printf '%s\n' "$IMAGE_TAGS" | head -n 1)
-          docker run --rm -v /var/run/docker.sock:/var/run/docker.sock \
-            aquasec/trivy:0.74.0 image --scanners vuln --severity HIGH,CRITICAL \
-            --exit-code 1 "$image"
-        env:
-          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
-      - name: Publish scanned image
+          set -euo pipefail
+          docker push "${{ steps.image_tags.outputs.api_tag }}" 2>&1 | tee "$RUNNER_TEMP/api-push.txt"
+          docker push "${{ steps.image_tags.outputs.tools_tag }}" 2>&1 | tee "$RUNNER_TEMP/tools-push.txt"
+          api_digest=$(awk '$1 == "digest:" { print $2; exit }' "$RUNNER_TEMP/api-push.txt")
+          tools_digest=$(awk '$1 == "digest:" { print $2; exit }' "$RUNNER_TEMP/tools-push.txt")
+          [[ "$api_digest" =~ ^sha256:[0-9a-fA-F]{64}$ ]] || { echo "API push did not return a digest" >&2; exit 1; }
+          [[ "$tools_digest" =~ ^sha256:[0-9a-fA-F]{64}$ ]] || { echo "tools push did not return a digest" >&2; exit 1; }
+          api_repository="${{ steps.image_tags.outputs.api_tag }}"
+          tools_repository="${{ steps.image_tags.outputs.tools_tag }}"
+          api_repository="${api_repository%%:*}"
+          tools_repository="${tools_repository%%:*}"
+          echo "api_digest_ref=${api_repository}@${api_digest}" >> "$GITHUB_OUTPUT"
+          echo "tools_digest_ref=${tools_repository}@${tools_digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Require public anonymous GHCR pulls and resolve digests
+        id: digests
+        shell: bash
         run: |
-          while IFS= read -r image; do docker push "$image"; done <<< "$IMAGE_TAGS"
+          set -euo pipefail
+          docker logout "$REGISTRY" || true
+          api_digest=$(bash .github/scripts/verify-ghcr-digest.sh "${{ steps.image_tags.outputs.api_tag }}" "${{ steps.published.outputs.api_digest_ref }}")
+          tools_digest=$(bash .github/scripts/verify-ghcr-digest.sh "${{ steps.image_tags.outputs.tools_tag }}" "${{ steps.published.outputs.tools_digest_ref }}")
+          echo "api_image_digest=$api_digest" >> "$GITHUB_OUTPUT"
+          echo "tools_image_digest=$tools_digest" >> "$GITHUB_OUTPUT"
+          {
+            echo "commit=$GITHUB_SHA"
+            echo "api_image_digest=$api_digest"
+            echo "tools_image_digest=$tools_digest"
+          } > "$RUNNER_TEMP/release-images.txt"
+
+      - name: Upload redacted image evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-image-evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/release-images.txt
+          if-no-files-found: error
+          retention-days: 14
+  release:
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: ${{ vars.STATIC_WEB_APP_ORIGIN }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AZURE_CLIENT_ID: ${{ vars.AZURE_RELEASE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      BACKEND_RESOURCE_ID: ${{ vars.BACKEND_RESOURCE_ID }}
+      BACKEND_URL: ${{ vars.BACKEND_URL }}
+      STATIC_WEB_APP_ORIGIN: ${{ vars.STATIC_WEB_APP_ORIGIN }}
+      FIREWALL_JOB_RESOURCE_ID: ${{ vars.FIREWALL_JOB_RESOURCE_ID }}
+      MIGRATION_JOB_RESOURCE_ID: ${{ vars.MIGRATION_JOB_RESOURCE_ID }}
+      API_IMAGE_DIGEST: ${{ needs.build-and-publish.outputs.api_image_digest }}
+      TOOLS_IMAGE_DIGEST: ${{ needs.build-and-publish.outputs.tools_image_digest }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Validate protected release inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for value in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID BACKEND_RESOURCE_ID BACKEND_URL STATIC_WEB_APP_ORIGIN FIREWALL_JOB_RESOURCE_ID MIGRATION_JOB_RESOURCE_ID API_IMAGE_DIGEST TOOLS_IMAGE_DIGEST; do
+            [[ -n "${!value:-}" ]] || { echo "missing protected release variable: $value" >&2; exit 1; }
+          done
+          [[ "$BACKEND_URL" =~ ^https://[^/]+$ ]] || { echo "BACKEND_URL must be an HTTPS origin" >&2; exit 1; }
+          [[ "$STATIC_WEB_APP_ORIGIN" =~ ^https://[^/]+$ ]] || { echo "STATIC_WEB_APP_ORIGIN must be an HTTPS origin" >&2; exit 1; }
+          [[ "$API_IMAGE_DIGEST" =~ ^ghcr\.io/[^@]+@sha256:[0-9a-fA-F]{64}$ ]] || { echo "API image is not an immutable digest" >&2; exit 1; }
+          [[ "$TOOLS_IMAGE_DIGEST" =~ ^ghcr\.io/[^@]+@sha256:[0-9a-fA-F]{64}$ ]] || { echo "tools image is not an immutable digest" >&2; exit 1; }
+
+      - name: Reconcile executor firewall and require terminal success
+        id: firewall
+        shell: bash
+        run: |
+          set -euo pipefail
+          execution=$(node .github/scripts/container-app-job.mjs "$FIREWALL_JOB_RESOURCE_ID" firewall "" 120)
+          echo "execution=$execution" >> "$GITHUB_OUTPUT"
+
+      - name: Run matching tools-digest migration and require terminal success
+        id: migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          # The protected platform contract names this Terraform container "migration".
+          execution=$(node .github/scripts/container-app-job.mjs "$MIGRATION_JOB_RESOURCE_ID" migration "$TOOLS_IMAGE_DIGEST" 600)
+          echo "execution=$execution" >> "$GITHUB_OUTPUT"
+
+      - name: Update only the API image
+        run: az containerapp update --ids "$BACKEND_RESOURCE_ID" --image "$API_IMAGE_DIGEST" --output none
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build SPA for the exact HTTPS API origin
+        shell: bash
         env:
-          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+          VITE_API_URL: ${{ env.BACKEND_URL }}/api
+        run: |
+          set -euo pipefail
+          npm ci --prefix frontend
+          npm run build --prefix frontend
+          node .github/scripts/verify-swa-build.mjs frontend/dist "$VITE_API_URL"
+
+      - name: Deploy static files with the protected SWA token
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          action: upload
+          app_location: frontend/dist
+          skip_app_build: true
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+
+      - name: Smoke-test SWA root, deep links, assets, and API exclusion
+        run: bash .github/scripts/verify-swa-deploy.sh "$STATIC_WEB_APP_ORIGIN"
+
+      - name: Verify readiness, topology, TRUST_PROXY, and exact CORS
+        run: bash .github/scripts/verify-container-app.sh "$BACKEND_RESOURCE_ID" "$BACKEND_URL" "$STATIC_WEB_APP_ORIGIN" "$API_IMAGE_DIGEST"
+
+      - name: Upload redacted release evidence
+        shell: bash
+        run: |
+          {
+            echo "commit=$GITHUB_SHA"
+            echo "api_image_digest=$API_IMAGE_DIGEST"
+            echo "tools_image_digest=$TOOLS_IMAGE_DIGEST"
+            echo "backend_url=$BACKEND_URL"
+            echo "static_web_app_origin=$STATIC_WEB_APP_ORIGIN"
+            echo "firewall_execution=${{ steps.firewall.outputs.execution }}"
+            echo "migration_execution=${{ steps.migration.outputs.execution }}"
+          } > "$RUNNER_TEMP/release-evidence.txt"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-release-evidence-${{ github.sha }}
+          path: ${{ runner.temp }}/release-evidence.txt
+          if-no-files-found: error
+          retention-days: 14

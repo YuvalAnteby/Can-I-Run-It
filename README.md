@@ -152,7 +152,10 @@ TypeORM synchronization is disabled. PostgreSQL stays private and the API binds
 to host loopback for an HTTPS ingress proxy.
 
 See [demo release operations](docs/operations/demo-release.md) for migrations,
-security assumptions, and the artifacts published after merging to `main`.
+security assumptions, and local Compose artifacts. See the [Azure production
+delivery runbook](docs/operations/azure-release.md) for the protected OIDC
+release, finite migration/firewall gates, SWA deployment, rollback limits, and
+the human bootstrap boundary.
 
 ### Tests
 
