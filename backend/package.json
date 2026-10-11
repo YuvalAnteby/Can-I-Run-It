@@ -27,6 +27,7 @@
   "dependencies": {
     "@azure/identity": "^4.13.3",
     "@azure/monitor-opentelemetry": "^1.20.0",
+    "@azure/storage-blob": "^12.34.0",
     "@google/genai": "^2.7.0",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/common": "^11.0.1",
