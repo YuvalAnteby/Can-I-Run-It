@@ -1,0 +1,12 @@
+{
+  "Name": "Ciri Cost Reader",
+  "IsCustom": true,
+  "Description": "Read the Cost Management data needed by the export checker without budget or resource write access.",
+  "Actions": [
+    "Microsoft.CostManagement/query/read"
+  ],
+  "NotActions": ["Microsoft.Authorization/*"],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": ["/subscriptions/<subscription-id>"]
+}
