@@ -181,6 +181,24 @@ function planChanges(plan) {
   if (plan.errored === true || plan.error || ('diagnostics' in plan && !Array.isArray(plan.diagnostics)) || (Array.isArray(plan.diagnostics) && plan.diagnostics.some(item => !item || !['warning', 'error'].includes(item.severity) || item.severity === 'error'))) {
     throw new DeliveryError('Terraform plan contains an error');
   }
+  if ('checks' in plan) {
+    if (!Array.isArray(plan.checks)) throw new DeliveryError('Terraform JSON plan has invalid checks');
+    for (const check of plan.checks) {
+      if (!check || typeof check !== 'object' || Array.isArray(check) || !['pass', 'fail', 'error', 'unknown'].includes(check.status)) {
+        throw new DeliveryError('Terraform JSON plan has an invalid check result');
+      }
+      if (check.status !== 'pass') throw new DeliveryError('Terraform plan contains a failed or unknown check');
+      if ('instances' in check) {
+        if (!Array.isArray(check.instances)) throw new DeliveryError('Terraform JSON plan has invalid check instances');
+        for (const instance of check.instances) {
+          if (!instance || typeof instance !== 'object' || Array.isArray(instance) || !['pass', 'fail', 'error', 'unknown'].includes(instance.status)) {
+            throw new DeliveryError('Terraform JSON plan has an invalid check instance');
+          }
+          if (instance.status !== 'pass') throw new DeliveryError('Terraform plan contains a failed or unknown check instance');
+        }
+      }
+    }
+  }
   if (!Array.isArray(plan.resource_changes)) throw new DeliveryError('Terraform JSON plan has no resource_changes array');
 
   const counts = { add: 0, change: 0, destroy: 0, replace: 0 };

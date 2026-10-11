@@ -384,6 +384,22 @@ test('plan validation fails closed for malformed, diagnostic, delete, and replac
   }
 });
 
+test('plan validation rejects non-passing checks even when resources are created', () => {
+  for (const checks of [
+    [{ status: 'fail' }],
+    [{ status: 'unknown' }],
+    [{ status: 'error' }],
+    [{ status: 'pass', instances: [{ status: 'fail' }] }],
+    [{ status: 'pass', instances: [{ status: 'unknown' }] }],
+    [{ status: 'pass', instances: [{ status: 'error' }] }],
+  ]) {
+    throwsMatching(() => validatePlan({
+      resource_changes: [{ change: { actions: ['create'] } }],
+      checks,
+    }), /check/);
+  }
+});
+
 test('manifest binds exact bytes, private prefix, 24-hour TTL, toolchain, backend, identity, and digest', () => {
   const root = mkdtempSync(join(tmpdir(), 'ciri-manifest-test-'));
   try {
@@ -411,7 +427,7 @@ test('manifest binds exact bytes, private prefix, 24-hour TTL, toolchain, backen
     }
     throwsMatching(() => verifyManifest(manifest, { ...manifest, reviewed_plan_sha256: manifest.original_plan_sha256 }, { binaryPath: binary, now: Date.parse('2026-10-11T00:00:01.000Z') }), /expired/);
     writeFileSync(binary, 'tampered-plan-bytes');
-    throwsMatching(() => verifyManifest(manifest, { ...manifest, reviewed_plan_sha256: manifest.original_plan_sha256 }, { binaryPath: binary }), /bytes/);
+    throwsMatching(() => verifyManifest(manifest, { ...manifest, reviewed_plan_sha256: manifest.original_plan_sha256 }, { binaryPath: binary, now: Date.parse('2026-10-10T12:00:00.000Z') }), /bytes/);
   } finally {
     rmSync(root, { recursive: true, force: true });
   }
