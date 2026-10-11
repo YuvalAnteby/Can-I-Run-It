@@ -1,5 +1,13 @@
 # Demo release
 
+This runbook describes the currently implemented release and app-only Terraform.
+For the approved future Azure platform, use the
+[architecture](../architecture/azure-production.md),
+[implementation contract](../architecture/azure-terraform-handoff.md), and
+[database/export runbook](azure-database.md). Its min=0, native Key Vault references
+and Entra database authentication supersede the Azure target assumptions below
+when that platform is implemented. Compose instructions remain valid separately.
+
 This release includes the seeded catalog, RAWG discovery and selection, pending-game
 pages, measured-first compatibility checks, and persisted Gemini estimates. It excludes
 admin login, RabbitMQ, enrichment jobs, and automatic performance ingestion.
@@ -115,7 +123,8 @@ database, network, authentication, or deployment automation.
 
 The existing `azurerm_container_app.backend` resource already declares
 `revision_mode = "Single"`, `min_replicas = 1`, `max_replicas = 1`, and 100% traffic
-to the latest revision. Preserve those values on every reviewed deployment. Apply
+to the latest revision. These describe the existing module; the approved new Azure platform changes
+minimum replicas to zero while retaining Single revision and maximum one replica. Apply
 the authorized plan through the existing Terraform state workflow, then read back
 the live revision mode, scale settings, traffic, and active revisions with Azure
 CLI. A source declaration or a successful plan alone does not prove the deployed
@@ -134,38 +143,42 @@ paths.
 When the running app loses PostgreSQL, readiness returns 503 while startup and
 liveness continue to succeed for the running process. Restoring database
 connectivity returns readiness to 200 without restarting the process. The
-custom DataSource factory still waits for its initial database connection before
-Nest starts listening and has no retry loop. The generous startup budget allows
-slow successful startup, but it does not create application retries or guarantee
-boot during an initial database outage; bootstrap behavior is unchanged.
+custom DataSource factory waits for its initial database connection before Nest
+starts listening and retries within `POSTGRES_STARTUP_RETRY_BUDGET_MS`
+(30 seconds by default); it never runs migrations or seed data during HTTP
+startup.
 
 ## Existing databases
 
 Fresh volumes use `infra/init-scripts/` and need no migrations. Existing volumes do
 not rerun initialization SQL. Back up the database and stop the old API before upgrading.
+Use the compiled tools image for an existing database: run
+`node dist/database/maintenance.js migrate` as the migrator, then run
+`node dist/database/maintenance.js seed` explicitly when catalog data is required.
+Check `node dist/database/maintenance.js status` before releasing the API.
 For a database from `main` before this PR, set `BACKEND_IMAGE` in `infra/.env`
-to the scanned GHCR `sha-<full-commit>` tag. Then run these once, in order.
-The commands expand credentials inside the Postgres container, using its configured
-environment; no host-shell export is required.
+to the scanned GHCR `sha-<full-commit>` tag, then run the same tools-image commands
+once in order. The commands use the configured database environment; no host-shell
+credential export is required.
 
 ```sh
 docker compose --env-file infra/.env -f infra/docker-compose.prod.yml stop backend
 docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --wait postgres
-docker compose --env-file infra/.env -f infra/docker-compose.prod.yml exec -T postgres \
-  sh -c 'exec psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-  < infra/migrations/001-v2-game-lifecycle.sql
-docker compose --env-file infra/.env -f infra/docker-compose.prod.yml exec -T postgres \
-  sh -c 'exec psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-  < infra/migrations/002-demo-performance-source.sql
+docker run --rm --network can-i-run-it-prod_ciri-net-prod --env-file infra/.env \
+  ciri-database-tools:local node /app/dist/database/maintenance.js migrate
+docker run --rm --network can-i-run-it-prod_ciri-net-prod --env-file infra/.env \
+  ciri-database-tools:local node /app/dist/database/maintenance.js seed
+docker run --rm --network can-i-run-it-prod_ciri-net-prod --env-file infra/.env \
+  ciri-database-tools:local node /app/dist/database/maintenance.js status
 docker compose --env-file infra/.env -f infra/docker-compose.prod.yml pull backend
 docker compose --env-file infra/.env -f infra/docker-compose.prod.yml up -d --no-build
 ```
 
-The first migration preserves game IDs, publishes the existing catalog, and adds RAWG
-identity/lifecycle fields. Do not rerun it on an already migrated staging database.
-The second adds performance provenance and recognizes legacy rows with
-`source_url = 'gemini'` as AI estimates. It preserves existing source values.
-Neither migration creates a queue table or drops application data.
+The TypeORM ledger adopts the complete current schema or upgrades a recognized V1
+schema while preserving IDs, operator data, lifecycle fields, and performance
+provenance. Re-running `migrate` is a no-op. The tracked SQL files under
+`infra/migrations/` remain historical inputs for the adoption upgrade and are not a
+second supported release path; do not pipe them directly to `psql`.
 
 ## Artifacts and merge gate
 

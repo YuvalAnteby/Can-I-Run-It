@@ -1,86 +1,31 @@
-import * as dotenv from 'dotenv';
-import * as fs from 'fs';
-import * as path from 'path';
+import { Logger } from '@nestjs/common';
 import { DataSource } from 'typeorm';
-import type { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity';
 
-import { Cpu } from '../modules/cpu/entities/cpu.entity';
-import { Game } from '../modules/games/entities/game.entity';
-import { GameEngine } from '../modules/games/entities/game-engine.entity';
-import { Gpu } from '../modules/gpu/entities/gpu.entity';
+import { initializeMaintenanceDatabase } from './database.config';
+import { maintenanceDataSource, runMaintenance } from './maintenance';
 
-dotenv.config();
-
-// Setup a temporary connection strictly for seeding
-const AppDataSource = new DataSource({
-    type: 'postgres',
-    host: process.env.POSTGRES_HOST || 'localhost',
-    port: parseInt(process.env.POSTGRES_PORT || '5432', 10),
-    username: process.env.POSTGRES_USER || 'username',
-    password: process.env.POSTGRES_PASSWORD || 'changeme',
-    database: process.env.POSTGRES_DB || 'myciridb',
-    entities: [Gpu, Cpu, Game, GameEngine],
-    synchronize: false,
-});
-
-// Define types for incoming JSON data
-type SeedGpu = Partial<Gpu>;
-type SeedGame = Partial<Game>;
-
-async function seed() {
-    await AppDataSource.initialize();
-    console.log('Database connected for seeding...');
-
-    // --- GPU Seeding ---
-    const gpuRepository = AppDataSource.getRepository(Gpu);
-    const gpuDataPath = path.join(__dirname, 'seeds', 'gpus.json');
-    if (fs.existsSync(gpuDataPath)) {
-        const gpuData = JSON.parse(
-            fs.readFileSync(gpuDataPath, 'utf8'),
-        ) as SeedGpu[];
-        console.log(`Found ${gpuData.length} GPUs to seed.`);
-        for (const gpu of gpuData) {
-            const existing = await gpuRepository.findOneBy({ slug: gpu.slug });
-            if (existing) {
-                console.log(`   - Updating GPU: ${gpu.name}`);
-                await gpuRepository.update(existing.id, gpu);
-            } else {
-                console.log(`   - Creating GPU: ${gpu.name}`);
-                await gpuRepository.save(gpu);
-            }
-        }
+export async function seed(
+    env: NodeJS.ProcessEnv = process.env,
+): Promise<void> {
+    const source: DataSource = maintenanceDataSource(env);
+    try {
+        await initializeMaintenanceDatabase(source);
+        await runMaintenance(source, 'seed');
+    } finally {
+        if (source.isInitialized) await source.destroy();
     }
-
-    // --- Game Seeding ---
-    const gameRepository = AppDataSource.getRepository(Game);
-    const gameDataPath = path.join(__dirname, 'seeds', 'games.json');
-    if (fs.existsSync(gameDataPath)) {
-        const gameData = JSON.parse(
-            fs.readFileSync(gameDataPath, 'utf8'),
-        ) as SeedGame[];
-        console.log(`Found ${gameData.length} games to seed.`);
-        for (const game of gameData) {
-            const existing = await gameRepository.findOneBy({
-                slug: game.slug,
-            });
-            if (existing) {
-                console.log(`   - Updating Game: ${game.name}`);
-                await gameRepository.update(
-                    existing.id,
-                    game as QueryDeepPartialEntity<Game>,
-                );
-            } else {
-                console.log(`   - Creating Game: ${game.name}`);
-                await gameRepository.save(game);
-            }
-        }
-    }
-
-    console.log('✅ Seeding complete!');
-    await AppDataSource.destroy();
 }
 
-seed().catch((error) => {
-    console.error('❌ Seeding failed:', error);
-    process.exit(1);
-});
+async function main(): Promise<void> {
+    try {
+        await seed();
+        new Logger('DatabaseSeed').log('Seed completed');
+    } catch {
+        new Logger('DatabaseSeed').error(
+            'Database seed failed; release is blocked',
+        );
+        process.exitCode = 1;
+    }
+}
+
+if (require.main === module) void main();

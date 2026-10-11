@@ -6,7 +6,10 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "seed:postgres": "ts-node src/database/seed-db.ts",
+    "seed:postgres": "ts-node src/database/maintenance.ts seed",
+    "migration:run": "node dist/database/maintenance.js migrate",
+    "migration:status": "node dist/database/maintenance.js status",
+    "seed:initial": "node dist/database/maintenance.js seed",
     "build": "nest build",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
@@ -22,6 +25,7 @@
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand"
   },
   "dependencies": {
+    "@azure/identity": "^4.13.3",
     "@azure/monitor-opentelemetry": "^1.20.0",
     "@google/genai": "^2.7.0",
     "@nestjs/axios": "^4.0.1",
@@ -43,7 +47,8 @@
     "dotenv": "^17.2.3",
     "pg": "^8.16.3",
     "reflect-metadata": "^0.2.2",
-    "rxjs": "^7.8.1"
+    "rxjs": "^7.8.1",
+    "typeorm": "^0.3.31"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.2.0",
