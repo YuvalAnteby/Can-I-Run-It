@@ -1,5 +1,12 @@
 # Observability
 
+This page documents the current optional monitoring implementation. The approved
+[Azure platform handoff](../architecture/azure-terraform-handoff.md) retains the
+safe telemetry settings but changes production defaults: minReplicas=0, dedicated
+environment ownership, and no billed alert rules enabled by default. A minimum-one
+replica alert is invalid while intentional scale-to-zero is enabled. Update this
+runbook with verified deployment evidence when implementing that platform.
+
 The backend is quiet and local by default. `TELEMETRY_ENABLED=false` keeps Azure
 Monitor exporting disabled, while Nest logs remain readable in development. The
 default `LOG_LEVEL=info` records structured startup, request, stage, provider,
