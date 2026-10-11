@@ -272,15 +272,12 @@ function validateCreditPeriod(period: CreditPeriod): void {
     }
 }
 
-export function crossedCreditThresholds(
-    previous: CreditSnapshot | undefined,
+export function reachedCreditThresholds(
     current: CreditSnapshot,
     firedThresholds: readonly number[] = [],
 ): number[] {
-    const baseline = previous?.consumed ?? 0;
     return CREDIT_THRESHOLD_DOLLARS.filter(
         (threshold) =>
-            baseline < threshold &&
             current.consumed >= threshold &&
             !firedThresholds.includes(threshold),
     );
@@ -313,15 +310,16 @@ function normalizeSchedule(
 
 function executionStatus(
     execution: JobExecution | undefined,
-): 'running' | 'succeeded' | 'failed' {
+): 'running' | 'succeeded' | 'failed' | 'unknown' {
     const raw =
         execution?.status ??
         (execution?.properties?.status as string | undefined);
-    if (typeof raw !== 'string') return 'failed';
+    if (typeof raw !== 'string') return 'unknown';
     const status = raw.toLowerCase();
     if (status === 'succeeded') return 'succeeded';
     if (['running', 'processing'].includes(status)) return 'running';
-    return 'failed';
+    if (['failed', 'stopped', 'degraded'].includes(status)) return 'failed';
+    return 'unknown';
 }
 
 export function executionRequestMarker(
@@ -699,7 +697,12 @@ function ensureAcceptedStart(result: JobStartResult): JobStartResult {
 
 function isDefinitiveStartRejection(error: unknown): boolean {
     const status = statusOf(error);
-    return status !== undefined && status >= 300;
+    return (
+        status !== undefined &&
+        status >= 400 &&
+        status < 500 &&
+        ![408, 429, 499].includes(status)
+    );
 }
 
 function startFailureMessage(error: unknown): string {
@@ -816,7 +819,7 @@ async function recoverPending(
             signal,
         );
         const status = executionStatus(execution);
-        if (!execution || status === 'running') {
+        if (!execution || status === 'running' || status === 'unknown') {
             return { status: 'firewall_pending', schedule: state };
         }
         if (status !== 'succeeded') {
@@ -888,7 +891,7 @@ async function recoverPending(
         signal,
     );
     const status = executionStatus(execution);
-    if (!execution || status === 'running') {
+    if (!execution || status === 'running' || status === 'unknown') {
         return { status: 'export_pending', schedule: state };
     }
     if (status !== 'succeeded') {
@@ -972,8 +975,7 @@ async function readCosts(
                 ...currentState,
                 last_verified_cost_snapshot: snapshot,
             },
-            thresholds: crossedCreditThresholds(
-                samePeriod ? state.last_verified_cost_snapshot : undefined,
+            thresholds: reachedCreditThresholds(
                 snapshot,
                 currentState.fired_thresholds,
             ),
@@ -1140,7 +1142,11 @@ export async function runExportCheck(
             signal,
         );
         const firewallStatus = executionStatus(firewallExecution);
-        if (!firewallExecution || firewallStatus === 'running') {
+        if (
+            !firewallExecution ||
+            firewallStatus === 'running' ||
+            firewallStatus === 'unknown'
+        ) {
             return {
                 status: 'firewall_pending',
                 schedule: state,

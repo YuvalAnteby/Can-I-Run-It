@@ -56,8 +56,9 @@ The checker is the normal entrypoint. It acquires the lease on
 confirms the firewall Job, and starts the export Job only after firewall
 success. The checker has a 55-second operation budget and does not wait for
 the long export. `Running` and `Processing` remain pending; only `Succeeded`
-completes the request. `Stopped`, `Degraded`, `Failed`, and `Unknown` leave the
-request due and record a failure.
+completes the request. `Stopped`, `Degraded`, and `Failed` leave the request
+due and record a failure. `Unknown` or a missing status remains pending until
+the execution can be correlated safely.
 
 For a production manual run, fetch the actual export-check Job template and
 start that Job with `EXPORT_MANUAL=true`. This PowerShell example preserves the
@@ -129,11 +130,13 @@ An ambiguous match, missing marker, conflicting digest, or untrusted execution
 reference fails closed and keeps the request due; it must not start a duplicate
 export.
 
-A known terminal Job failure or an HTTP start rejection clears only that failed
-pending attempt, records the failure, and leaves the schedule due for a new
-marker on the next checker run. A timeout, transport error, accepted `202`
-without a persisted execution identity, or any ambiguous correlation keeps
-the pending marker so recovery cannot start a duplicate export.
+A known terminal Job failure or a definite client-side start rejection clears
+only that failed pending attempt, records the failure, and leaves the schedule
+due for a new marker on the next checker run. A request timeout (`408`), rate
+limit (`429`), client disconnect (`499`), transport error, server error (`5xx`),
+accepted `202` without a persisted execution identity, or any ambiguous
+correlation keeps the pending marker so recovery cannot start a duplicate
+export.
 
 The start request is built from the current Job template and sends the direct
 REST body containing `containers` and `initContainers`. Existing image,
@@ -150,8 +153,10 @@ within its 55-second budget.
 
 Cost Management is advisory automation. A snapshot is usable only when its
 period, currency, and non-negative cost match the configured credit period.
-The checker records simultaneous crossings of the fixed `$80` and `$90`
-thresholds in the verified currency and does not refire a recorded crossing.
+The checker records each reached fixed `$80` and `$90` threshold in the verified
+currency and does not refire a recorded threshold. A threshold remains owed
+until a successful export records it, so a failed attempt can be retried from
+the same verified cost snapshot without creating a duplicate crossing later.
 If Cost Management is unavailable, returns an empty or malformed result, or
 returns another currency/period, the checker reports
 `threshold_unavailable`, does not consume a threshold, and keeps the four-month

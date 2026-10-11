@@ -36,21 +36,21 @@ class MemoryExportStore implements ExportBlobStore {
     failDownloadFor = new Map<string, Error>();
     tamperDownloads = new Map<string, Buffer>();
 
-    async acquireLease(
+    acquireLease(
         blobName: string,
         durationSeconds?: number,
         _signal?: AbortSignal,
     ): Promise<RenewableExportLease> {
         this.leaseRequests.push({ blobName, durationSeconds });
         if (this.failAcquire) throw this.failAcquire;
-        return {
+        return Promise.resolve({
             leaseId: 'lease-1',
-            renew: async () => undefined,
-            release: async () => undefined,
-        };
+            renew: () => Promise.resolve(),
+            release: () => Promise.resolve(),
+        });
     }
 
-    async upload(
+    upload(
         blobName: string,
         value: Buffer,
         _leaseId?: string,
@@ -61,26 +61,29 @@ class MemoryExportStore implements ExportBlobStore {
         }
         this.uploads.push(blobName);
         this.blobs.set(blobName, Buffer.from(value));
+        return Promise.resolve();
     }
 
-    async download(blobName: string, _signal?: AbortSignal): Promise<Buffer> {
+    download(blobName: string, _signal?: AbortSignal): Promise<Buffer> {
         this.downloaded.push(blobName);
         const failure = this.failDownloadFor.get(blobName);
         if (failure) throw failure;
         const tampered = this.tamperDownloads.get(blobName);
-        if (tampered) return Buffer.from(tampered);
+        if (tampered) return Promise.resolve(Buffer.from(tampered));
         const value = this.blobs.get(blobName);
         if (!value) throw statusError(404, `${blobName} is missing`);
-        return Buffer.from(value);
+        return Promise.resolve(Buffer.from(value));
     }
 
-    async list(prefix: string): Promise<ExportBlobInfo[]> {
-        return [...this.blobs.keys()]
-            .filter((name) => name.startsWith(prefix))
-            .map((name) => ({ name }));
+    list(prefix: string): Promise<ExportBlobInfo[]> {
+        return Promise.resolve(
+            [...this.blobs.keys()]
+                .filter((name) => name.startsWith(prefix))
+                .map((name) => ({ name })),
+        );
     }
 
-    async delete(
+    delete(
         blobName: string,
         _leaseId?: string,
         _signal?: AbortSignal,
@@ -90,6 +93,7 @@ class MemoryExportStore implements ExportBlobStore {
             throw statusError(412, `delete conflict for ${blobName}`);
         }
         this.blobs.delete(blobName);
+        return Promise.resolve();
     }
 }
 
@@ -126,17 +130,17 @@ class StreamingExportStore extends MemoryExportStore {
         await this.upload(blobName, await readFile(filePath), leaseId, signal);
     }
 
-    async verifyBlob(
+    verifyBlob(
         blobName: string,
         sizeBytes: number,
         sha256: string,
     ): Promise<boolean> {
         this.verifyBlobCalls.push({ blobName, sizeBytes, sha256 });
         const value = this.blobs.get(blobName);
-        return (
+        return Promise.resolve(
             value !== undefined &&
-            value.length === sizeBytes &&
-            createHash('sha256').update(value).digest('hex') === sha256
+                value.length === sizeBytes &&
+                createHash('sha256').update(value).digest('hex') === sha256,
         );
     }
 }
@@ -228,18 +232,16 @@ describe('portable database export', () => {
 
         const result = await runExport(exportOptions(store, runner));
 
-        expect(calls[0]).toMatchObject({
-            command: 'pg_dump',
-            args: expect.arrayContaining([
+        expect(calls[0]?.command).toBe('pg_dump');
+        expect(calls[0]?.args).toEqual(
+            expect.arrayContaining([
                 '--format=custom',
                 '--no-owner',
                 '--no-acl',
             ]),
-        });
-        expect(calls[1]).toMatchObject({
-            command: 'pg_restore',
-            args: expect.arrayContaining(['--list']),
-        });
+        );
+        expect(calls[1]?.command).toBe('pg_restore');
+        expect(calls[1]?.args).toEqual(expect.arrayContaining(['--list']));
         expect(result.manifest).toMatchObject({
             postgres_version: '16.4',
             migration_version: '1700000000000',

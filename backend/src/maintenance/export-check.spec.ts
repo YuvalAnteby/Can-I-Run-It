@@ -1,23 +1,5 @@
 import { createHash } from 'node:crypto';
 
-import {
-    EXPORT_CONTROL_LEASE_BLOB,
-    EXPORT_SCHEDULE_BLOB,
-    type CreditPeriod,
-    type CreditReader,
-    type CreditSnapshot,
-    type ExportCheckOptions,
-    type ExportScheduleState,
-    type JobClient,
-    type JobExecution,
-    type JobStartResult,
-    addUtcCalendarMonths,
-    crossedCreditThresholds,
-    isExportDue,
-    nextExportDueAt,
-    runExportCheck,
-    validateCreditSnapshot,
-} from './export-check';
 import type { BlobControlState, BlobLease } from './azure';
 import type {
     ExportBlobInfo,
@@ -25,6 +7,23 @@ import type {
     ExportManifest,
     RenewableExportLease,
 } from './export';
+import {
+    addUtcCalendarMonths,
+    type CreditPeriod,
+    type CreditReader,
+    type CreditSnapshot,
+    EXPORT_CONTROL_LEASE_BLOB,
+    type ExportCheckOptions,
+    type ExportScheduleState,
+    isExportDue,
+    type JobClient,
+    type JobExecution,
+    type JobStartResult,
+    nextExportDueAt,
+    reachedCreditThresholds,
+    runExportCheck,
+    validateCreditSnapshot,
+} from './export-check';
 
 type ErrorWithStatus = Error & { statusCode: number };
 
@@ -64,7 +63,7 @@ class MemoryControl implements BlobControlState {
         this.state = copy(state);
     }
 
-    async acquireLease(
+    acquireLease(
         blobName: string,
         durationSeconds?: number,
         _signal?: AbortSignal,
@@ -72,18 +71,21 @@ class MemoryControl implements BlobControlState {
     ): Promise<BlobLease> {
         this.leaseRequests.push({ blobName, durationSeconds });
         if (this.failAcquire) throw this.failAcquire;
-        return { leaseId: 'control-lease', release: async () => undefined };
+        return Promise.resolve({
+            leaseId: 'control-lease',
+            release: () => Promise.resolve(),
+        });
     }
 
-    async loadJson<T>(
+    loadJson<T>(
         _blobName: string,
         _leaseId?: string,
         _signal?: AbortSignal,
     ): Promise<T | undefined> {
-        return copy(this.state) as T | undefined;
+        return Promise.resolve(copy(this.state) as T | undefined);
     }
 
-    async saveJson<T>(
+    saveJson<T>(
         _blobName: string,
         value: T,
         _leaseId?: string,
@@ -98,38 +100,44 @@ class MemoryControl implements BlobControlState {
         }
         this.state = copy(value) as ExportScheduleState;
         this.saves.push(copy(value) as ExportScheduleState);
+        return Promise.resolve();
     }
 }
 
 class MemoryExportStore implements ExportBlobStore {
     readonly blobs = new Map<string, Buffer>();
 
-    async acquireLease(): Promise<RenewableExportLease> {
-        return {
+    acquireLease(): Promise<RenewableExportLease> {
+        return Promise.resolve({
             leaseId: 'export-lease',
-            renew: async () => undefined,
-            release: async () => undefined,
-        };
+            renew: () => Promise.resolve(),
+            release: () => Promise.resolve(),
+        });
     }
 
-    async upload(blobName: string, value: Buffer): Promise<void> {
+    upload(blobName: string, value: Buffer): Promise<void> {
         this.blobs.set(blobName, Buffer.from(value));
+        return Promise.resolve();
     }
 
-    async download(blobName: string): Promise<Buffer> {
+    download(blobName: string): Promise<Buffer> {
         const value = this.blobs.get(blobName);
-        if (!value) throw statusError(404, `${blobName} is missing`);
-        return Buffer.from(value);
+        return value
+            ? Promise.resolve(Buffer.from(value))
+            : Promise.reject(statusError(404, `${blobName} is missing`));
     }
 
-    async list(prefix: string): Promise<ExportBlobInfo[]> {
-        return [...this.blobs.keys()]
-            .filter((name) => name.startsWith(prefix))
-            .map((name) => ({ name }));
+    list(prefix: string): Promise<ExportBlobInfo[]> {
+        return Promise.resolve(
+            [...this.blobs.keys()]
+                .filter((name) => name.startsWith(prefix))
+                .map((name) => ({ name })),
+        );
     }
 
-    async delete(blobName: string): Promise<void> {
+    delete(blobName: string): Promise<void> {
         this.blobs.delete(blobName);
+        return Promise.resolve();
     }
 
     putManifest(
@@ -186,12 +194,19 @@ function execution(marker: string, status: string, id: string): JobExecution {
     };
 }
 
+function malformedExecution(marker: string, id: string): JobExecution {
+    const value = execution(marker, 'running', id);
+    delete value.status;
+    value.properties = { ...value.properties, status: 42 };
+    return value;
+}
+
 class MemoryJobs implements JobClient {
     readonly starts: Array<{ resourceId: string; override: unknown }> = [];
     readonly responses = new Map<string, JobStartResult[]>();
     readonly executions = new Map<string, JobExecution[]>();
 
-    async start(
+    start(
         jobResourceId: string,
         executionOverride: unknown,
         _signal?: AbortSignal,
@@ -201,10 +216,10 @@ class MemoryJobs implements JobClient {
             override: executionOverride,
         });
         const response = this.responses.get(jobResourceId)?.shift();
-        return response ?? { statusCode: 202 };
+        return Promise.resolve(response ?? { statusCode: 202 });
     }
 
-    async get(
+    get(
         jobResourceId: string,
         executionId: string,
         _signal?: AbortSignal,
@@ -216,14 +231,14 @@ class MemoryJobs implements JobClient {
             );
         if (!found)
             throw statusError(404, `execution ${executionId} is missing`);
-        return found;
+        return Promise.resolve(found);
     }
 
-    async list(
+    list(
         jobResourceId: string,
         _signal?: AbortSignal,
     ): Promise<JobExecution[]> {
-        return [...(this.executions.get(jobResourceId) ?? [])];
+        return Promise.resolve([...(this.executions.get(jobResourceId) ?? [])]);
     }
 }
 
@@ -240,7 +255,7 @@ function baseOptions(
         firewallJobResourceId: FIREWALL_JOB,
         exportJobResourceId: EXPORT_JOB,
         now: () => NOW,
-        wait: async () => undefined,
+        wait: () => Promise.resolve(),
         operationBudgetMs: 1_000,
         firewallWaitBudgetMs: 0,
         marker: () => 'marker-1',
@@ -309,17 +324,16 @@ describe('portable export due checker', () => {
         ).toBe(true);
     });
 
-    it('crosses both 80 and 90 thresholds together and does not refire one already recorded', () => {
-        const previous: CreditSnapshot = {
+    it('reports both reached thresholds and does not refire one already recorded', () => {
+        const current: CreditSnapshot = {
             ...PERIOD,
             periodStart: PERIOD.start,
             periodEnd: PERIOD.end,
-            consumed: 79,
+            consumed: 95,
         };
-        const current: CreditSnapshot = { ...previous, consumed: 95 };
 
-        expect(crossedCreditThresholds(previous, current)).toEqual([80, 90]);
-        expect(crossedCreditThresholds(previous, current, [80])).toEqual([90]);
+        expect(reachedCreditThresholds(current)).toEqual([80, 90]);
+        expect(reachedCreditThresholds(current, [80])).toEqual([90]);
     });
 
     it('rejects a credit snapshot with the wrong period or currency', () => {
@@ -347,9 +361,8 @@ describe('portable export due checker', () => {
         const exports = new MemoryExportStore();
         const jobs = new MemoryJobs();
         const costs: CreditReader = {
-            read: async () => {
-                throw new Error('Cost Management unavailable');
-            },
+            read: () =>
+                Promise.reject(new Error('Cost Management unavailable')),
         };
 
         const unavailable = await runExportCheck(
@@ -398,12 +411,13 @@ describe('portable export due checker', () => {
         const jobs = new MemoryJobs();
         startQueue(jobs, 'marker-1');
         const costs: CreditReader = {
-            read: async () => ({
-                periodStart: PERIOD.start,
-                periodEnd: PERIOD.end,
-                currency: PERIOD.currency,
-                consumed: 95,
-            }),
+            read: () =>
+                Promise.resolve({
+                    periodStart: PERIOD.start,
+                    periodEnd: PERIOD.end,
+                    currency: PERIOD.currency,
+                    consumed: 95,
+                }),
         };
 
         const result = await runExportCheck(
@@ -415,6 +429,98 @@ describe('portable export due checker', () => {
 
         expect(result.status).toBe('export_started');
         expect(result.schedule.pending?.triggered_thresholds).toEqual([80, 90]);
+    });
+
+    it('carries crossed thresholds through a failed retry and records them only after success', async () => {
+        const control = new MemoryControl({
+            version: 1,
+            fired_thresholds: [],
+            credit_period_start: PERIOD.start,
+            credit_period_end: PERIOD.end,
+            currency: PERIOD.currency,
+            last_verified_cost_snapshot: {
+                periodStart: PERIOD.start,
+                periodEnd: PERIOD.end,
+                currency: PERIOD.currency,
+                consumed: 79,
+            },
+        });
+        const exports = new MemoryExportStore();
+        const jobs = new MemoryJobs();
+        let consumed = 95;
+        const costs: CreditReader = {
+            read: () =>
+                Promise.resolve({
+                    periodStart: PERIOD.start,
+                    periodEnd: PERIOD.end,
+                    currency: PERIOD.currency,
+                    consumed,
+                }),
+        };
+
+        startQueue(jobs, 'initial-request', 'failed');
+        const failed = await runExportCheck(
+            baseOptions(control, exports, jobs, {
+                costs,
+                creditPeriod: PERIOD,
+                marker: () => 'initial-request',
+            }),
+        );
+
+        expect(failed.status).toBe('firewall_failed');
+        expect(control.saves[0]?.pending?.triggered_thresholds).toEqual([
+            80, 90,
+        ]);
+        expect(failed.schedule.pending).toBeUndefined();
+        expect(failed.schedule.last_verified_cost_snapshot?.consumed).toBe(95);
+
+        startQueue(jobs, 'retry-request');
+        const retry = await runExportCheck(
+            baseOptions(control, exports, jobs, {
+                costs,
+                creditPeriod: PERIOD,
+                manualDue: true,
+                marker: () => 'retry-request',
+            }),
+        );
+
+        expect(retry.status).toBe('export_started');
+        expect(retry.schedule.pending?.triggered_thresholds).toEqual([80, 90]);
+
+        jobs.executions.set(EXPORT_JOB, [
+            execution('retry-request', 'succeeded', 'export-1'),
+        ]);
+        const manifest = exports.putManifest('retry-request');
+        const completed = await runExportCheck(
+            baseOptions(control, exports, jobs, {
+                costs,
+                creditPeriod: PERIOD,
+            }),
+        );
+
+        expect(completed.status).toBe('completed');
+        expect(completed.manifest).toEqual(manifest);
+        expect(completed.schedule.fired_thresholds).toEqual([80, 90]);
+
+        consumed = 79;
+        const correctedDown = await runExportCheck(
+            baseOptions(control, exports, jobs, {
+                costs,
+                creditPeriod: PERIOD,
+            }),
+        );
+        expect(correctedDown.status).toBe('not_due');
+
+        consumed = 95;
+        const correctedUp = await runExportCheck(
+            baseOptions(control, exports, jobs, {
+                costs,
+                creditPeriod: PERIOD,
+            }),
+        );
+        expect(correctedUp.status).toBe('not_due');
+        expect(correctedUp.schedule.fired_thresholds).toEqual([80, 90]);
+        expect(jobs.starts).toHaveLength(3);
     });
 
     it('does not start export when firewall confirmation times out', async () => {
@@ -501,50 +607,53 @@ describe('portable export due checker', () => {
         expect(control.state?.pending).toBeUndefined();
     });
 
-    it('clears a known terminal export failure so a manual retry can start fresh work', async () => {
-        const control = new MemoryControl({
-            version: 1,
-            fired_thresholds: [],
-            pending: {
-                marker: 'failed-request',
-                requested_at: NOW.toISOString(),
-                phase: 'export',
-                export_execution_id: 'export-failed',
-            },
-        });
-        const exports = new MemoryExportStore();
-        const jobs = new MemoryJobs();
-        jobs.executions.set(EXPORT_JOB, [
-            execution('failed-request', 'failed', 'export-failed'),
-        ]);
+    it.each(['failed', 'stopped', 'degraded'] as const)(
+        'clears a known terminal export failure (%s) so a manual retry can start fresh work',
+        async (status) => {
+            const control = new MemoryControl({
+                version: 1,
+                fired_thresholds: [],
+                pending: {
+                    marker: 'failed-request',
+                    requested_at: NOW.toISOString(),
+                    phase: 'export',
+                    export_execution_id: 'export-failed',
+                },
+            });
+            const exports = new MemoryExportStore();
+            const jobs = new MemoryJobs();
+            jobs.executions.set(EXPORT_JOB, [
+                execution('failed-request', status, 'export-failed'),
+            ]);
 
-        const first = await runExportCheck(
-            baseOptions(control, exports, jobs, {
-                manualDue: true,
-                marker: () => 'retry-request',
-            }),
-        );
+            const first = await runExportCheck(
+                baseOptions(control, exports, jobs, {
+                    manualDue: true,
+                    marker: () => 'retry-request',
+                }),
+            );
 
-        expect(first.status).toBe('export_failed');
-        expect(first.schedule.pending).toBeUndefined();
-        expect(first.schedule.next_due_at).toBe(NOW.toISOString());
-        expect(jobs.starts).toHaveLength(0);
+            expect(first.status).toBe('export_failed');
+            expect(first.schedule.pending).toBeUndefined();
+            expect(first.schedule.next_due_at).toBe(NOW.toISOString());
+            expect(jobs.starts).toHaveLength(0);
 
-        startQueue(jobs, 'retry-request');
-        const second = await runExportCheck(
-            baseOptions(control, exports, jobs, {
-                manualDue: true,
-                marker: () => 'retry-request',
-            }),
-        );
+            startQueue(jobs, 'retry-request');
+            const second = await runExportCheck(
+                baseOptions(control, exports, jobs, {
+                    manualDue: true,
+                    marker: () => 'retry-request',
+                }),
+            );
 
-        expect(second.status).toBe('export_started');
-        expect(second.schedule.pending?.marker).toBe('retry-request');
-        expect(jobs.starts.map(({ resourceId }) => resourceId)).toEqual([
-            FIREWALL_JOB,
-            EXPORT_JOB,
-        ]);
-    });
+            expect(second.status).toBe('export_started');
+            expect(second.schedule.pending?.marker).toBe('retry-request');
+            expect(jobs.starts.map(({ resourceId }) => resourceId)).toEqual([
+                FIREWALL_JOB,
+                EXPORT_JOB,
+            ]);
+        },
+    );
 
     it('clears a definitive export start rejection so a manual retry can start again', async () => {
         const control = new MemoryControl();
@@ -557,7 +666,7 @@ describe('portable export due checker', () => {
             execution('first-request', 'succeeded', 'firewall-1'),
         ]);
         jobs.responses.set(EXPORT_JOB, [
-            { statusCode: 503, location: 'export-location' },
+            { statusCode: 403, location: 'export-location' },
         ]);
 
         const first = await runExportCheck(
@@ -568,7 +677,7 @@ describe('portable export due checker', () => {
         );
 
         expect(first.status).toBe('export_failed');
-        expect(first.reason).toMatch(/503/);
+        expect(first.reason).toMatch(/403/);
         expect(first.schedule.pending).toBeUndefined();
         expect(first.schedule.last_failure_at).toBe(NOW.toISOString());
         expect(jobs.starts.map(({ resourceId }) => resourceId)).toEqual([
@@ -588,6 +697,107 @@ describe('portable export due checker', () => {
         expect(second.schedule.pending?.marker).toBe('retry-request');
         expect(jobs.starts).toHaveLength(4);
     });
+
+    it.each([408, 500, 502, 503, 504])(
+        'keeps an uncertain export start response %s pending for recovery',
+        async (statusCode) => {
+            const control = new MemoryControl();
+            const exports = new MemoryExportStore();
+            const jobs = new MemoryJobs();
+            jobs.responses.set(FIREWALL_JOB, [
+                { statusCode: 202, location: 'firewall-location' },
+            ]);
+            jobs.executions.set(FIREWALL_JOB, [
+                execution('first-request', 'succeeded', 'firewall-1'),
+            ]);
+            jobs.responses.set(EXPORT_JOB, [
+                { statusCode, location: 'export-location' },
+            ]);
+
+            await expect(
+                runExportCheck(
+                    baseOptions(control, exports, jobs, {
+                        manualDue: true,
+                        marker: () => 'first-request',
+                    }),
+                ),
+            ).rejects.toMatchObject({ statusCode });
+            expect(control.state?.pending).toMatchObject({
+                marker: 'first-request',
+                phase: 'export',
+            });
+            expect(jobs.starts.map(({ resourceId }) => resourceId)).toEqual([
+                FIREWALL_JOB,
+                EXPORT_JOB,
+            ]);
+
+            const recovered = await runExportCheck(
+                baseOptions(control, exports, jobs, {
+                    manualDue: true,
+                    marker: () => 'retry-request',
+                }),
+            );
+            expect(recovered.status).toBe('export_pending');
+            expect(recovered.schedule.pending).toMatchObject({
+                marker: 'first-request',
+                phase: 'export',
+            });
+            expect(jobs.starts).toHaveLength(2);
+        },
+    );
+
+    it.each([
+        ['firewall', 'missing'],
+        ['firewall', 'unknown'],
+        ['firewall', 'malformed'],
+        ['export', 'missing'],
+        ['export', 'unknown'],
+        ['export', 'malformed'],
+    ] as const)(
+        'keeps a correlated %s Job %s status pending without retrying',
+        async (phase, kind) => {
+            const executionId = `${phase}-1`;
+            const resourceId = phase === 'firewall' ? FIREWALL_JOB : EXPORT_JOB;
+            const correlated =
+                kind === 'missing'
+                    ? undefined
+                    : kind === 'unknown'
+                      ? execution('marker-1', 'mysterious', executionId)
+                      : malformedExecution('marker-1', executionId);
+            const control = new MemoryControl({
+                version: 1,
+                fired_thresholds: [],
+                pending: {
+                    marker: 'marker-1',
+                    requested_at: NOW.toISOString(),
+                    phase,
+                    ...(phase === 'firewall'
+                        ? { firewall_execution_id: executionId }
+                        : { export_execution_id: executionId }),
+                },
+            });
+            const exports = new MemoryExportStore();
+            const jobs = new MemoryJobs();
+            if (correlated) jobs.executions.set(resourceId, [correlated]);
+
+            const options = baseOptions(control, exports, jobs, {
+                manualDue: true,
+                marker: () => 'retry-request',
+            });
+            const expected =
+                phase === 'firewall' ? 'firewall_pending' : 'export_pending';
+            const first = await runExportCheck(options);
+            const second = await runExportCheck(options);
+
+            expect(first.status).toBe(expected);
+            expect(second.status).toBe(expected);
+            expect(second.schedule.pending).toMatchObject({
+                marker: 'marker-1',
+                phase,
+            });
+            expect(jobs.starts).toHaveLength(0);
+        },
+    );
 
     it('fails closed when more than one execution matches the pending request marker', async () => {
         const control = new MemoryControl({
@@ -613,22 +823,25 @@ describe('portable export due checker', () => {
         expect(jobs.starts).toHaveLength(0);
     });
 
-    it('does not consume due state after firewall failure', async () => {
-        const control = new MemoryControl();
-        const exports = new MemoryExportStore();
-        const jobs = new MemoryJobs();
-        startQueue(jobs, 'marker-1', 'failed');
+    it.each(['failed', 'stopped', 'degraded'] as const)(
+        'does not consume due state after firewall %s failure',
+        async (status) => {
+            const control = new MemoryControl();
+            const exports = new MemoryExportStore();
+            const jobs = new MemoryJobs();
+            startQueue(jobs, 'marker-1', status);
 
-        const result = await runExportCheck(
-            baseOptions(control, exports, jobs),
-        );
+            const result = await runExportCheck(
+                baseOptions(control, exports, jobs),
+            );
 
-        expect(result.status).toBe('firewall_failed');
-        expect(result.schedule.pending).toBeUndefined();
-        expect(result.schedule.next_due_at).toBe(NOW.toISOString());
-        expect(result.schedule.last_success_at).toBeUndefined();
-        expect(jobs.starts).toHaveLength(1);
-    });
+            expect(result.status).toBe('firewall_failed');
+            expect(result.schedule.pending).toBeUndefined();
+            expect(result.schedule.next_due_at).toBe(NOW.toISOString());
+            expect(result.schedule.last_success_at).toBeUndefined();
+            expect(jobs.starts).toHaveLength(1);
+        },
+    );
 
     it('keeps a failed export pending until a later run can recover it', async () => {
         const control = new MemoryControl({
@@ -735,12 +948,13 @@ describe('portable export due checker', () => {
         const jobs = new MemoryJobs();
         startQueue(jobs, 'marker-1');
         const costs: CreditReader = {
-            read: async () => ({
-                periodStart: nextPeriod.start,
-                periodEnd: nextPeriod.end,
-                currency: nextPeriod.currency,
-                consumed: 95,
-            }),
+            read: () =>
+                Promise.resolve({
+                    periodStart: nextPeriod.start,
+                    periodEnd: nextPeriod.end,
+                    currency: nextPeriod.currency,
+                    consumed: 95,
+                }),
         };
 
         const result = await runExportCheck(

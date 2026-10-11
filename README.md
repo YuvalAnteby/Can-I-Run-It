@@ -153,6 +153,8 @@ to host loopback for an HTTPS ingress proxy.
 
 See [demo release operations](docs/operations/demo-release.md) for migrations,
 security assumptions, and the artifacts published after merging to `main`.
+See [portable export operations](docs/operations/azure-exports.md) for verified
+PostgreSQL 16 exports, the four-month/manual due checker, and credit thresholds.
 
 ### Tests
 
