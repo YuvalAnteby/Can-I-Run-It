@@ -91,3 +91,19 @@
 - [ ] `docker compose -p ciri-ws2 -f infra/docker-compose.tests.yml up --build --abort-on-container-exit --exit-code-from backend` → exit 0; then `down -v`.
 - [ ] Fresh dev DB: `docker compose -p ciri-ws2-dev -f infra/docker-compose.yml up -d --build postgres backend`; logs show baseline skipped; `SELECT name FROM migrations` lists `Baseline1792022400000`; `down -v`.
 - [ ] Empty DB (no init mount): run the prod image against a bare `postgres:16-alpine`; `/api/health/ready` 200 and `SELECT count(*) FROM gpus` > 0; clean up.
+
+### Task 5: Seed parity with the 2026-10-15 dev dump (added requirement)
+
+Production data must equal `myciridb-2026-10-15.dump` (not committed).
+
+- [x] Restore a copy into a throwaway `postgres:16-alpine` (`pg_restore --no-owner --no-privileges`).
+- [x] Schema: the dump was created by TypeORM `synchronize` (hash-named PK/UQ/FK constraints, `performance_records_*_enum` types, extra NOT NULLs, nullable FK columns, no `idx_perf_*` indexes) plus a legacy `game_enrichment_jobs` table. The init-script schema stays canonical (spec: baseline = init-scripts); `03-games-schema.sql` gains `game_enrichment_jobs` with the dump's exact definition so its rows load.
+- [x] `05-seed.sql` = per-table `pg_dump --data-only --column-inserts` (FK order: game_engines, gpus, cpus, games, game_requirements, performance_records, game_enrichment_jobs) with `pg_catalog.setval` per sequence; SET/`\restrict` boilerplate stripped with a quote-aware filter (two descriptions span lines). `init-scripts/.gitattributes` pins LF.
+- [x] Verify on the dump DB, a Compose-initialized DB and a baseline-migrated empty DB; all must be identical (column-order independent):
+
+```sql
+SELECT 'games', count(*), md5(string_agg(to_jsonb(t)::text, '|' ORDER BY id)) FROM games t; -- repeat per table
+SELECT sequencename, last_value FROM pg_sequences WHERE schemaname = 'public' ORDER BY 1;
+```
+
+- [x] `game-lifecycle.e2e-spec.ts` seed counts updated (pending 3, measured 30, Gemini 7).
