@@ -43,7 +43,7 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:?POSTGRES_DB must be set}
     volumes:
       - pgdata-prod:/var/lib/postgresql/data
-      - ./init-scripts:/docker-entrypoint-initdb.d:ro
+      - ../backend/src/database/init-scripts:/docker-entrypoint-initdb.d:ro
     networks:
       - ciri-net-prod
     healthcheck:

@@ -15,6 +15,11 @@ Set `REACT_URL` to the Azure static frontend HTTPS origin. Build the frontend wi
 Never set provider secrets in a `VITE_` variable: those variables become public JavaScript.
 Both Docker build contexts exclude environment files. The frontend receives no runtime secrets.
 
+The production Azure deployment (infrastructure, first deploy, release pipeline,
+acceptance checks and teardown) is described in the
+[Azure production runbook](azure.md). There, Terraform sets the API runtime
+values and the release workflow builds the frontend.
+
 The frontend is static content for Azure hosting; no frontend image is published.
 Configure SPA route fallback to `index.html` on the static host. The backend image
 is deployed separately, behind an HTTPS ingress. Production Compose keeps PostgreSQL
@@ -26,6 +31,8 @@ The API does not trust forwarded IP headers by default. For an ingress that repl
 when clients cannot bypass that ingress to reach the API directly. For Azure or a
 multi-proxy topology, verify the actual routing and trusted client-IP configuration
 before enabling it; otherwise visitors may share the ingress's rate-limit bucket.
+The Azure deployment sets `TRUST_PROXY=1`: the Container App's external ingress
+is the API's only public path.
 
 The guarded check, pending-check, RAWG discovery, and RAWG selection routes admit at
 most 10 requests per minute per process/IP and 100 accepted requests per minute per
@@ -55,9 +62,9 @@ post-deployment checks, follow the [observability runbook](observability.md).
 
 ## Container App health probes
 
-The backend exposes version-neutral health endpoints. `backend_port` defaults to
-4000 and is used for the container `PORT`, HTTPS ingress target, and every HTTP
-probe.
+The backend exposes version-neutral health endpoints. On Azure the API listens on
+port 4000, which is the container `PORT`, the HTTPS ingress target, and the port
+of every HTTP probe.
 
 | Endpoint               | Dependency                  | Healthy response                          | Unavailable response             |
 | ---------------------- | --------------------------- | ----------------------------------------- | -------------------------------- |
@@ -71,71 +78,24 @@ errors, hostnames, credentials, provider details, or other public diagnostics.
 The PostgreSQL endpoint remains diagnostic tooling and is not used for a restart
 probe.
 
-The app-only Terraform configuration expects an existing resource group,
-Container Apps environment, PostgreSQL/database network, and backend image. It
-keeps one revision and one replica with 0.5 CPU and 1 GiB memory, HTTPS public
-ingress, and 100% traffic on the latest revision. It declares one probe of each
-kind:
-
-| Probe     | Path                | Initial delay | Interval | Failure threshold | Success threshold | Timeout |
-| --------- | ------------------- | ------------: | -------: | ----------------: | ----------------: | ------: |
-| Startup   | `/api/health/live`  |          10 s |     10 s |                30 |                 — |     2 s |
-| Liveness  | `/api/health/live`  |          10 s |     10 s |                 3 |                 — |     2 s |
-| Readiness | `/api/health/ready` |             — |      5 s |                 1 |                 1 |     2 s |
-
-Supply `container_app_name`, `resource_group_name`,
-`container_app_environment_id`, `backend_image`, and optional environment maps
-through an ignored `infra/terraform/*.tfvars` file or CI variables. Keep runtime
-values in `infra/.env`; provider credentials and secrets must come from the
-operator or CI environment, never from committed Terraform or frontend
-variables. Secret environment values are stored as Container App secrets and
-referenced by name. Terraform state and backups can contain sensitive values, so
-use an encrypted, access-controlled remote state backend (or an encrypted local
-state file) and never commit state, tfvars, or provider tokens.
-
-From the repository root, validate or inspect an existing app with:
-
-```sh
-terraform -chdir=infra/terraform init -backend=false
-terraform -chdir=infra/terraform validate
-terraform -chdir=infra/terraform import azurerm_container_app.backend \
-  /subscriptions/<subscription-id>/resourceGroups/<resource-group>/providers/Microsoft.App/containerApps/<app-name>
-terraform -chdir=infra/terraform plan -var-file=release.tfvars
-```
-
-The import and plan inputs must identify the existing Azure resources; this
-configuration does not create a resource group, Container Apps environment,
-database, network, authentication, or deployment automation.
-
-The existing `azurerm_container_app.backend` resource already declares
-`revision_mode = "Single"`, `min_replicas = 1`, `max_replicas = 1`, and 100% traffic
-to the latest revision. Preserve those values on every reviewed deployment. Apply
-the authorized plan through the existing Terraform state workflow, then read back
-the live revision mode, scale settings, traffic, and active revisions with Azure
-CLI. A source declaration or a successful plan alone does not prove the deployed
-app has the required topology. Revision transitions and platform maintenance may
-briefly overlap processes, so one configured replica is not a globally durable
-billing cap; require one active serving revision and no public old-revision labels.
-
-Before enabling `TRUST_PROXY=1`, inspect the selected subscription and deployed
-Container App, confirm HTTP ingress is the only public API path, and verify that
-internal callers cannot bypass ingress to reach Express with attacker-controlled
-forwarding headers. Retain redacted mode/scale/traffic and controlled request-IP
-observations in the release record. Repeat the checks after routing or topology
-changes; local HTTP tests cannot prove Azure's external client network or bypass
-paths.
+On Azure, Terraform configures these probes on `ca-ciri-api`: startup and
+liveness on `/api/health/live`, readiness on `/api/health/ready`, each with a
+failure threshold of at most 10. The app runs in single revision mode and
+scales between zero and one replica with 0.5 CPU and 1 GiB memory. See the
+[Azure production runbook](azure.md) for the exact resources and the
+acceptance checks.
 
 When the running app loses PostgreSQL, readiness returns 503 while startup and
 liveness continue to succeed for the running process. Restoring database
 connectivity returns readiness to 200 without restarting the process. The
 custom DataSource factory still waits for its initial database connection before
-Nest starts listening and has no retry loop. The generous startup budget allows
+Nest starts listening and has no retry loop. The startup probe budget allows a
 slow successful startup, but it does not create application retries or guarantee
 boot during an initial database outage; bootstrap behavior is unchanged.
 
 ## Existing databases
 
-Fresh volumes use `infra/init-scripts/` and need no migrations. Existing volumes do
+Fresh volumes use `backend/src/database/init-scripts/` and need no migrations. Existing volumes do
 not rerun initialization SQL. Back up the database and stop the old API before upgrading.
 For a database from `main` before this PR, set `BACKEND_IMAGE` in `infra/.env`
 to the scanned GHCR `sha-<full-commit>` tag. Then run these once, in order.
@@ -174,8 +134,10 @@ publishing the backend image to GHCR:
 The backend also receives `latest`; use commit tags for deployment. Production
 Compose requires `BACKEND_IMAGE` and has no build path, so it runs the scanned artifact
 instead of rebuilding from source. Provider keys
-are never build arguments. This workflow publishes only the backend image; it does
-not deploy the application or upload frontend files to Azure. Require successful PR checks in branch
+are never build arguments. When the Azure repository variables are set, the same
+workflow then deploys that image by digest to the API Container App and uploads
+the frontend build to the static website; without them the deploy jobs are
+skipped. See the [Azure production runbook](azure.md). Require successful PR checks in branch
 protection before merge. A PR cannot itself enforce repository branch-protection settings.
 
 The release was curated onto `main` without importing excluded v2 commits as ancestors,

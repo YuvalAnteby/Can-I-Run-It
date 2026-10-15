@@ -12,63 +12,22 @@ hyphens; unsafe or repeated-line values are replaced with a UUID. The ID is
 available in the backend log envelope and trace attributes, and is safe to echo
 to a support operator. It does not affect authorization or quota identity.
 
-## Opt in from Terraform
+## Azure setup
 
-The Terraform module manages the existing Container App and references the
-externally managed Container Apps environment. Monitoring resources are created
-only when `observability_enabled` is true. A complete starting `release.tfvars`
-looks like this (keep it ignored and out of source control):
+Terraform in `infra/terraform/` creates the Log Analytics workspace and the
+workspace-based Application Insights resource together with the Container Apps
+environment `cae-ciri-prod`, which sends `ContainerAppConsoleLogs` and
+`ContainerAppSystemLogs` for `ca-ciri-api` to that workspace. Retention, the
+daily cap and the trace sampling ratio come from the observability variables in
+`terraform.tfvars`; keep the cap small (0.1 GB/day). The Application Insights
+connection string is a Key Vault secret that the API reads through a Key Vault
+reference; it is never a frontend variable or a plain environment value.
+Ingress HTTP logs and `AllMetrics` are not exported to Log Analytics. Azure
+keeps the native Container Apps `Requests`, `Replicas`, `RestartCount`, CPU and
+memory metrics separately at no ingestion cost.
 
-```hcl
-container_app_name           = "ciri-backend"
-resource_group_name          = "<existing-resource-group>"
-container_app_environment_id = "/subscriptions/<subscription>/resourceGroups/<resource-group>/providers/Microsoft.App/managedEnvironments/<environment>"
-backend_image                = "ghcr.io/yuvalanteby/can-i-run-it-backend:sha-<full-commit>"
-
-observability_enabled       = true
-observability_location      = "<same-region-as-the-existing-app>"
-observability_daily_cap_gb  = 0.1
-observability_retention_days = 30
-observability_sampling_ratio = 0.1
-observability_action_group_ids = []
-```
-
-The module creates a dedicated `PerGB2018` Log Analytics workspace and a
-workspace-based Application Insights resource, each with 30-day retention and a
-0.1 GB/day cap. The backend receives `TELEMETRY_ENABLED=true`, `LOG_LEVEL=info`,
-`OTEL_SERVICE_NAME=ciri-backend`,
-`OTEL_TRACES_SAMPLER=microsoft.fixed_percentage`, and the configured sampler
-ratio. The Application Insights connection string is stored as a Container App
-secret and is never a frontend variable or a plain environment value. Existing
-action group IDs are optional; an empty list leaves the rules visible in Azure
-without sending external notifications.
-
-Apply this module only through the existing state workflow after importing or
-confirming ownership of the existing app. Do not create a second Container Apps
-environment or import an environment already managed elsewhere.
-
-## Existing Container Apps log destination
-
-The externally managed environment must send Container Apps logs to Azure
-Monitor before the optional diagnostic setting can be useful. Inspect the
-environment first:
-
-```sh
-az containerapp env show -g <resource-group> -n <environment> \
-  --query "properties.appLogsConfiguration"
-az containerapp env update -g <resource-group> -n <environment> \
-  --logs-destination azure-monitor
-```
-
-The update is an operator action outside this module. Check for existing
-diagnostic settings before adding the Terraform-owned setting, and remove only a
-duplicate setting owned by the same operator after reviewing its consumers.
-Environment-level routing sends `ContainerAppConsoleLogs` and
-`ContainerAppSystemLogs` for every app in that environment to the workspace;
-the 0.1 GB/day cap is therefore shared by those apps. The module deliberately
-does not export `AllMetrics` or ingress HTTP logs to Log Analytics. Azure keeps
-the native Container Apps `Requests`, `Replicas`, `RestartCount`, CPU, and memory
-metrics separately.
+Setup, first deployment and teardown are in the
+[Azure production runbook](azure.md).
 
 ## What is collected
 
@@ -108,14 +67,15 @@ concurrency, and rate-limit metrics exactly once.
 
 ## Alerts and cost limits
 
-The optional rules are intentionally small in number. They alert on fewer than
-one replica for five minutes, at least five non-health 5xx completions and a
-20% error rate across two five-minute buckets, or at least three platform
-unhealthy/crash/backoff events across two buckets, or failed readiness completions
-across two buckets. There is no
-traffic or inactivity alert, so a quiet demo does not page. Platform reason
-strings can vary; after deployment, inspect `ContainerAppSystemLogs` and adjust
-the documented query only after confirming the actual `Reason` and `Log` values.
+Alerting is deliberately minimal: one metric alert on the API Container App's
+`Requests` metric filtered to `statusCodeCategory = 5xx`, sending email through
+the action group to `alert_email`, plus the resource-group budget ($8/month,
+notifying at 50/80/100% actual and 100% forecast). There are no log-based
+(scheduled query) alerts, because each one has a monthly cost, and no replica
+alert, because the API scales to zero when idle. There is no traffic or
+inactivity alert, so a quiet demo does not page. Investigate platform
+restarts or failed readiness with the `ContainerAppSystemLogs` table and the
+correlation queries below.
 
 Retention and daily caps are ingestion controls, not hard monthly spending
 limits. A 0.1 GB/day setting is roughly 3 GB/month before Azure cap overshoot;
@@ -142,7 +102,7 @@ route, so query strings and raw URLs are never needed:
 let rid = "request-123";
 ContainerAppConsoleLogs
 | where TimeGenerated > ago(1h)
-| where ContainerAppName == "ciri-backend"
+| where ContainerAppName == "ca-ciri-api"
 | extend Payload = parse_json(Log)
 | where tostring(Payload.requestId) == rid
 | project TimeGenerated,
@@ -184,7 +144,7 @@ native table is absent:
 ```kusto
 ContainerAppConsoleLogs_CL
 | where TimeGenerated > ago(1h)
-| where ContainerAppName_s == "ciri-backend"
+| where ContainerAppName_s == "ca-ciri-api"
 | extend Payload = parse_json(Log_s)
 | where tostring(Payload.requestId) == "request-123"
 | project TimeGenerated, Payload
@@ -197,19 +157,17 @@ and alert rows can arrive several minutes after the request.
 
 ## Verification
 
-Run the Terraform checks before an authorized deployment:
+Pull requests that touch `infra/terraform/**` run `CI - Terraform`
+(`fmt -check`, `init -backend=false`, `validate`, `test`) without Azure
+credentials. Run the same checks locally before `terraform plan`/`apply`:
 
 ```sh
-terraform -chdir=infra/terraform fmt -check
+terraform -chdir=infra/terraform fmt -check -recursive
 terraform -chdir=infra/terraform init -backend=false
 terraform -chdir=infra/terraform validate
 terraform -chdir=infra/terraform test
-terraform -chdir=infra/terraform plan -var-file=release.tfvars
 ```
 
-Review the plan in both modes. Disabled mode must create no monitoring resources
-and must preserve the existing Container App runtime maps. Enabled mode must
-show only the dedicated workspace, Application Insights, one environment
-diagnostic setting, and three app-scoped alert rules, plus the generated runtime
-secret and settings. Keep Terraform state encrypted and access-controlled;
-state, plan files, tfvars, and connection strings are sensitive.
+Review every plan before applying it. Keep Terraform state encrypted and
+access-controlled; state, plan files, tfvars and connection strings are
+sensitive.

@@ -117,8 +117,9 @@ describe('Game lifecycle (e2e)', () => {
                 COUNT(*) FILTER (WHERE status = 'rejected')::int AS rejected
             FROM games
         `);
+        // Seed: 10 published + 2 pending RAWG selections; this suite adds one pending and one rejected.
         expect(statusCounts.published).toBe(10);
-        expect(statusCounts.pending).toBe(1);
+        expect(statusCounts.pending).toBe(3);
         expect(statusCounts.rejected).toBe(1);
 
         const [performanceCounts] = await dataSource.query<
@@ -134,9 +135,10 @@ describe('Game lifecycle (e2e)', () => {
                 COUNT(*) FILTER (WHERE source = 'gemini')::int AS ai
             FROM performance_records
         `);
-        expect(performanceCounts.total).toBeGreaterThan(0);
-        expect(performanceCounts.measured).toBe(performanceCounts.total);
-        expect(performanceCounts.ai).toBe(0);
+        // Seed (from the 2026-10-15 dev dump): 30 measured rows and 7 cached Gemini rows.
+        expect(performanceCounts.total).toBe(37);
+        expect(performanceCounts.measured).toBe(30);
+        expect(performanceCounts.ai).toBe(7);
 
         const foreignKeys = await dataSource.query<{ conname: string }[]>(`
             SELECT conname

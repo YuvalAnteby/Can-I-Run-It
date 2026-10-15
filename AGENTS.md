@@ -16,7 +16,10 @@ A full-stack PC gaming compatibility checker. Users input their hardware specs; 
     ├── docker-compose.tests.yml  ← E2E test isolation
     ├── Dockerfile.backend
     ├── Dockerfile.frontend
-    └── init-scripts/             ← postgres init SQL
+    └── terraform/                ← Azure infrastructure
+
+Postgres schema + seed SQL: backend/src/database/init-scripts/ (Compose init mount
+and the TypeORM baseline migration both use it).
 ```
 
 ## Tech Stack
