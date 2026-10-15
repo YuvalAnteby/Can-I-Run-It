@@ -1,0 +1,2 @@
+# Seed data contains multi-line string literals; CRLF checkouts would change them.
+*.sql text eol=lf

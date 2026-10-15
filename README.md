@@ -174,9 +174,11 @@ docker compose -f infra/docker-compose.tests.yml up --build --exit-code-from bac
 
 ## Schema and seed data
 
-The tracked files in `infra/init-scripts/` define the PostgreSQL schema and the
-curated demo seed. PostgreSQL runs them in filename order when it initializes a
-fresh Compose volume. They do not rerun on every container restart.
+The tracked files in `backend/src/database/init-scripts/` define the PostgreSQL
+schema and the curated demo seed. PostgreSQL runs them in filename order when it
+initializes a fresh Compose volume, and the backend's TypeORM baseline migration
+applies the same files to an empty database (for example on Azure). They do not
+rerun on every container restart.
 
 Development and production use persistent named volumes.
 </br>
