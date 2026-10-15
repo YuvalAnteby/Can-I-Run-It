@@ -154,6 +154,15 @@ to host loopback for an HTTPS ingress proxy.
 See [demo release operations](docs/operations/demo-release.md) for migrations,
 security assumptions, and the artifacts published after merging to `main`.
 
+### Azure
+
+The public demo runs on Azure (Container Apps, PostgreSQL Flexible Server and a
+Blob Storage static website), described by Terraform in `infra/terraform/`.
+Pushes to `main` deploy the API and frontend automatically. See the
+[Azure production runbook](docs/operations/azure.md) for setup, the first
+deploy, acceptance checks and teardown, and the
+[observability runbook](docs/operations/observability.md) for logs and alerts.
+
 ### Tests
 
 The isolated test stack initializes PostgreSQL, runs backend unit tests, then
