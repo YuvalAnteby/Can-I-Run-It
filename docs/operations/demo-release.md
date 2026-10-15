@@ -95,7 +95,7 @@ boot during an initial database outage; bootstrap behavior is unchanged.
 
 ## Existing databases
 
-Fresh volumes use `infra/init-scripts/` and need no migrations. Existing volumes do
+Fresh volumes use `backend/src/database/init-scripts/` and need no migrations. Existing volumes do
 not rerun initialization SQL. Back up the database and stop the old API before upgrading.
 For a database from `main` before this PR, set `BACKEND_IMAGE` in `infra/.env`
 to the scanned GHCR `sha-<full-commit>` tag. Then run these once, in order.
