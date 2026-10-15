@@ -152,5 +152,12 @@ resource "azurerm_container_app" "api" {
     ignore_changes = [template[0].container[0].image]
   }
 
-  depends_on = [time_sleep.rbac]
+  # The first revision runs migrations, so the database, pg_trgm allowlist and
+  # the API's Entra admin role must exist before it starts.
+  depends_on = [
+    time_sleep.rbac,
+    azurerm_postgresql_flexible_server_configuration.extensions,
+    azurerm_postgresql_flexible_server_database.ciri,
+    azurerm_postgresql_flexible_server_active_directory_administrator.api,
+  ]
 }

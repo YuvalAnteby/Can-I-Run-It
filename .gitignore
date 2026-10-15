@@ -215,3 +215,6 @@ __marimo__/
 
 .gemini/
 gha-creds-*.json
+
+# Local database dumps
+*.dump
