@@ -1,14 +1,15 @@
-name: CD - Backend Production Image
+name: CD - Production Release
 
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: production-images
+  group: production-release
   cancel-in-progress: false
 
 jobs:
@@ -23,24 +24,26 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      api_image: ${{ steps.digest.outputs.api_image }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Image tags
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
         with:
           images: ghcr.io/${{ github.repository }}-backend
           tags: |
             type=raw,value=latest
             type=sha,format=long
       - name: Build tested production image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25 # v5
         with:
           context: ./backend
           file: infra/Dockerfile.backend
@@ -61,3 +64,149 @@ jobs:
           while IFS= read -r image; do docker push "$image"; done <<< "$IMAGE_TAGS"
         env:
           IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+      - name: Resolve published image digest
+        id: digest
+        run: |
+          set -euo pipefail
+          repository="ghcr.io/${GITHUB_REPOSITORY,,}-backend"
+          digest=$(docker buildx imagetools inspect "${repository}:sha-${GITHUB_SHA}" --format '{{.Manifest.Digest}}')
+          if [[ ! "$digest" =~ ^sha256:[0-9a-f]{64}$ ]]; then
+            echo "::error::Unexpected digest for ${repository}:sha-${GITHUB_SHA}: ${digest}"
+            exit 1
+          fi
+          echo "api_image=${repository}@${digest}" >> "$GITHUB_OUTPUT"
+          echo "Published ${repository}@${digest}"
+
+  deploy-api:
+    needs: build-and-push
+    if: ${{ vars.AZURE_CLIENT_ID != '' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: ${{ vars.API_URL }}
+    permissions:
+      id-token: write
+    env:
+      AZURE_EXTENSION_USE_DYNAMIC_INSTALL: yes_without_prompt
+      AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+      AZURE_API_APP_NAME: ${{ vars.AZURE_API_APP_NAME }}
+      API_URL: ${{ vars.API_URL }}
+      API_IMAGE: ${{ needs.build-and-push.outputs.api_image }}
+    steps:
+      - name: Azure login (OIDC)
+        uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy API image by digest
+        run: |
+          set -euo pipefail
+          az containerapp update \
+            --name "$AZURE_API_APP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --image "$API_IMAGE" \
+            --output none
+          deployed=$(az containerapp show \
+            --name "$AZURE_API_APP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query "properties.template.containers[0].image" --output tsv)
+          if [ "$deployed" != "$API_IMAGE" ]; then
+            echo "::error::Container App runs '${deployed}', expected '${API_IMAGE}'."
+            exit 1
+          fi
+      - name: Wait for API readiness
+        run: |
+          set -euo pipefail
+          target=$(az containerapp show \
+            --name "$AZURE_API_APP_NAME" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --query properties.latestRevisionName --output tsv)
+          url="${API_URL%/}/api/health/ready"
+          for attempt in $(seq 1 30); do
+            ready=$(az containerapp show \
+              --name "$AZURE_API_APP_NAME" \
+              --resource-group "$AZURE_RESOURCE_GROUP" \
+              --query properties.latestReadyRevisionName --output tsv || true)
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' --max-time 10 "$url" || true)
+            if [ "$ready" = "$target" ] && [ "$status" = "200" ]; then
+              echo "Revision ${target} is ready and ${url} returned 200."
+              exit 0
+            fi
+            echo "Attempt ${attempt}/30: ready revision '${ready}', HTTP ${status}; waiting for '${target}'."
+            sleep 10
+          done
+          echo "::error::API revision ${target} was not ready within 5 minutes."
+          exit 1
+
+  deploy-frontend:
+    needs: deploy-api
+    if: ${{ vars.AZURE_CLIENT_ID != '' && github.ref == 'refs/heads/main' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: production
+      url: ${{ vars.FRONTEND_URL }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      API_URL: ${{ vars.API_URL }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+      STORAGE_ACCOUNT: ${{ vars.AZURE_FRONTEND_STORAGE_ACCOUNT }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+      - name: Build SPA for the production API
+        run: |
+          set -euo pipefail
+          export VITE_API_URL="${API_URL%/}/api"
+          npm ci --prefix frontend
+          npm run build --prefix frontend
+      - name: Azure login (OIDC)
+        uses: azure/login@7184910d9eb2b1c5e48f7073824a90609bb9b6d6 # v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Upload static website
+        run: |
+          set -euo pipefail
+          container="\$web" # literal static-website container name
+          az storage blob upload-batch \
+            --account-name "$STORAGE_ACCOUNT" \
+            --auth-mode login \
+            --destination "$container" \
+            --source frontend/dist \
+            --overwrite \
+            --output none
+          # index.html is re-uploaded uncached; "about" makes /about a real 200 page.
+          for blob in index.html about; do
+            az storage blob upload \
+              --account-name "$STORAGE_ACCOUNT" \
+              --auth-mode login \
+              --container-name "$container" \
+              --name "$blob" \
+              --file frontend/dist/index.html \
+              --content-type text/html \
+              --content-cache-control no-cache \
+              --overwrite \
+              --output none
+          done
+      - name: Smoke test frontend
+        run: |
+          set -euo pipefail
+          for path in / /about; do
+            url="${FRONTEND_URL%/}${path}"
+            body=$(curl --fail --silent --show-error --max-time 20 "$url")
+            if ! grep -q '<div id="root">' <<< "$body"; then
+              echo "::error::${url} did not return the SPA shell."
+              exit 1
+            fi
+            echo "${url} returned the SPA shell."
+          done
