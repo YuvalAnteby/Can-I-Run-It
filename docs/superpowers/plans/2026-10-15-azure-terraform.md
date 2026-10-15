@@ -48,7 +48,8 @@
 | `frontend.tf` | Frontend storage account + static website |
 | `observability.tf` | Log Analytics, App Insights, action group, 5xx metric alert, budget |
 | `variables.tf`, `outputs.tf` | Inputs / output contract |
-| `production.tftest.hcl` | Spec guardrail assertions |
+| `production.tftest.hcl` | Spec guardrail assertions (plan mode) |
+| `outputs.tftest.hcl` | Output contract and `REACT_URL` (apply against mocks) |
 | `observability.tftest.hcl` | Rewritten observability assertions |
 | `bootstrap.ps1`, `backend.hcl.example`, `terraform.tfvars.example`, `.gitignore`, `.terraform.lock.hcl` | Operator tooling |
 
@@ -90,7 +91,7 @@
   - `api_scales_zero_to_one`: `template[0].min_replicas == 0`, `max_replicas == 1`.
   - `probes_within_limits`: every startup/liveness/readiness `failure_count_threshold <= 10`.
   - `api_env_contract`: env `TRUST_PROXY == "1"`, `POSTGRES_AUTH_MODE == "entra"`, `POSTGRES_SSL == "verify-full"`, `POSTGRES_USER == "id-ciri-api"`; admin `principal_name == "id-ciri-api"`; `GEMINI_API_KEY`/`RAWG_API_KEY`/`APPLICATIONINSIGHTS_CONNECTION_STRING` use `secret_name` not `value`.
-  - `react_url_has_no_trailing_slash` (apply against mocks with overridden `primary_web_endpoint`): `REACT_URL == "https://stciriwebabc123.z36.web.core.windows.net"`.
+  - In a separate `outputs.tftest.hcl` (CI pins Terraform 1.9.8, so no `override_during`): `command = apply` against mocks whose `mock_resource` defaults give well-formed Azure IDs (the provider validates IDs passed between resources) and `primary_web_endpoint = "https://stciriwebabc123.z36.web.core.windows.net/"`; assert `REACT_URL == "https://stciriwebabc123.z36.web.core.windows.net"` and every output in the contract.
   - `no_costly_network_resources`: no `*.tf` file declares `azurerm_nat_gateway`, `azurerm_cdn_frontdoor_*`, `azurerm_frontdoor`, or `azurerm_private_endpoint` (regex over `file()` of `fileset(path.module, "*.tf")`).
   - `budget_present`: amount `== 8`, four notifications.
   - `key_vault_purge_protection_off`: `purge_protection_enabled == false`, `soft_delete_retention_days == 7`.
