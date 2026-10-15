@@ -4,6 +4,7 @@
     "sourceRoot": "src",
     "compilerOptions": {
         "plugins": ["@nestjs/swagger/plugin"],
+        "assets": [{ "include": "database/init-scripts/*.sql", "watchAssets": true }],
         "deleteOutDir": true
     }
 }

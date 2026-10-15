@@ -1,6 +1,7 @@
 import { ManagedIdentityCredential } from '@azure/identity';
 
 import { buildDatabaseOptions, POSTGRES_ENTRA_SCOPE } from './database.config';
+import { Baseline1792022400000 } from './migrations/1792022400000-baseline';
 
 jest.mock('@azure/identity');
 
@@ -45,6 +46,12 @@ describe('buildDatabaseOptions', () => {
                 migrationsRun: true,
             });
             expect(CredentialMock).not.toHaveBeenCalled();
+        });
+
+        it('runs the baseline migration at startup', () => {
+            expect(buildDatabaseOptions({}).migrations).toEqual([
+                Baseline1792022400000,
+            ]);
         });
 
         it('reads connection values from the environment', () => {

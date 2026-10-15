@@ -1,6 +1,8 @@
 import { ManagedIdentityCredential } from '@azure/identity';
 import type { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
 
+import { Baseline1792022400000 } from './migrations/1792022400000-baseline';
+
 export const POSTGRES_ENTRA_SCOPE =
     'https://ossrdbms-aad.database.windows.net/.default';
 
@@ -59,9 +61,9 @@ export function buildDatabaseOptions(
         poolSize: 5,
         entities: [__dirname + '/../**/*.entity.{js,ts}'],
         synchronize: false,
-        migrations: [],
+        migrations: [Baseline1792022400000],
         migrationsRun: true,
-    } as const;
+    } satisfies Partial<PostgresConnectionOptions>;
 
     if (authMode === 'password') {
         return {
