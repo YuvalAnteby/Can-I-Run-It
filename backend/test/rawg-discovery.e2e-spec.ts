@@ -115,9 +115,9 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
 
         app = moduleFixture.createNestApplication();
         const expressApp = app.getHttpAdapter().getInstance() as {
-            set(setting: string, value: boolean): void;
+            set(setting: string, value: boolean | number): void;
         };
-        expressApp.set('trust proxy', true);
+        expressApp.set('trust proxy', 1);
         app.setGlobalPrefix('api');
         app.enableVersioning({
             type: VersioningType.URI,

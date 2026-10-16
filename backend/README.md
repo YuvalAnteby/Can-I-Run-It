@@ -12,10 +12,27 @@ create a separate backend environment file. Start from `infra/.env.example` and
 keep database credentials, `GEMINI_API_KEY`, and `RAWG_API_KEY` out of version control.
 
 Within Compose, PostgreSQL is available to NestJS as `postgres:5432`.
-Schema synchronization is disabled in every environment; tracked SQL in
-`infra/init-scripts/` creates and seeds a fresh PostgreSQL volume. Apply the
+Schema synchronization is disabled in every environment. The tracked SQL in
+`src/database/init-scripts/` is the single source of truth for the schema and
+seed: Compose mounts it into a fresh PostgreSQL volume, and the TypeORM baseline
+migration (`migrationsRun: true`) applies the same files on an empty database
+such as Azure. When `public.games` already exists the baseline only records
+itself. Future schema changes are new TypeORM migrations in
+`src/database/migrations/`. Apply the
 [documented migrations](../docs/operations/demo-release.md) before starting the backend against an existing
 V1 volume.
+
+### Database connection
+
+| Variable | Values | Default |
+| --- | --- | --- |
+| `POSTGRES_AUTH_MODE` | `password` or `entra` (managed identity token, needs `AZURE_CLIENT_ID`) | `password` |
+| `POSTGRES_SSL` | `disable` or `verify-full` (required with `entra`) | `disable` |
+| `POSTGRES_HOST`, `POSTGRES_PORT`, `POSTGRES_USER`, `POSTGRES_DB` | connection; in `entra` mode `POSTGRES_USER` is the Entra role name | `postgres`, `5432`, `username`, `myciridb` |
+| `POSTGRES_PASSWORD` | `password` mode only | `changeme` |
+
+Invalid values stop startup with a message naming the variable. The pool holds
+at most 5 connections.
 
 ## Public compatibility API
 

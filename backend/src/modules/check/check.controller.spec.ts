@@ -1,5 +1,8 @@
+import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { AbuseProtectionService } from '../../common/abuse-protection/abuse-protection.service';
+import { CheckRateLimitGuard } from '../../common/guards/check-rate-limit.guard';
 import { CheckController } from './check.controller';
 import { CheckService } from './check.service';
 
@@ -13,7 +16,19 @@ describe('CheckController pending route', () => {
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             controllers: [CheckController],
-            providers: [{ provide: CheckService, useValue: checkService }],
+            providers: [
+                {
+                    provide: ConfigService,
+                    useValue: {
+                        get: jest.fn(
+                            (_key: string, fallback?: unknown) => fallback,
+                        ),
+                    },
+                },
+                AbuseProtectionService,
+                CheckRateLimitGuard,
+                { provide: CheckService, useValue: checkService },
+            ],
         }).compile();
 
         controller = module.get(CheckController);

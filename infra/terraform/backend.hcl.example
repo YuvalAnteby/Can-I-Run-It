@@ -1,0 +1,7 @@
+# Copy to backend.hcl (gitignored) and fill in the values printed by
+# bootstrap.ps1, then run: terraform init -backend-config=backend.hcl
+# use_azuread_auth = true is set in main.tf; no access keys are used.
+resource_group_name  = "rg-ciri-tfstate"
+storage_account_name = "stciritfstateXXXX"
+container_name       = "tfstate"
+key                  = "ciri-prod.tfstate"

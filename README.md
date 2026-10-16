@@ -154,6 +154,15 @@ to host loopback for an HTTPS ingress proxy.
 See [demo release operations](docs/operations/demo-release.md) for migrations,
 security assumptions, and the artifacts published after merging to `main`.
 
+### Azure
+
+The public demo runs on Azure (Container Apps, PostgreSQL Flexible Server and a
+Blob Storage static website), described by Terraform in `infra/terraform/`.
+Pushes to `main` deploy the API and frontend automatically. See the
+[Azure production runbook](docs/operations/azure.md) for setup, the first
+deploy, acceptance checks and teardown, and the
+[observability runbook](docs/operations/observability.md) for logs and alerts.
+
 ### Tests
 
 The isolated test stack initializes PostgreSQL, runs backend unit tests, then
@@ -165,9 +174,11 @@ docker compose -f infra/docker-compose.tests.yml up --build --exit-code-from bac
 
 ## Schema and seed data
 
-The tracked files in `infra/init-scripts/` define the PostgreSQL schema and the
-curated demo seed. PostgreSQL runs them in filename order when it initializes a
-fresh Compose volume. They do not rerun on every container restart.
+The tracked files in `backend/src/database/init-scripts/` define the PostgreSQL
+schema and the curated demo seed. PostgreSQL runs them in filename order when it
+initializes a fresh Compose volume, and the backend's TypeORM baseline migration
+applies the same files to an empty database (for example on Azure). They do not
+rerun on every container restart.
 
 Development and production use persistent named volumes.
 </br>

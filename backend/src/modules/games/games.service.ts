@@ -9,6 +9,7 @@ import {
 import { DataSource } from 'typeorm';
 
 import { PaginatedResult } from '../../common/dto/paginated-result.dto';
+import { observeStage } from '../../common/observability/telemetry';
 import { ClientGameDto, PublicAttributionDto } from './dto/client-game.dto';
 import { ClientGameRequirementDto } from './dto/client-game-requirement.dto';
 import { FilterGameDto } from './dto/filter-game.dto';
@@ -200,12 +201,16 @@ export class GamesService {
         const existing = await this.gamesRepository.findByRawgId(rawgId);
         if (existing) return this.existingSelection(existing);
 
-        const detail = await this.rawgClient.getById(rawgId);
+        const detail = await observeStage('rawg.detail', () =>
+            this.rawgClient.getById(rawgId),
+        );
         if (!detail) {
             throw new NotFoundException(`RAWG game "${rawgId}" not found`);
         }
 
-        const result = await this.createGame(detail);
+        const result = await observeStage('rawg.persistence', () =>
+            this.createGame(detail),
+        );
         if (!result.created) return this.existingSelection(result.game);
 
         return this.selection(result.game);
@@ -213,9 +218,11 @@ export class GamesService {
 
     private async searchRawg(query: string): Promise<RawgSearchResponse> {
         try {
-            return await this.rawgClient.search(query);
+            return await observeStage('rawg.search', () =>
+                this.rawgClient.search(query),
+            );
         } catch {
-            this.logger.warn('RAWG discovery unavailable');
+            this.logger.warn({ event: 'rawg.search.unavailable' });
             return { available: false, results: [] };
         }
     }

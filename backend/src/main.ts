@@ -1,16 +1,30 @@
+import { initializeTelemetry } from './common/observability/telemetry-bootstrap';
+
+initializeTelemetry();
+
 import { Logger, ValidationPipe, VersioningType } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 
 import { AppModule } from './app.module';
+import { ObservabilityLogger } from './common/observability/observability.logger';
+import { requestContextMiddleware } from './common/observability/request-context';
 
 async function bootstrap() {
-    const app = await NestFactory.create<NestExpressApplication>(AppModule);
+    const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+        logger: new ObservabilityLogger(),
+    });
+    const configService = app.get(ConfigService);
+
+    app.use(requestContextMiddleware);
 
     app.enableShutdownHooks();
-    // Only enable behind the private Nginx hop, which replaces forwarded headers.
-    if (process.env.TRUST_PROXY === '1') app.set('trust proxy', 1);
+    // Trust one verified ingress hop only when direct listener bypass is blocked.
+    if (configService.get<string>('TRUST_PROXY') === '1') {
+        app.set('trust proxy', 1);
+    }
 
     // Global Prefix
     app.setGlobalPrefix('api');
@@ -25,6 +39,7 @@ async function bootstrap() {
                     : []
                 : [frontendUrl || 'http://react', 'http://localhost:3000'],
         credentials: true,
+        exposedHeaders: ['X-Request-ID'],
     });
 
     // Enable endpoint versioning

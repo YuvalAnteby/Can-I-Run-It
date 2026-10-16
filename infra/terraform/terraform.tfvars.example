@@ -1,0 +1,31 @@
+# Copy to terraform.tfvars (gitignored). bootstrap.ps1 prints the operator
+# values. Sensitive values end up in the private, Entra-only state account.
+
+subscription_id    = "00000000-0000-0000-0000-000000000000"
+operator_object_id = "00000000-0000-0000-0000-000000000000"
+operator_upn       = "you@example.onmicrosoft.com"
+alert_email        = "you@example.com"
+
+# First image only; CI owns the image afterwards. Use a sha- tag or a digest.
+api_image = "ghcr.io/yuvalanteby/can-i-run-it-backend:sha-<full-commit-sha>"
+
+gemini_api_key = "replace-me"
+rawg_api_key   = "replace-me"
+
+# Optional overrides (defaults shown).
+# location           = "polandcentral"
+# api_min_replicas   = 0
+# monthly_budget_usd = 8
+# observability_daily_cap_gb   = 0.1
+# observability_retention_days = 30
+# observability_sampling_ratio = 0.1
+# abuse_protection = {
+#   expensive_requests_per_ip_per_minute = 10
+#   expensive_requests_global_per_minute = 100
+#   gemini_requests_per_minute           = 30
+#   rawg_requests_per_minute             = 60
+#   gemini_max_concurrent                = 2
+#   rawg_max_concurrent                  = 4
+#   gemini_timeout_ms                    = 8000
+#   rawg_timeout_ms                      = 3000
+# }
