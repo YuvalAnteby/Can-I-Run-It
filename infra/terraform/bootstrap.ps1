@@ -32,11 +32,12 @@ $ErrorActionPreference = 'Stop'
 # Storage Blob Data Contributor (built-in role definition ID).
 $BlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
 
+# Deliberately a simple function (no param block): an advanced function would
+# bind az flags such as -o to PowerShell common parameters (-OutVariable).
 function Invoke-Az {
-    param([Parameter(ValueFromRemainingArguments = $true)][string[]]$AzArgs)
-    $output = & az @AzArgs
+    $output = & az @args
     if ($LASTEXITCODE -ne 0) {
-        throw "az $($AzArgs -join ' ') failed with exit code $LASTEXITCODE"
+        throw "az $($args -join ' ') failed with exit code $LASTEXITCODE"
     }
     return $output
 }
