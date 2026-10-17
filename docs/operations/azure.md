@@ -285,7 +285,13 @@ immediately if you need to re-create it. Remove the GitHub repository variables
 ## Cost guardrails
 
 Do not add a NAT gateway, Front Door, private endpoints, dedicated workload
-profiles or log-based alerts; each costs more than the whole demo. Keep
-`api_min_replicas = 0` so the API scales to zero when idle. The
+profiles or log-based alerts; each costs more than the whole demo. The API
+(0.25 vCPU / 0.5 GiB) keeps one warm replica 07:30–23:00 Israel time via the
+`warm-hours` cron scale rule in `app.tf` and scales to zero outside it, about
+$2–3/month at idle billing. Keep `api_min_replicas = 0`; an always-on replica
+costs roughly twice as much. The `ca-ciri-api-memory-high` and
+`ca-ciri-api-cpu-high` alerts email you when a 15-minute average passes
+400 MiB or 0.2 vCPU; then set `cpu = 0.5` and `memory = "1Gi"` in `app.tf` and
+apply (about $4/month more). The
 [observability runbook](observability.md) covers telemetry volume and the
 Log Analytics daily cap.

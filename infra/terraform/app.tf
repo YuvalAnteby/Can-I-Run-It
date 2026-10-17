@@ -90,11 +90,31 @@ resource "azurerm_container_app" "api" {
     min_replicas = var.api_min_replicas
     max_replicas = 1
 
+    # Keeps one warm replica 07:30-23:00 Israel time every day so visitors skip
+    # the cold start; outside the window the API scales to zero.
+    custom_scale_rule {
+      name             = "warm-hours"
+      custom_rule_type = "cron"
+      metadata = {
+        timezone        = "Asia/Jerusalem"
+        start           = "30 7 * * *"
+        end             = "0 23 * * *"
+        desiredReplicas = "1"
+      }
+    }
+
+    # A custom rule replaces the default HTTP rule; without this the API could
+    # not wake from zero outside the warm window.
+    http_scale_rule {
+      name                = "http"
+      concurrent_requests = "10"
+    }
+
     container {
       name   = "api"
       image  = var.api_image
-      cpu    = 0.5
-      memory = "1Gi"
+      cpu    = 0.25
+      memory = "0.5Gi"
 
       dynamic "env" {
         for_each = local.api_env
@@ -114,13 +134,14 @@ resource "azurerm_container_app" "api" {
         }
       }
 
-      # Cold start (scale from zero + migrations) gets up to ~110 s.
+      # Probed early and often so a cold start is routed as soon as it is up;
+      # still allows ~53 s (scale from zero + migrations check).
       startup_probe {
         transport               = "HTTP"
         port                    = local.api_port
         path                    = "/api/health/live"
-        initial_delay           = 10
-        interval_seconds        = 10
+        initial_delay           = 3
+        interval_seconds        = 5
         timeout                 = 3
         failure_count_threshold = 10
       }
