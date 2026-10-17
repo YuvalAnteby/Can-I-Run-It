@@ -66,6 +66,45 @@ resource "azurerm_monitor_metric_alert" "api_5xx" {
   }
 }
 
+# Signals that the 0.25 vCPU / 0.5 GiB API needs to grow to 0.5 vCPU / 1 GiB
+# (edit cpu/memory in app.tf). Separate rules so either one alerts on its own.
+resource "azurerm_monitor_metric_alert" "api_capacity" {
+  for_each = {
+    memory = {
+      metric      = "WorkingSetBytes"
+      threshold   = 419430400 # 400 MiB of the 512 MiB limit
+      description = "API memory averaged above 400 MiB for 15 minutes; consider 0.5 vCPU / 1 GiB."
+    }
+    cpu = {
+      metric      = "UsageNanoCores"
+      threshold   = 200000000 # 0.2 of the 0.25 vCPU limit
+      description = "API CPU averaged above 0.2 vCPU for 15 minutes; consider 0.5 vCPU / 1 GiB."
+    }
+  }
+
+  name                = "${local.api_app_name}-${each.key}-high"
+  resource_group_name = azurerm_resource_group.prod.name
+  scopes              = [azurerm_container_app.api.id]
+  description         = each.value.description
+  severity            = 3
+  frequency           = "PT5M"
+  window_size         = "PT15M"
+  auto_mitigate       = true
+  tags                = local.tags
+
+  criteria {
+    metric_namespace = "Microsoft.App/containerApps"
+    metric_name      = each.value.metric
+    aggregation      = "Average"
+    operator         = "GreaterThan"
+    threshold        = each.value.threshold
+  }
+
+  action {
+    action_group_id = azurerm_monitor_action_group.email.id
+  }
+}
+
 resource "azurerm_consumption_budget_resource_group" "prod" {
   name              = "budget-${local.name}-${local.env}"
   resource_group_id = azurerm_resource_group.prod.id
