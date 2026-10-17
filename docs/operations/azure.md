@@ -1,8 +1,10 @@
 # Azure production runbook
 
 Production runs on an Azure for Students subscription in `polandcentral`,
-fully described by Terraform in `infra/terraform/`. Pushes to `main` deploy the
-API image and the frontend automatically; infrastructure changes are applied
+fully described by Terraform in `infra/terraform/`. The frontend is hosted for
+free on Cloudflare Pages at <https://can-i-run-it.pages.dev>. Pushes to `main`
+deploy the API image (GitHub Actions) and the frontend (Cloudflare's Git
+integration) automatically; infrastructure changes are applied
 from an operator machine with `terraform apply`. Target spend is about
 $1/month with an $8/month budget alert. The design and its decisions are in
 [the lean Azure infrastructure spec](../superpowers/specs/2026-10-15-azure-lean-infra-design.md).
@@ -12,7 +14,7 @@ $1/month with an $8/month budget alert. The design and its decisions are in
 | Resource group | `rg-ciri-prod` |
 | API Container App (scale 0–1) | `ca-ciri-api` in environment `cae-ciri-prod` |
 | PostgreSQL Flexible Server (B1ms, PG16, private) | `psql-ciri-prod-<suffix>`, database `ciri` |
-| Frontend static website | storage account `stciriweb<suffix>`, container `$web` |
+| Frontend (outside Azure) | Cloudflare Pages project `can-i-run-it` |
 | Key Vault | `kv-ciri-<suffix>` |
 | Identities | `id-ciri-api` (API runtime), `id-ciri-deploy` (GitHub Actions) |
 | Terraform state | resource group `rg-ciri-tfstate`, container `tfstate` |
@@ -76,7 +78,8 @@ Terraform's outputs, so the first deploy is a short loop:
 
    ```powershell
    cd infra/terraform
-   terraform init -backend-config=backend.hcl
+   # Quoted: Windows PowerShell splits an unquoted -backend-config=backend.hcl at the dot.
+   terraform init "-backend-config=backend.hcl"
    terraform plan -out=tfplan
    terraform apply tfplan
    ```
@@ -101,15 +104,43 @@ Terraform's outputs, so the first deploy is a short loop:
    gh variable set AZURE_SUBSCRIPTION_ID          --body (terraform output -raw subscription_id)
    gh variable set AZURE_RESOURCE_GROUP           --body (terraform output -raw resource_group_name)
    gh variable set AZURE_API_APP_NAME             --body (terraform output -raw api_container_app_name)
-   gh variable set AZURE_FRONTEND_STORAGE_ACCOUNT --body (terraform output -raw frontend_storage_account_name)
    gh variable set API_URL                        --body (terraform output -raw api_url)
-   gh variable set FRONTEND_URL                   --body (terraform output -raw frontend_url)
    ```
 
 6. **Run the release.** Actions → `CD - Production Release` → Run workflow on
    `main` (or `gh workflow run backend-cd-prod.yml --ref main`). This time
-   `deploy-api` and `deploy-frontend` run.
-7. Work through the acceptance checklist below.
+   `deploy-api` runs.
+7. **Connect Cloudflare Pages** (see [Frontend on Cloudflare Pages](#frontend-on-cloudflare-pages)).
+8. Work through the acceptance checklist below.
+
+## Frontend on Cloudflare Pages
+
+The SPA is built and hosted by Cloudflare Pages' Git integration, so GitHub
+Actions holds no Cloudflare credentials. Set up once in the Cloudflare
+dashboard: Workers & Pages → Create → Pages → Connect to Git →
+`YuvalAnteby/Can-I-Run-It`, with:
+
+| Setting | Value |
+|---|---|
+| Project name | `can-i-run-it` (gives `can-i-run-it.pages.dev`) |
+| Production branch | `main` |
+| Framework preset | None |
+| Build command | `npm run build` |
+| Build output directory | `dist` |
+| Root directory | `frontend` |
+| Variable `VITE_API_URL` | `<terraform output -raw api_url>/api` |
+| Variable `NODE_VERSION` | `24` |
+
+Then Settings → Builds → Branch control: disable preview deployments (previews
+would call the production API from an origin that CORS rejects).
+
+The API allows CORS only from `frontend_url` (default
+`https://can-i-run-it.pages.dev`). If the Pages URL ever changes, set
+`frontend_url` in `terraform.tfvars` and `terraform apply`. If the API URL
+changes, update `VITE_API_URL` in Cloudflare and retry the latest deployment.
+
+Pages serves `index.html` for unknown paths with status 200, so deep links such
+as `/games/<slug>` work and preview correctly when shared.
 
 ## Routine releases
 
@@ -121,15 +152,16 @@ Every push to `main` runs `CD - Production Release`:
    image **digest** just pushed, then up to 5 minutes waiting until the new
    revision is the latest ready revision and `${API_URL}/api/health/ready`
    returns 200 (covers scale-from-zero and migrations).
-3. `deploy-frontend`: builds the SPA with `VITE_API_URL=${API_URL}/api`, uploads
-   `frontend/dist` to `$web`, re-uploads `index.html` and a copy named `about`
-   with `Cache-Control: no-cache`, and smoke-tests `/` and `/about`.
+
+In parallel, Cloudflare Pages builds and publishes the frontend from the same
+`main` commit.
 
 To roll back, re-run the workflow for an older `main` commit, or run
 `az containerapp update -g rg-ciri-prod -n ca-ciri-api --image <older image digest>`.
 Terraform ignores the image after creation, so `terraform apply` never reverts a
 release. Change infrastructure only with `terraform plan`/`apply`; the deploy
-identity can update `ca-ciri-api` and the `$web` content and nothing else.
+identity can update `ca-ciri-api` and nothing else. Roll the frontend back from
+the Cloudflare dashboard (Deployments → an older deployment → Rollback).
 
 ## Acceptance checklist
 
@@ -157,10 +189,8 @@ $pg  = terraform output -raw postgres_fqdn
   result is labelled as a Gemini estimate rather than the fallback. Container
   App console logs show `rawg` and `gemini` stages without `failure` or
   `timeout`.
-- [ ] **Frontend and deep links.** `$web/` and `$web/about` return 200 and the
-  app renders. `$web/games/<slug>` renders the game page; the static website
-  serves it through the 404 document, so the HTTP status is 404 (expected for
-  this hosting, browsers render it normally).
+- [ ] **Frontend and deep links.** `$web/`, `$web/about` and
+  `$web/games/<slug>` return 200 and the app renders and loads data from the API.
 - [ ] **CORS allows only the frontend.**
   `curl.exe -si -H "Origin: $web" "$api/api/health/live"` includes
   `Access-Control-Allow-Origin: <frontend origin>`;

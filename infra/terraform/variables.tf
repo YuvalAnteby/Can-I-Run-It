@@ -41,6 +41,17 @@ variable "api_min_replicas" {
   }
 }
 
+variable "frontend_url" {
+  type        = string
+  default     = "https://can-i-run-it.pages.dev"
+  description = "Public origin of the SPA (Cloudflare Pages). The API allows CORS only from this origin."
+
+  validation {
+    condition     = can(regex("^https://[a-z0-9.-]+/?$", var.frontend_url))
+    error_message = "frontend_url must be an https origin with no path, e.g. https://can-i-run-it.pages.dev."
+  }
+}
+
 variable "gemini_api_key" {
   type        = string
   sensitive   = true

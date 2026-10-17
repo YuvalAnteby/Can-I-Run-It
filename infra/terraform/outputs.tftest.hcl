@@ -90,13 +90,6 @@ mock_provider "azurerm" {
     }
   }
 
-  mock_resource "azurerm_storage_account" {
-    defaults = {
-      id                   = "/subscriptions/00000000-0000-0000-0000-000000000002/resourceGroups/rg-ciri-prod/providers/Microsoft.Storage/storageAccounts/stciriwebabc123"
-      primary_web_endpoint = "https://stciriwebabc123.z36.web.core.windows.net/"
-    }
-  }
-
   mock_resource "azurerm_monitor_action_group" {
     defaults = {
       id = "/subscriptions/00000000-0000-0000-0000-000000000002/resourceGroups/rg-ciri-prod/providers/Microsoft.Insights/actionGroups/ag-ciri-prod"
@@ -123,17 +116,16 @@ run "react_url_and_outputs_match_contract" {
   assert {
     condition = one([
       for e in azurerm_container_app.api.template[0].container[0].env : e.value if e.name == "REACT_URL"
-    ]) == "https://stciriwebabc123.z36.web.core.windows.net"
+    ]) == "https://can-i-run-it.pages.dev"
     error_message = "REACT_URL must be the frontend origin without a trailing slash"
   }
 
   assert {
     condition = (
-      output.frontend_url == "https://stciriwebabc123.z36.web.core.windows.net" &&
+      output.frontend_url == "https://can-i-run-it.pages.dev" &&
       output.api_url == "https://ca-ciri-api.example.polandcentral.azurecontainerapps.io" &&
       output.api_container_app_name == "ca-ciri-api" &&
       output.resource_group_name == "rg-ciri-prod" &&
-      output.frontend_storage_account_name != "" &&
       output.deploy_client_id == "00000000-0000-0000-0000-000000000011" &&
       output.tenant_id == "00000000-0000-0000-0000-000000000001" &&
       output.subscription_id == "00000000-0000-0000-0000-000000000002" &&
