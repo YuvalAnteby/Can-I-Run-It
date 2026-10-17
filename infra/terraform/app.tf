@@ -30,7 +30,7 @@ locals {
       POSTGRES_SSL       = "verify-full"
       AZURE_CLIENT_ID    = azurerm_user_assigned_identity.api.client_id
 
-      REACT_URL = trimsuffix(azurerm_storage_account.frontend.primary_web_endpoint, "/")
+      REACT_URL = trimsuffix(var.frontend_url, "/")
 
       TELEMETRY_ENABLED       = "true"
       LOG_LEVEL               = "info"

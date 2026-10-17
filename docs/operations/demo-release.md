@@ -135,9 +135,9 @@ The backend also receives `latest`; use commit tags for deployment. Production
 Compose requires `BACKEND_IMAGE` and has no build path, so it runs the scanned artifact
 instead of rebuilding from source. Provider keys
 are never build arguments. When the Azure repository variables are set, the same
-workflow then deploys that image by digest to the API Container App and uploads
-the frontend build to the static website; without them the deploy jobs are
-skipped. See the [Azure production runbook](azure.md). Require successful PR checks in branch
+workflow then deploys that image by digest to the API Container App; without
+them the deploy job is skipped. Cloudflare Pages builds and hosts the frontend
+from the same `main` commit. See the [Azure production runbook](azure.md). Require successful PR checks in branch
 protection before merge. A PR cannot itself enforce repository branch-protection settings.
 
 The release was curated onto `main` without importing excluded v2 commits as ancestors,

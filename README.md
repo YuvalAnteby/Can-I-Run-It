@@ -156,9 +156,10 @@ security assumptions, and the artifacts published after merging to `main`.
 
 ### Azure
 
-The public demo runs on Azure (Container Apps, PostgreSQL Flexible Server and a
-Blob Storage static website), described by Terraform in `infra/terraform/`.
-Pushes to `main` deploy the API and frontend automatically. See the
+The public demo runs at <https://can-i-run-it.pages.dev>: the API and database
+on Azure (Container Apps, PostgreSQL Flexible Server), described by Terraform in
+`infra/terraform/`, and the frontend on Cloudflare Pages. Pushes to `main`
+deploy the API and frontend automatically. See the
 [Azure production runbook](docs/operations/azure.md) for setup, the first
 deploy, acceptance checks and teardown, and the
 [observability runbook](docs/operations/observability.md) for logs and alerts.

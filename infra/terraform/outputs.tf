@@ -15,14 +15,9 @@ output "api_url" {
   value       = "https://${azurerm_container_app.api.ingress[0].fqdn}"
 }
 
-output "frontend_storage_account_name" {
-  description = "AZURE_FRONTEND_STORAGE_ACCOUNT"
-  value       = azurerm_storage_account.frontend.name
-}
-
 output "frontend_url" {
-  description = "FRONTEND_URL (no trailing slash)"
-  value       = trimsuffix(azurerm_storage_account.frontend.primary_web_endpoint, "/")
+  description = "FRONTEND_URL (no trailing slash); the SPA is hosted on Cloudflare Pages"
+  value       = trimsuffix(var.frontend_url, "/")
 }
 
 output "deploy_client_id" {

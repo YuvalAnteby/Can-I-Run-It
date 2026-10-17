@@ -31,6 +31,9 @@ resource "azurerm_subnet" "pg" {
   resource_group_name  = azurerm_resource_group.prod.name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = ["10.20.1.0/28"]
+  # Azure adds this endpoint when the server is created (backup/WAL storage);
+  # declared so Terraform does not remove it.
+  service_endpoints = ["Microsoft.Storage"]
 
   delegation {
     name = "postgres"
