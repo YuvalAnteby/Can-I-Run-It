@@ -71,12 +71,22 @@ run "api_scales_zero_to_one" {
 
   assert {
     condition = (
-      azurerm_container_app.api.template[0].container[0].cpu == 0.5 &&
-      azurerm_container_app.api.template[0].container[0].memory == "1Gi" &&
+      azurerm_container_app.api.template[0].container[0].cpu == 0.25 &&
+      azurerm_container_app.api.template[0].container[0].memory == "0.5Gi" &&
       azurerm_container_app.api.ingress[0].external_enabled == true &&
       azurerm_container_app.api.ingress[0].target_port == 4000
     )
-    error_message = "API must run 0.5 vCPU / 1 GiB with external ingress on port 4000"
+    error_message = "API must run 0.25 vCPU / 0.5 GiB with external ingress on port 4000"
+  }
+
+  assert {
+    condition = (
+      azurerm_container_app.api.template[0].custom_scale_rule[0].custom_rule_type == "cron" &&
+      azurerm_container_app.api.template[0].custom_scale_rule[0].metadata.timezone == "Asia/Jerusalem" &&
+      azurerm_container_app.api.template[0].custom_scale_rule[0].metadata.desiredReplicas == "1" &&
+      length(azurerm_container_app.api.template[0].http_scale_rule) == 1
+    )
+    error_message = "API must keep a warm replica on an Israel-time cron and still wake on HTTP"
   }
 }
 

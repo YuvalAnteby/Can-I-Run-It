@@ -86,6 +86,20 @@ run "alerts_on_api_5xx_with_a_metric_alert" {
   }
 }
 
+run "alerts_when_api_needs_more_capacity" {
+  command = plan
+
+  assert {
+    condition = (
+      azurerm_monitor_metric_alert.api_capacity["memory"].criteria[0].metric_name == "WorkingSetBytes" &&
+      azurerm_monitor_metric_alert.api_capacity["memory"].criteria[0].threshold < 536870912 &&
+      azurerm_monitor_metric_alert.api_capacity["cpu"].criteria[0].metric_name == "UsageNanoCores" &&
+      azurerm_monitor_metric_alert.api_capacity["cpu"].criteria[0].threshold < 250000000
+    )
+    error_message = "Capacity alerts must fire below the 0.5 GiB / 0.25 vCPU limits"
+  }
+}
+
 run "abuse_protection_defaults_match_env_example" {
   command = plan
 
