@@ -42,10 +42,3 @@ resource "azurerm_role_assignment" "deploy_api_identity_operator" {
   principal_id         = azurerm_user_assigned_identity.deploy.principal_id
   principal_type       = "ServicePrincipal"
 }
-
-resource "azurerm_role_assignment" "deploy_frontend_blob" {
-  scope                = azurerm_storage_account.frontend.id
-  role_definition_name = "Storage Blob Data Contributor"
-  principal_id         = azurerm_user_assigned_identity.deploy.principal_id
-  principal_type       = "ServicePrincipal"
-}
