@@ -13,7 +13,7 @@ export default function GameHero({ game }: GameHeroProps): ReactElement {
   );
 
   return (
-    <div className="relative h-[420px] overflow-hidden">
+    <div className="relative min-h-[320px] md:min-h-[420px] overflow-hidden">
       <div
         className="absolute inset-0 bg-cover bg-center"
         style={{
@@ -28,13 +28,13 @@ export default function GameHero({ game }: GameHeroProps): ReactElement {
             'linear-gradient(to right, rgba(15,15,19,0.95) 35%, rgba(15,15,19,0.2) 100%), linear-gradient(to top, #0f0f13 0%, transparent 40%)',
         }}
       />
-      <div className="relative h-full flex items-end p-8 pb-10 gap-8 max-w-[1100px] mx-auto">
+      <div className="relative min-h-[320px] md:min-h-[420px] flex items-end p-4 pb-8 md:p-8 md:pb-10 gap-4 md:gap-8 max-w-[1100px] mx-auto">
         <img
-          className="w-[130px] h-[175px] rounded-lg object-cover border-2 border-[#2a2a3a] shrink-0"
+          className="hidden sm:block w-[130px] h-[175px] rounded-lg object-cover border-2 border-[#2a2a3a] shrink-0"
           src={coverImageUrl}
           alt={game.name}
         />
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <div className="flex gap-2 mb-3 flex-wrap">
             {game.status === 'pending_approval' && (
               <span className="text-[0.7rem] px-2.5 py-1 rounded-full bg-amber-500/15 text-amber-200 border border-amber-400/30 uppercase tracking-wider font-medium">
@@ -47,7 +47,7 @@ export default function GameHero({ game }: GameHeroProps): ReactElement {
               </span>
             )}
           </div>
-          <h1 className="text-4xl font-extrabold leading-tight mb-2 tracking-tight">
+          <h1 className="text-3xl md:text-4xl font-extrabold leading-tight mb-2 tracking-tight break-words">
             {game.name}
           </h1>
           {metadata.length > 0 && (

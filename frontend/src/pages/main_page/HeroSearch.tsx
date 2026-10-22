@@ -115,8 +115,18 @@ export const HeroSearch = (): ReactElement => {
 
         {/* Search Bar */}
         <div className="relative max-w-[600px] mx-auto" ref={wrapperRef}>
-          <div className="relative group/searchbar">
+          <form
+            className="relative group/searchbar"
+            role="search"
+            onSubmit={(e) => {
+              e.preventDefault();
+              // Enter / Check picks the top result; nothing to pick just closes the list
+              if (!isLoading && results[0]) handleSelect(results[0]);
+              else dispatch({ type: 'CLOSE_DROPDOWN' });
+            }}
+          >
             <Search
+              aria-hidden="true"
               className="absolute left-5 top-1/2 -translate-y-1/2 text-white/60 pointer-events-none transition-colors duration-200 group-focus-within/searchbar:text-blue-500"
               size={20}
             />
@@ -140,13 +150,12 @@ export const HeroSearch = (): ReactElement => {
             />
             <button
               className="absolute right-[10px] top-[10px] bottom-[10px] px-6 bg-blue-600 text-white border-0 rounded-lg font-bold cursor-pointer transition-colors duration-200 hover:bg-blue-500 max-md:hidden"
-              type="button"
-              // TODO: Navigate to the check page once the Game detail page is created
-              onClick={() => dispatch({ type: 'CLOSE_DROPDOWN' })}
+              type="submit"
+              disabled={selection.isPending}
             >
               Check
             </button>
-          </div>
+          </form>
 
           {/* Search Dropdown */}
           {dropdownOpen && (

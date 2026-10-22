@@ -50,7 +50,7 @@ export default function GameDetailPage(): React.ReactElement {
       <GameHero game={game} />
 
       {/* 2. MAIN CONTENT: Layout grid for requirements and check card */}
-      <div className="max-w-[1100px] mx-auto px-8 pt-8 grid grid-cols-1 md:grid-cols-[1fr_340px] gap-8 items-start">
+      <div className="max-w-[1100px] mx-auto px-4 md:px-8 pt-8 grid grid-cols-1 md:grid-cols-[1fr_340px] gap-8 items-start">
         {/* LEFT COLUMN: Requirements tabs and detailed tech specs */}
         <div>
           <p className="text-[0.7rem] uppercase tracking-[0.12em] text-gray-400 mb-4 pb-2 border-b border-[#1e1e2a] font-semibold">
@@ -63,7 +63,9 @@ export default function GameDetailPage(): React.ReactElement {
               <div className="flex gap-1 mb-5 overflow-x-auto">
                 {game.requirements.map((req) => (
                   <button
+                    type="button"
                     key={req.tier}
+                    aria-pressed={activeTier === req.tier}
                     onClick={() => setActiveTier(req.tier)}
                     className={`cursor-pointer px-4 py-1.5 rounded-md text-sm border transition-colors whitespace-nowrap ${
                       activeTier === req.tier

@@ -87,7 +87,8 @@ export const MainHeader = (): React.ReactElement => {
 
             {/* Mobile Menu Toggle */}
             <button
-              className="block md:hidden bg-transparent border-0 text-gray-300 cursor-pointer p-1"
+              type="button"
+              className="block md:hidden bg-transparent border-0 text-gray-300 cursor-pointer p-2.5"
               onClick={() => setMobileOpen((prev) => !prev)}
               aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
               aria-expanded={mobileOpen}

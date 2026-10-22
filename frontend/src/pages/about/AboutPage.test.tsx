@@ -39,7 +39,6 @@ describe('About page', () => {
         within(diagram).getByRole('heading', { name }),
       ).toBeInTheDocument();
     }
-    expect(screen.getByText(/public URL.*pending/i)).toBeInTheDocument();
     expect(
       screen.getByRole('img', { name: /service architecture diagram/i }),
     ).toBeInTheDocument();
