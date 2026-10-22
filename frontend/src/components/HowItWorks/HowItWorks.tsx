@@ -21,7 +21,7 @@ const STEPS: Step[] = [
     number: 2,
     title: 'Enter Your Specs',
     description:
-      'Tell us your CPU and GPU model. No benchmark scores needed — just pick from the list.',
+      'Tell us your CPU and GPU model. No benchmark scores needed - just pick from the list.',
   },
   {
     icon: <CheckCircle size={28} aria-hidden="true" />,
