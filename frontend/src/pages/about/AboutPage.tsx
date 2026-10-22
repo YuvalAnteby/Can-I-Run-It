@@ -134,8 +134,7 @@ export default function AboutPage(): ReactElement {
               The curated dataset covers only the configurations currently
               stored, so some checks rely on provider data, a heuristic, or
               return Insufficient data. V1 does not include accounts, automatic
-              ingestion or enrichment, or ML model support. A public URL is
-              pending.
+              ingestion or enrichment, or ML model support.
             </p>
           </div>
         </div>
