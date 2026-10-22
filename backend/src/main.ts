@@ -57,14 +57,16 @@ async function bootstrap() {
         }),
     );
 
-    // Swagger Setup
-    const config = new DocumentBuilder()
-        .setTitle('CIRI API')
-        .setDescription('API documentation for CIRI application')
-        .setVersion('1.0')
-        .build();
-    const documentFactory = () => SwaggerModule.createDocument(app, config);
-    SwaggerModule.setup('/api/docs', app, documentFactory);
+    // Swagger is dev-only: the API is private and docs would advertise the Gemini-backed /check endpoint.
+    if (process.env.NODE_ENV !== 'production') {
+        const config = new DocumentBuilder()
+            .setTitle('CIRI API')
+            .setDescription('API documentation for CIRI application')
+            .setVersion('1.0')
+            .build();
+        const documentFactory = () => SwaggerModule.createDocument(app, config);
+        SwaggerModule.setup('/api/docs', app, documentFactory);
+    }
 
     const logger = new Logger('Bootstrap');
 

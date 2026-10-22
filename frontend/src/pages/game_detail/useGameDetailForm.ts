@@ -30,6 +30,7 @@ export function useGameDetailForm(
     null,
   );
 
+  // TODO: Remember the last picked GPU/CPU/RAM in localStorage so returning users skip re-entering their rig (no accounts needed).
   const [selectedRam, setSelectedRam] = useState<number>(16);
   const [selectedStorage, setSelectedStorage] = useState<string>('ssd');
   const [selectedResolutionKey, setSelectedResolutionKey] =

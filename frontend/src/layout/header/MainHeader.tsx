@@ -2,27 +2,25 @@ import { Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 
-/**
- * Nav items for the main header.
- *
- * `to` is '#' for routes that don't exist yet — clicks are intentionally
- * blocked. Update `to` and remove the `comingSoon` flag once the page is
- * created and wired up in router.tsx.
- */
 interface NavItem {
   label: string;
   to: string;
-  comingSoon: boolean;
+  /** Rendered disabled with a "Soon" badge until the route exists. */
+  comingSoon?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { label: 'Home', to: '/', comingSoon: false },
-  // TODO: Change to '/games' and remove comingSoon once the Games page is created
-  { label: 'Games', to: '#', comingSoon: true },
-  // TODO: Change to '/hardware-rank' and remove comingSoon once Hardware Rank page is created
-  { label: 'Hardware Rank', to: '#', comingSoon: true },
-  { label: 'About', to: '/about', comingSoon: false },
+  { label: 'Home', to: '/' },
+  // TODO: Build the Games browse page (GET /v2/games + GamesGrid), add the /games route in router.tsx, then drop comingSoon
+  { label: 'Games', to: '/games', comingSoon: true },
+  { label: 'About', to: '/about' },
 ];
+
+const SoonBadge = (): React.ReactElement => (
+  <span className="text-[0.65rem] font-bold px-[0.4rem] py-[0.1rem] rounded bg-blue-500/15 text-blue-300 tracking-[0.05em] uppercase">
+    Soon
+  </span>
+);
 
 export const MainHeader = (): React.ReactElement => {
   const [mobileOpen, setMobileOpen] = useState<boolean>(false);
@@ -57,17 +55,15 @@ export const MainHeader = (): React.ReactElement => {
           >
             {NAV_ITEMS.map((item) =>
               item.comingSoon ? (
-                <button
-                  type="button"
+                <span
                   key={item.label}
-                  className="text-sm font-medium text-gray-500 cursor-not-allowed select-none bg-transparent border-0 p-0"
-                  title="Coming soon"
+                  className="inline-flex items-center gap-2 text-sm font-medium text-gray-400 cursor-not-allowed select-none"
                   aria-disabled="true"
-                  // TODO: Change to <NavLink> once the route exists in router.tsx
-                  onClick={(event) => event.preventDefault()}
+                  title="Coming soon"
                 >
                   {item.label}
-                </button>
+                  <SoonBadge />
+                </span>
               ) : (
                 <NavLink
                   key={item.label}
@@ -83,8 +79,6 @@ export const MainHeader = (): React.ReactElement => {
 
           {/* Right Side */}
           <div className="flex items-center gap-4">
-            {/* TODO: Add Login / Define Rig buttons once auth module is implemented */}
-
             {/* Mobile Menu Toggle */}
             <button
               type="button"
@@ -115,19 +109,16 @@ export const MainHeader = (): React.ReactElement => {
           >
             {NAV_ITEMS.map((item) =>
               item.comingSoon ? (
-                <button
-                  type="button"
+                <span
                   key={item.label}
-                  className="flex items-center gap-2 py-3 px-2 text-base font-medium text-gray-600 bg-transparent border-0 w-full rounded-md cursor-not-allowed select-none"
+                  className="flex items-center gap-2 py-3 px-2 text-base font-medium text-gray-400 w-full rounded-md cursor-not-allowed select-none"
                   aria-disabled="true"
-                  // TODO: Change to <NavLink> once the route exists in router.tsx
-                  onClick={(event) => event.preventDefault()}
                 >
                   {item.label}
-                  <span className="ml-auto text-[0.65rem] font-bold px-[0.4rem] py-[0.1rem] rounded bg-blue-500/15 text-blue-400 tracking-[0.05em] uppercase">
-                    Soon
+                  <span className="ml-auto">
+                    <SoonBadge />
                   </span>
-                </button>
+                </span>
               ) : (
                 <NavLink
                   key={item.label}

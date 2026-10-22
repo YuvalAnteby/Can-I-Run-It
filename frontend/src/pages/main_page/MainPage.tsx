@@ -28,7 +28,9 @@ export default function MainPage(): ReactElement {
       )}
 
       {/* Carousels and content */}
-      <div className={isError ? 'opacity-50 pointer-events-none' : ''}>
+      <div
+        className={`max-w-6xl mx-auto px-4 ${isError ? 'opacity-50 pointer-events-none' : ''}`}
+      >
         {/* 2 — Trending games carousel */}
         <GamesCarousel
           id="trending-games"
