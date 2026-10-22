@@ -39,14 +39,14 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
   return (
     <div
       role="status"
-      className="mt-5 rounded-lg overflow-hidden border border-[#1e1e2a] block animate-in fade-in zoom-in-95 duration-300"
+      className="mt-5 rounded-lg overflow-hidden border border-line-subtle block animate-dropdown-fade motion-reduce:animate-none"
     >
       <div
         className={`p-3.5 flex items-center gap-2.5 border-b ${
           checkResult.state === 'cant'
             ? 'bg-red-500/10 border-red-500/20'
             : checkResult.state === 'insufficient'
-              ? 'bg-white/5 border-[#2a2a3a]'
+              ? 'bg-white/5 border-line'
               : 'bg-green-500/10 border-green-500/20'
         }`}
       >
@@ -99,7 +99,7 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
           </div>
         </div>
       </div>
-      <div className="p-3 bg-[#0d0d12]">
+      <div className="p-3 bg-page">
         {/* Performance Indicators */}
         <div className="flex justify-between items-center py-1 text-xs">
           <span className="text-gray-300 font-medium">GPU</span>
@@ -117,7 +117,7 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
         {notes.length > 0 && (
           <ul
             aria-label="Compatibility notes"
-            className="mt-3 space-y-1.5 border-t border-[#1e1e2a] pt-3 text-xs text-amber-300"
+            className="mt-3 space-y-1.5 border-t border-line-subtle pt-3 text-xs text-amber-300"
           >
             {notes.map((note) => (
               <li key={note}>{note}</li>
@@ -126,7 +126,7 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
         )}
 
         {checkResult.fps !== null && (
-          <div className="mt-3 pt-3 border-t border-[#1e1e2a]">
+          <div className="mt-3 pt-3 border-t border-line-subtle">
             <div className="text-[0.7rem] text-gray-400 uppercase tracking-wider mb-2 font-bold">
               FPS @ {resolutionLabel} · Target: {checkResult.targetFps} FPS
             </div>
@@ -160,7 +160,7 @@ export const CompatibilityResult: React.FC<CompatibilityResultProps> = ({
                   <div className="w-7 text-gray-400 text-right shrink-0 font-bold">
                     {tier.label}
                   </div>
-                  <div className="flex-1 h-1.5 bg-[#1e1e2a] rounded-full overflow-hidden">
+                  <div className="flex-1 h-1.5 bg-surface-raised rounded-full overflow-hidden">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{

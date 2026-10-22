@@ -17,15 +17,10 @@ function renderApp(): ReturnType<typeof render> {
 }
 
 describe('App — landing page integration', () => {
-  it('renders the hero search input and Check button', () => {
+  it('renders the hero search input', () => {
     renderApp();
     expect(
-      screen.getByRole('textbox', { name: /search for a game/i }),
-    ).toBeInTheDocument();
-    // Use anchored regex to avoid matching GameCard aria-labels
-    // ("Check if you can run ...").
-    expect(
-      screen.getByRole('button', { name: /^check$/i }),
+      screen.getByRole('combobox', { name: /search for a game/i }),
     ).toBeInTheDocument();
   });
 

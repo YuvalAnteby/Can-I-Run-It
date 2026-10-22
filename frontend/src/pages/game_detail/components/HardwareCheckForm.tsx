@@ -25,6 +25,7 @@ interface HardwareCheckFormProps {
 
   selectedRam: number;
   onRamChange: (ram: number) => void;
+  isRamValid: boolean;
 
   selectedStorage: string;
   onStorageChange: (storage: string) => void;
@@ -64,6 +65,7 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
 
   selectedRam,
   onRamChange,
+  isRamValid,
 
   selectedStorage,
   onStorageChange,
@@ -122,12 +124,25 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
           <input
             id="hw-ram"
             type="number"
-            className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium"
-            value={selectedRam}
-            onChange={(e) => onRamChange(parseInt(e.target.value, 10) || 0)}
+            className={`w-full bg-page border rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium ${
+              isRamValid ? 'border-line' : 'border-red-500'
+            }`}
+            value={selectedRam || ''}
+            onChange={(e) =>
+              onRamChange(
+                e.target.value === '' ? 0 : parseInt(e.target.value, 10),
+              )
+            }
             min="1"
             max="512"
+            aria-invalid={!isRamValid}
+            aria-describedby={isRamValid ? undefined : 'hw-ram-error'}
           />
+          {!isRamValid && (
+            <p id="hw-ram-error" className="mt-1 text-red-400 text-xs">
+              Enter 1–512 GB
+            </p>
+          )}
         </div>
 
         <div>
@@ -139,7 +154,7 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
           </label>
           <select
             id="hw-storage"
-            className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
+            className="w-full bg-page border border-line rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
             value={selectedStorage}
             onChange={(e) => onStorageChange(e.target.value)}
           >
@@ -157,7 +172,7 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
           </label>
           <select
             id="hw-preset"
-            className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
+            className="w-full bg-page border border-line rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
             value={selectedPreset}
             onChange={(e) => onPresetChange(e.target.value as SettingPreset)}
           >
@@ -177,7 +192,7 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
           </label>
           <select
             id="target-fps"
-            className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500 appearance-none cursor-pointer font-medium"
+            className="w-full bg-page border border-line rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500 appearance-none cursor-pointer font-medium"
             value={selectedTargetFps}
             onChange={(e) =>
               onTargetFpsChange(Number(e.target.value) as TargetFps)
@@ -200,7 +215,7 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
           </label>
           <select
             id="hw-resolution"
-            className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
+            className="w-full bg-page border border-line rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
             value={selectedResolutionKey}
             onChange={(e) => onResolutionKeyChange(e.target.value)}
           >
@@ -228,7 +243,7 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
               <input
                 id="hw-width"
                 type="number"
-                className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium"
+                className="w-full bg-page border border-line rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium"
                 value={customWidth}
                 onChange={(e) =>
                   onCustomWidthChange(parseInt(e.target.value, 10) || 0)
@@ -247,7 +262,7 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
               <input
                 id="hw-height"
                 type="number"
-                className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium"
+                className="w-full bg-page border border-line rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium"
                 value={customHeight}
                 onChange={(e) =>
                   onCustomHeightChange(parseInt(e.target.value, 10) || 0)

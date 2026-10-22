@@ -29,12 +29,12 @@ export const MainHeader = (): React.ReactElement => {
 
   const getDesktopLinkClass = ({ isActive }: { isActive: boolean }): string =>
     isActive
-      ? 'rounded-sm text-sm font-medium text-blue-500 bg-transparent border-0 p-0 cursor-pointer transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-4 focus-visible:ring-offset-[#161b22]'
-      : 'rounded-sm text-sm font-medium text-gray-300 bg-transparent border-0 p-0 cursor-pointer transition-colors duration-150 hover:text-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-4 focus-visible:ring-offset-[#161b22]';
+      ? 'rounded-sm text-sm font-medium text-blue-500 bg-transparent border-0 p-0 cursor-pointer transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-4 focus-visible:ring-offset-surface'
+      : 'rounded-sm text-sm font-medium text-gray-300 bg-transparent border-0 p-0 cursor-pointer transition-colors duration-150 hover:text-blue-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-4 focus-visible:ring-offset-surface';
 
   return (
     <>
-      <header className="sticky top-0 z-50 bg-[#161b22] border-b border-gray-800">
+      <header className="sticky top-0 z-50 bg-surface border-b border-gray-800">
         <div className="max-w-6xl h-16 mx-auto px-4 flex items-center justify-between">
           {/* Logo — navigates home */}
           <NavLink
@@ -110,7 +110,7 @@ export const MainHeader = (): React.ReactElement => {
           />
 
           <nav
-            className="fixed top-16 left-0 right-0 z-[49] bg-[#161b22] border-b border-gray-800 px-6 py-4 flex flex-col gap-1 animate-drawer-slide-down md:hidden"
+            className="fixed top-16 left-0 right-0 z-[49] bg-surface border-b border-gray-800 px-6 py-4 flex flex-col gap-1 animate-drawer-slide-down md:hidden"
             aria-label="Mobile navigation"
           >
             {NAV_ITEMS.map((item) =>

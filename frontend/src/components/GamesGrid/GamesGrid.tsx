@@ -20,8 +20,7 @@ export const GamesGrid = ({ title, games }: GamesGridProps): ReactElement => {
           <Gamepad2 className="text-blue-500 shrink-0" aria-hidden="true" />
           {title}
         </h2>
-        {/* TODO: link to a /games browse page once it exists */}
-        <span className="text-sm text-blue-500 cursor-default">View All</span>
+        {/* TODO: add a "View All" link once the /games browse page exists */}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">

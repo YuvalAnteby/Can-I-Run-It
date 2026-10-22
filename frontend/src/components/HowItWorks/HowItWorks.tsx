@@ -57,7 +57,7 @@ export const HowItWorks = (): ReactElement => {
         {STEPS.map((step) => (
           <li
             key={step.number}
-            className="relative bg-[#161b22] border border-white/[0.06] rounded-2xl pt-8 px-6 pb-6 text-center transition-colors duration-200 hover:border-blue-500/40"
+            className="relative bg-surface border border-white/[0.06] rounded-2xl pt-8 px-6 pb-6 text-center transition-colors duration-200 hover:border-blue-500/40"
           >
             <div
               className="w-14 h-14 rounded-full bg-blue-500/[0.12] flex items-center justify-center mx-auto mb-4 text-blue-500"

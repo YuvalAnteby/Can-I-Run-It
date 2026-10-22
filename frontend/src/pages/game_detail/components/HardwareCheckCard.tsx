@@ -27,9 +27,14 @@ export const HardwareCheckCard: React.FC<HardwareCheckCardProps> = ({
     form.selectedResolutionKey === 'custom'
       ? `${form.customWidth}x${form.customHeight}`
       : form.selectedResolutionKey;
+  const checkHint = form.isFormValid
+    ? null
+    : !form.selectedGpu || !form.selectedCpu
+      ? 'Pick a GPU and CPU to check.'
+      : 'Enter RAM between 1 and 512 GB.';
 
   return (
-    <div className="bg-[#13131a] border border-[#1e1e2a] rounded-xl p-6 sticky top-[72px]">
+    <div className="bg-surface border border-line-subtle rounded-xl p-6 sticky top-[72px]">
       <div className="text-base font-bold mb-1 text-white">
         Can Your PC Run It?
       </div>
@@ -52,6 +57,7 @@ export const HardwareCheckCard: React.FC<HardwareCheckCardProps> = ({
         selectedCpuName={form.selectedCpuObj?.name}
         selectedRam={form.selectedRam}
         onRamChange={form.setSelectedRam}
+        isRamValid={form.isRamValid}
         selectedStorage={form.selectedStorage}
         onStorageChange={form.setSelectedStorage}
         selectedPreset={form.selectedPreset}
@@ -69,18 +75,26 @@ export const HardwareCheckCard: React.FC<HardwareCheckCardProps> = ({
       />
 
       <button
+        type="button"
         onClick={form.handleCheck}
-        disabled={form.isChecking}
+        disabled={form.isChecking || !form.isFormValid}
+        aria-describedby={checkHint ? 'check-compatibility-hint' : undefined}
         className={`w-full py-3 text-white border-none rounded-md text-sm font-bold cursor-pointer transition-all mt-2 active:scale-[0.98] ${
           form.isChecking
             ? 'bg-blue-800 cursor-not-allowed opacity-70'
             : form.isFormValid
               ? 'bg-blue-500 hover:bg-blue-600 shadow-lg shadow-blue-500/20'
-              : 'bg-[#2a2a3a] text-gray-500 cursor-not-allowed'
+              : 'bg-line text-gray-500 cursor-not-allowed'
         }`}
       >
         {form.isChecking ? 'Checking...' : 'Check Compatibility'}
       </button>
+
+      {checkHint && (
+        <p id="check-compatibility-hint" className="mt-2 text-xs text-gray-400">
+          {checkHint}
+        </p>
+      )}
 
       {form.checkError && (
         <p

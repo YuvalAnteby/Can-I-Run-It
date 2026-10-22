@@ -46,7 +46,7 @@ const FOOTER_LINK_GROUPS: FooterLinkGroup[] = [
 
 export const MainFooter = (): React.ReactElement => {
   return (
-    <footer className="border-t border-gray-800 bg-[#0f1115] pt-6 pb-7">
+    <footer className="border-t border-gray-800 bg-page pt-6 pb-7">
       <div className="max-w-6xl mx-auto px-4 text-gray-600 text-sm">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-left">
           {FOOTER_LINK_GROUPS.map((group) => (
@@ -72,7 +72,7 @@ export const MainFooter = (): React.ReactElement => {
                       link.href.startsWith('http') ? (
                       <NavLink
                         to={link.href}
-                        className="inline-flex items-center rounded-sm no-underline text-gray-400 transition-colors duration-200 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0f1115]"
+                        className="inline-flex items-center rounded-sm no-underline text-gray-400 transition-colors duration-200 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 focus-visible:ring-offset-page"
                       >
                         {link.label}
                       </NavLink>

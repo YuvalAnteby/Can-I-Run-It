@@ -12,7 +12,7 @@ export const GameCard = ({ game, onClick }: GameCardProps): ReactElement => {
   const { name, coverImageUrl } = game;
 
   return (
-    <article className="group relative bg-[#161b22] rounded-xl overflow-hidden border border-gray-800 transition-[border-color,translate] duration-200 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-2px_rgba(0,0,0,0.05)] hover:border-blue-500/50 hover:-translate-y-1 has-[button:focus-visible]:border-blue-500 has-[button:focus-visible]:-translate-y-1 active:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:has-[button:focus-visible]:translate-y-0">
+    <article className="group relative bg-surface rounded-xl overflow-hidden border border-gray-800 transition-[border-color,translate] duration-200 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-2px_rgba(0,0,0,0.05)] hover:border-blue-500/50 hover:-translate-y-1 has-[button:focus-visible]:border-blue-500 has-[button:focus-visible]:-translate-y-1 active:translate-y-0 motion-reduce:transition-none motion-reduce:hover:translate-y-0 motion-reduce:has-[button:focus-visible]:translate-y-0">
       <div>
         {/* Cover image or gradient placeholder */}
         <div className="aspect-[3/4] bg-gray-800 relative overflow-hidden">

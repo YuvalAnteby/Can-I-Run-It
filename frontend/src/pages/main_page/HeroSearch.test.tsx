@@ -63,23 +63,14 @@ describe('HeroSearch', () => {
   it('renders the search input with an accessible label', () => {
     render(<HeroSearch />, { wrapper: makeWrapper() });
     expect(
-      screen.getByRole('textbox', { name: /search for a game/i }),
-    ).toBeInTheDocument();
-  });
-
-  it('renders the Check button', () => {
-    render(<HeroSearch />, { wrapper: makeWrapper() });
-    // Use exact name to avoid collision with GameCard aria-labels
-    // ("Check if you can run ...").
-    expect(
-      screen.getByRole('button', { name: /^check$/i }),
+      screen.getByRole('combobox', { name: /search for a game/i }),
     ).toBeInTheDocument();
   });
 
   it('does not show a dropdown before the user types', () => {
     render(<HeroSearch />, { wrapper: makeWrapper() });
     expect(
-      screen.queryByRole('list', { name: /search results/i }),
+      screen.queryByRole('listbox', { name: /search results/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -87,17 +78,17 @@ describe('HeroSearch', () => {
 
   it('opens the dropdown immediately on typing', () => {
     render(<HeroSearch />, { wrapper: makeWrapper() });
-    const input = screen.getByRole('textbox', { name: /search for a game/i });
+    const input = screen.getByRole('combobox', { name: /search for a game/i });
     userEvent.type(input, 'Cyberpunk');
     // dropdownOpen is set to true synchronously via the reducer on SET_QUERY
     expect(
-      screen.getByRole('list', { name: /search results/i }),
+      screen.getByRole('listbox', { name: /search results/i }),
     ).toBeInTheDocument();
   });
 
   it('shows matching results in the dropdown after the debounce settles', async () => {
     render(<HeroSearch />, { wrapper: makeWrapper() });
-    const input = screen.getByRole('textbox', { name: /search for a game/i });
+    const input = screen.getByRole('combobox', { name: /search for a game/i });
     userEvent.type(input, 'Cyberpunk');
 
     // findByText polls for up to 1 000 ms — enough to cover the 300 ms debounce
@@ -125,7 +116,7 @@ describe('HeroSearch', () => {
     );
 
     render(<HeroSearch />, { wrapper: makeWrapper() });
-    const input = screen.getByRole('textbox', { name: /search for a game/i });
+    const input = screen.getByRole('combobox', { name: /search for a game/i });
     userEvent.type(input, 'Alpha');
     expect(await screen.findByText('Alpha Game')).toBeInTheDocument();
 
@@ -133,14 +124,14 @@ describe('HeroSearch', () => {
     userEvent.type(input, 'Beta');
 
     expect(
-      screen.queryByRole('button', { name: /alpha game/i }),
+      screen.queryByRole('option', { name: /alpha game/i }),
     ).not.toBeInTheDocument();
     expect(screen.getAllByRole('presentation')).toHaveLength(3);
   });
 
   it('shows loading instead of a stale empty state before an unmatched query settles', () => {
     render(<HeroSearch />, { wrapper: makeWrapper() });
-    const input = screen.getByRole('textbox', { name: /search for a game/i });
+    const input = screen.getByRole('combobox', { name: /search for a game/i });
     userEvent.type(input, 'xyzzy_not_a_real_game');
 
     expect(screen.getAllByRole('presentation')).toHaveLength(3);
@@ -150,7 +141,7 @@ describe('HeroSearch', () => {
 
   it('fills the input and closes the dropdown when a result is selected', async () => {
     render(<HeroSearch />, { wrapper: makeWrapper() });
-    const input = screen.getByRole('textbox', { name: /search for a game/i });
+    const input = screen.getByRole('combobox', { name: /search for a game/i });
     userEvent.type(input, 'Cyberpunk');
 
     // Wait for the debounce + React Query to surface "Cyberpunk 2077"
@@ -159,27 +150,27 @@ describe('HeroSearch', () => {
     userEvent.click(screen.getByText('Cyberpunk 2077'));
 
     expect(
-      screen.queryByRole('list', { name: /search results/i }),
+      screen.queryByRole('listbox', { name: /search results/i }),
     ).not.toBeInTheDocument();
     expect(input).toHaveValue('Cyberpunk 2077');
   });
 
-  // ── Check button ─────────────────────────────────────────────────────────
+  // ── Enter with nothing to pick ───────────────────────────────────────────
 
-  it('closes the dropdown when the Check button is clicked', () => {
+  it('closes the dropdown when Enter is pressed before results load', () => {
     render(<HeroSearch />, { wrapper: makeWrapper() });
-    const input = screen.getByRole('textbox', { name: /search for a game/i });
+    const input = screen.getByRole('combobox', { name: /search for a game/i });
     userEvent.type(input, 'Cyberpunk');
 
     // Dropdown is open synchronously after typing
     expect(
-      screen.getByRole('list', { name: /search results/i }),
+      screen.getByRole('listbox', { name: /search results/i }),
     ).toBeInTheDocument();
 
-    userEvent.click(screen.getByRole('button', { name: /^check$/i }));
+    userEvent.type(input, '{enter}');
 
     expect(
-      screen.queryByRole('list', { name: /search results/i }),
+      screen.queryByRole('listbox', { name: /search results/i }),
     ).not.toBeInTheDocument();
   });
 
@@ -210,7 +201,7 @@ describe('HeroSearch', () => {
 
     render(<HeroSearch />, { wrapper: makeWrapper() });
     userEvent.type(
-      screen.getByRole('textbox', { name: /search for a game/i }),
+      screen.getByRole('combobox', { name: /search for a game/i }),
       'Same Title',
     );
 
@@ -228,7 +219,7 @@ describe('HeroSearch', () => {
     );
   });
 
-  it('uses a plain list for rows with separate selection and attribution actions', async () => {
+  it('exposes results as options in a listbox, with attribution links outside the option', async () => {
     server.use(
       http.get(DISCOVER_URL, () =>
         HttpResponse.json({
@@ -248,15 +239,19 @@ describe('HeroSearch', () => {
 
     render(<HeroSearch />, { wrapper: makeWrapper() });
     userEvent.type(
-      screen.getByRole('textbox', { name: /search for a game/i }),
+      screen.getByRole('combobox', { name: /search for a game/i }),
       'Accessible',
     );
 
+    const option = await screen.findByRole('option', {
+      name: /accessible rawg game/i,
+    });
     expect(
-      await screen.findByRole('list', { name: /search results/i }),
-    ).toBeInTheDocument();
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
-    expect(screen.queryByRole('option')).not.toBeInTheDocument();
+      screen.getByRole('listbox', { name: /search results/i }),
+    ).toContainElement(option);
+    expect(option).not.toContainElement(
+      screen.getByRole('link', { name: /RAWG/i }),
+    );
   });
 
   it('renders a RAWG attribution for an imported local search result', async () => {
@@ -286,7 +281,7 @@ describe('HeroSearch', () => {
 
     render(<HeroSearch />, { wrapper: makeWrapper() });
     userEvent.type(
-      screen.getByRole('textbox', { name: /search for a game/i }),
+      screen.getByRole('combobox', { name: /search for a game/i }),
       'Imported Local',
     );
 
@@ -317,7 +312,7 @@ describe('HeroSearch', () => {
 
     render(<HeroSearch />, { wrapper: makeWrapper() });
     userEvent.type(
-      screen.getByRole('textbox', { name: /search for a game/i }),
+      screen.getByRole('combobox', { name: /search for a game/i }),
       'Local Only',
     );
 
@@ -346,15 +341,50 @@ describe('HeroSearch', () => {
 
     renderWithLocation();
     userEvent.type(
-      screen.getByRole('textbox', { name: /search for a game/i }),
+      screen.getByRole('combobox', { name: /search for a game/i }),
       'Local Navigation',
     );
     userEvent.click(
-      await screen.findByRole('button', { name: /local navigation game/i }),
+      await screen.findByRole('option', { name: /local navigation game/i }),
     );
 
     expect(screen.getByTestId('location')).toHaveTextContent(
       '/games/local-game',
+    );
+  });
+
+  it('moves the active option with ArrowDown and navigates to it on Enter', async () => {
+    server.use(
+      http.get(DISCOVER_URL, () =>
+        HttpResponse.json({
+          rawgAvailable: true,
+          data: [
+            {
+              source: 'local',
+              id: 7,
+              slug: 'keyboard-game',
+              name: 'Keyboard Game',
+              coverImageUrl: null,
+            },
+          ],
+        }),
+      ),
+    );
+
+    renderWithLocation();
+    const input = screen.getByRole('combobox', { name: /search for a game/i });
+    userEvent.type(input, 'Keyboard');
+    const option = await screen.findByRole('option', {
+      name: /keyboard game/i,
+    });
+
+    userEvent.type(input, '{arrowdown}');
+    expect(input).toHaveAttribute('aria-activedescendant', option.id);
+    expect(option).toHaveAttribute('aria-selected', 'true');
+
+    userEvent.type(input, '{enter}');
+    expect(screen.getByTestId('location')).toHaveTextContent(
+      '/games/keyboard-game',
     );
   });
 
@@ -386,10 +416,10 @@ describe('HeroSearch', () => {
 
     renderWithLocation();
     userEvent.type(
-      screen.getByRole('textbox', { name: /search for a game/i }),
+      screen.getByRole('combobox', { name: /search for a game/i }),
       'Selectable',
     );
-    const selectButton = await screen.findByRole('button', {
+    const selectButton = await screen.findByRole('option', {
       name: /select.*selectable rawg game/i,
     });
 
@@ -442,11 +472,11 @@ describe('HeroSearch', () => {
 
     renderWithLocation();
     userEvent.type(
-      screen.getByRole('textbox', { name: /search for a game/i }),
+      screen.getByRole('combobox', { name: /search for a game/i }),
       'Broken',
     );
     userEvent.click(
-      await screen.findByRole('button', { name: /select.*broken rawg game/i }),
+      await screen.findByRole('option', { name: /select.*broken rawg game/i }),
     );
 
     expect(await screen.findByRole('alert')).toHaveTextContent(/try again/i);

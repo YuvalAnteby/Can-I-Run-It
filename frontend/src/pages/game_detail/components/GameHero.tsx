@@ -25,12 +25,12 @@ export default function GameHero({ game }: GameHeroProps): ReactElement {
         className="absolute inset-0"
         style={{
           background:
-            'linear-gradient(to right, rgba(15,15,19,0.95) 35%, rgba(15,15,19,0.2) 100%), linear-gradient(to top, #0f0f13 0%, transparent 40%)',
+            'linear-gradient(to right, color-mix(in srgb, var(--color-page) 95%, transparent) 35%, color-mix(in srgb, var(--color-page) 20%, transparent) 100%), linear-gradient(to top, var(--color-page) 0%, transparent 40%)',
         }}
       />
       <div className="relative min-h-[320px] md:min-h-[420px] flex items-end p-4 pb-8 md:p-8 md:pb-10 gap-4 md:gap-8 max-w-[1100px] mx-auto">
         <img
-          className="hidden sm:block w-[130px] h-[175px] rounded-lg object-cover border-2 border-[#2a2a3a] shrink-0"
+          className="hidden sm:block w-[130px] h-[175px] rounded-lg object-cover border-2 border-line shrink-0"
           src={coverImageUrl}
           alt={game.name}
         />
@@ -42,7 +42,7 @@ export default function GameHero({ game }: GameHeroProps): ReactElement {
               </span>
             )}
             {game.genre && (
-              <span className="text-[0.7rem] px-2.5 py-1 rounded-full bg-[#1e1e2a] text-gray-300 border border-[#2a2a3a] uppercase tracking-wider font-medium">
+              <span className="text-[0.7rem] px-2.5 py-1 rounded-full bg-surface-raised text-gray-300 border border-line uppercase tracking-wider font-medium">
                 {game.genre}
               </span>
             )}

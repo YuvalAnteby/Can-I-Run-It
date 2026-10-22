@@ -35,15 +35,7 @@ export const GamesCarousel = ({
           <Gamepad2 className="text-blue-500 shrink-0" aria-hidden="true" />
           {title}
         </h2>
-        {/* TODO: link to a /games browse page once it exists */}
-        {!isLoading && games.length > 0 && (
-          <span
-            className="text-sm text-blue-500 cursor-default"
-            aria-hidden="true"
-          >
-            View All
-          </span>
-        )}
+        {/* TODO: add a "View All" link once the /games browse page exists */}
       </div>
 
       <div

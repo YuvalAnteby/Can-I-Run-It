@@ -64,11 +64,15 @@ export function useGameDetailForm(
     resetCheck();
   }, [activeTier, resetCheck]);
 
+  const isRamValid =
+    Number.isInteger(selectedRam) && selectedRam >= 1 && selectedRam <= 512;
+  const isFormValid = !!selectedGpu && !!selectedCpu && isRamValid;
+
   const handleCheck = () => {
     setHasAttemptedSubmit(true);
 
     const isPending = game?.status === 'pending_approval';
-    if (!selectedGpu || !selectedCpu || (!slug && !isPending)) {
+    if (!isFormValid || (!slug && !isPending)) {
       return;
     }
 
@@ -152,8 +156,6 @@ export function useGameDetailForm(
     resetCheck();
   };
 
-  const isFormValid = !!selectedGpu && !!selectedCpu;
-
   return {
     // Search
     gpuQuery,
@@ -190,6 +192,7 @@ export function useGameDetailForm(
     isChecking,
     checkResult,
     checkError: checkError?.message,
+    isRamValid,
     isFormValid,
 
     // Handlers

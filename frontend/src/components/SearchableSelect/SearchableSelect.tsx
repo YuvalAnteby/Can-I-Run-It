@@ -20,6 +20,9 @@ interface SearchableSelectProps {
   error?: boolean;
 }
 
+const optionDomId = (listId: string, index: number) =>
+  `${listId}-option-${index}`;
+
 export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   label,
   value,
@@ -34,8 +37,21 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(-1);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const triggerId = useId();
+  const listId = useId();
+
+  // Reset the highlighted option when the result list changes. Keyed by ids so a
+  // re-created array with the same items keeps the highlight. Done during render
+  // (React's "adjust state on prop change" pattern), not in an effect.
+  const optionKey = options.map((o) => o.id).join('|');
+  const [prevOptionKey, setPrevOptionKey] = useState(optionKey);
+  if (optionKey !== prevOptionKey) {
+    setPrevOptionKey(optionKey);
+    setActiveIndex(options.length > 0 ? 0 : -1);
+  }
 
   // Determine what to display in the main field when closed
   const selectedOption = options.find((o) => o.id.toString() === value);
@@ -57,6 +73,14 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Keep the highlighted option visible while arrowing through a long list
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    document
+      .getElementById(optionDomId(listId, activeIndex))
+      ?.scrollIntoView?.({ block: 'nearest' });
+  }, [activeIndex, listId]);
+
   const handleToggle = () => {
     if (disabled) return;
     const nextState = !isOpen;
@@ -65,6 +89,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
     // Clear search and reset results when opening or closing
     if (nextState) {
       setSearchQuery('');
+      setActiveIndex(options.length > 0 ? 0 : -1);
       onSearch('');
     }
   };
@@ -78,6 +103,25 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   const handleOptionClick = (id: string | number) => {
     onSelect(id.toString());
     setIsOpen(false);
+    triggerRef.current?.focus();
+  };
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (options.length === 0) return;
+      e.preventDefault();
+      const step = e.key === 'ArrowDown' ? 1 : -1;
+      setActiveIndex((activeIndex + step + options.length) % options.length);
+    } else if (e.key === 'Enter') {
+      const option = options[activeIndex];
+      if (!option) return;
+      e.preventDefault();
+      handleOptionClick(option.id);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setIsOpen(false);
+      triggerRef.current?.focus();
+    }
   };
 
   return (
@@ -97,7 +141,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
           {label}
         </label>
         {error && (
-          <span className="text-red-500 text-[0.65rem] font-bold uppercase tracking-tight animate-pulse">
+          <span className="text-red-500 text-[0.65rem] font-bold uppercase tracking-tight animate-pulse motion-reduce:animate-none">
             Required
           </span>
         )}
@@ -105,18 +149,19 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
       {/* Main Trigger Button */}
       <button
+        ref={triggerRef}
         type="button"
         id={triggerId}
         disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-invalid={error}
-        className={`relative block w-full text-left p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 bg-[#0f0f13] border rounded-md text-[#e8e8e8] transition-all cursor-pointer ${
+        className={`relative block w-full text-left p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 bg-page border rounded-md text-ink transition-all cursor-pointer ${
           isOpen
             ? 'border-blue-500 ring-1 ring-blue-500/20'
             : error
               ? 'border-red-500/50 ring-1 ring-red-500/10'
-              : 'border-[#2a2a3a] hover:border-[#3a3a4a]'
+              : 'border-line hover:border-line-strong'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
         onClick={handleToggle}
       >
@@ -136,17 +181,24 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute top-full left-0 right-0 z-[110] mt-1 bg-[#13131a] border border-[#2a2a3a] rounded-md shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+        <div className="absolute top-full left-0 right-0 z-[110] mt-1 bg-surface border border-line rounded-md shadow-2xl overflow-hidden animate-dropdown-fade motion-reduce:animate-none">
           {/* Search Input Field */}
-          <div className="p-2 border-b border-[#2a2a3a] flex items-center gap-2 bg-[#1a1a24]">
+          <div className="p-2 border-b border-line flex items-center gap-2 bg-surface-raised">
             <Search size={14} className="text-gray-400" aria-hidden="true" />
             <input
               autoFocus
+              role="combobox"
+              aria-expanded
+              aria-controls={listId}
+              aria-activedescendant={
+                activeIndex >= 0 ? optionDomId(listId, activeIndex) : undefined
+              }
               aria-label={`Search ${label}`}
               className="flex-1 bg-transparent border-none text-sm text-white outline-none placeholder:text-gray-600"
               placeholder="Search model..."
               value={searchQuery}
               onChange={handleInputChange}
+              onKeyDown={handleSearchKeyDown}
               onClick={(e) => e.stopPropagation()}
             />
             {isLoading ? (
@@ -175,24 +227,34 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
           {/* Results List */}
           <ul
+            id={listId}
+            role="listbox"
             aria-label={`${label} results`}
-            className="max-h-[240px] overflow-y-auto py-1 custom-scrollbar bg-[#13131a]"
+            className="max-h-[240px] overflow-y-auto py-1 custom-scrollbar bg-surface"
           >
             {!isLoading && options.length === 0 && (
-              <li className="px-3 py-6 text-center text-xs text-gray-400 font-medium">
+              <li
+                role="presentation"
+                className="px-3 py-6 text-center text-xs text-gray-400 font-medium"
+              >
                 No matching hardware found
               </li>
             )}
 
-            {options.map((option) => (
-              <li key={option.id}>
-                <button
-                  type="button"
-                  aria-pressed={value === option.id.toString()}
-                  className={`w-full text-left bg-transparent border-0 px-3 py-2 text-sm cursor-pointer transition-colors flex flex-col focus-visible:outline-none focus-visible:bg-[#1e1e2a] ${
-                    value === option.id.toString()
-                      ? 'bg-blue-500/15 text-blue-400'
-                      : 'text-gray-300 hover:bg-[#1e1e2a] hover:text-white'
+            {options.map((option, index) => {
+              const isSelected = value === option.id.toString();
+              return (
+                <li
+                  key={option.id}
+                  id={optionDomId(listId, index)}
+                  role="option"
+                  aria-selected={isSelected}
+                  className={`w-full text-left px-3 py-2 text-sm cursor-pointer transition-colors flex flex-col ${
+                    index === activeIndex
+                      ? 'bg-surface-raised text-white'
+                      : isSelected
+                        ? 'bg-blue-500/15 text-blue-400'
+                        : 'text-gray-300 hover:bg-surface-raised hover:text-white'
                   }`}
                   onClick={(e) => {
                     e.stopPropagation();
@@ -201,7 +263,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                 >
                   <div className="flex w-full items-center justify-between">
                     <span className="font-semibold">{option.name}</span>
-                    {value === option.id.toString() && (
+                    {isSelected && (
                       <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
                     )}
                   </div>
@@ -210,9 +272,9 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
                       {option.manufacturer}
                     </span>
                   )}
-                </button>
-              </li>
-            ))}
+                </li>
+              );
+            })}
           </ul>
         </div>
       )}

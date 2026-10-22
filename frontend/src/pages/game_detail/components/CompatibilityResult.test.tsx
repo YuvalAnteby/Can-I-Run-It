@@ -124,6 +124,7 @@ const formState: ReturnType<typeof gameDetailForm.useGameDetailForm> = {
   isChecking: false,
   checkResult: undefined,
   checkError: undefined,
+  isRamValid: true,
   isFormValid: true,
   handleCheck: vi.fn(),
 };
@@ -285,6 +286,21 @@ describe('HardwareCheckCard errors', () => {
     );
 
     expect(within(screen.getByRole('alert')).getByText(message)).toBeVisible();
+  });
+
+  it('disables Check Compatibility and explains what is missing', () => {
+    vi.spyOn(gameDetailForm, 'useGameDetailForm').mockReturnValue({
+      ...formState,
+      isFormValid: false,
+      selectedGpu: '',
+    });
+    render(
+      <HardwareCheckCard game={{} as ClientGameDto} slug="cyberpunk-2077" />,
+    );
+
+    const button = screen.getByRole('button', { name: 'Check Compatibility' });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription('Pick a GPU and CPU to check.');
   });
 });
 

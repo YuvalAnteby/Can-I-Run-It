@@ -16,6 +16,7 @@ export default function MainPage(): ReactElement {
 
   return (
     <div>
+      <title>Can I Run It? - PC game compatibility checker</title>
       {/* 1 — Hero + game search */}
       <HeroSearch />
 
