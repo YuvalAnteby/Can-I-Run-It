@@ -43,7 +43,7 @@
     "format": "prettier --write \"src/**/*.ts\"",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lint": "eslint . --ext ts,tsx"
+    "lint": "eslint . --ext ts,tsx --cache --cache-location node_modules/.cache/eslint/"
   },
   "browserslist": {
     "production": [
