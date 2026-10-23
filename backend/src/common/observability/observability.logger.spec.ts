@@ -68,7 +68,7 @@ describe('ObservabilityLogger', () => {
         const developmentStderr = jest
             .spyOn(process.stderr, 'write')
             .mockImplementation(() => true);
-        let developmentOutput = '';
+        let developmentOutput: string;
         try {
             development.error(error, stack);
             developmentOutput = developmentStdout.mock.calls

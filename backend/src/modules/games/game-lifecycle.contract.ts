@@ -1,11 +1,7 @@
 export type GameStatus = 'pending_approval' | 'published' | 'rejected';
 
 export type MetadataSource =
-    | 'rawg'
-    | 'pcgamingwiki'
-    | 'admin'
-    | 'seed'
-    | 'default';
+    'rawg' | 'pcgamingwiki' | 'admin' | 'seed' | 'default';
 
 export interface FieldProvenance {
     source: MetadataSource;

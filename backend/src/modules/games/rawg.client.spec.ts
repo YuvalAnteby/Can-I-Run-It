@@ -62,10 +62,12 @@ const createClient = (
     config: ConfigService,
     abuseProtection: AbuseProtectionDouble,
 ): RawgClient =>
-    new (RawgClient as unknown as new (
-        config: ConfigService,
-        abuseProtection: AbuseProtectionDouble,
-    ) => RawgClient)(config, abuseProtection);
+    new (
+        RawgClient as unknown as new (
+            config: ConfigService,
+            abuseProtection: AbuseProtectionDouble,
+        ) => RawgClient
+    )(config, abuseProtection);
 
 const permissiveProtection = () => ({
     tryAcquireProvider: jest.fn().mockReturnValue(jest.fn()),
@@ -314,10 +316,7 @@ describe('RawgClient', () => {
             RAWG_MAX_CONCURRENT: 1,
         });
         const protection = new AbuseProtectionService(providerConfig);
-        const service = createClient(
-            providerConfig,
-            protection as unknown as AbuseProtectionDouble,
-        );
+        const service = createClient(providerConfig, protection);
 
         const first = service.search('first');
         await Promise.resolve();
@@ -387,10 +386,7 @@ describe('RawgClient', () => {
             });
             const protection = new AbuseProtectionService(providerConfig);
             const recordEvent = jest.spyOn(protection, 'recordEvent');
-            const service = createClient(
-                providerConfig,
-                protection as unknown as AbuseProtectionDouble,
-            );
+            const service = createClient(providerConfig, protection);
 
             const first = service.search('first');
             let firstResult: unknown = 'pending';
