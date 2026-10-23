@@ -7,8 +7,8 @@ import {
     ApiTags,
     getSchemaPath,
 } from '@nestjs/swagger';
-import { PaginatedResult } from 'src/common/dto/paginated-result.dto';
 
+import { PaginatedResult } from '../../common/dto/paginated-result.dto';
 import { CpuService } from './cpu.service';
 import { ClientCpuDto } from './dto/client-cpu-dto';
 import { CpuFilterDto } from './dto/filter-cpu-dto';
