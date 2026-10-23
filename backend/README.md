@@ -156,7 +156,7 @@ setup documented in the [root README](../README.md).
 
 With the default development ports:
 
-- Swagger: <http://localhost:4000/api/docs>
+- Swagger: <http://localhost:4000/api/docs> (dev only; disabled when `NODE_ENV=production`)
 - Database health: <http://localhost:4000/api/health/postgres>
 - Compatibility check: <http://localhost:4000/api/v1/check>
 

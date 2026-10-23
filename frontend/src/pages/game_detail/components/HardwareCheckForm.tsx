@@ -25,6 +25,7 @@ interface HardwareCheckFormProps {
 
   selectedRam: number;
   onRamChange: (ram: number) => void;
+  isRamValid: boolean;
 
   selectedStorage: string;
   onStorageChange: (storage: string) => void;
@@ -64,6 +65,7 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
 
   selectedRam,
   onRamChange,
+  isRamValid,
 
   selectedStorage,
   onStorageChange,
@@ -113,25 +115,46 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
 
       <div className="grid grid-cols-2 gap-2 mb-4">
         <div>
-          <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold">
+          <label
+            htmlFor="hw-ram"
+            className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold"
+          >
             RAM (GB)
           </label>
           <input
+            id="hw-ram"
             type="number"
-            className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium"
-            value={selectedRam}
-            onChange={(e) => onRamChange(parseInt(e.target.value, 10) || 0)}
+            className={`w-full bg-page border rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium ${
+              isRamValid ? 'border-line' : 'border-red-500'
+            }`}
+            value={selectedRam || ''}
+            onChange={(e) =>
+              onRamChange(
+                e.target.value === '' ? 0 : parseInt(e.target.value, 10),
+              )
+            }
             min="1"
             max="512"
+            aria-invalid={!isRamValid}
+            aria-describedby={isRamValid ? undefined : 'hw-ram-error'}
           />
+          {!isRamValid && (
+            <p id="hw-ram-error" className="mt-1 text-red-400 text-xs">
+              Enter 1–512 GB
+            </p>
+          )}
         </div>
 
         <div>
-          <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold">
+          <label
+            htmlFor="hw-storage"
+            className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold"
+          >
             Storage
           </label>
           <select
-            className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
+            id="hw-storage"
+            className="w-full bg-page border border-line rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
             value={selectedStorage}
             onChange={(e) => onStorageChange(e.target.value)}
           >
@@ -141,11 +164,15 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
         </div>
 
         <div className="col-span-2">
-          <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold">
+          <label
+            htmlFor="hw-preset"
+            className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold"
+          >
             Settings Preset
           </label>
           <select
-            className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
+            id="hw-preset"
+            className="w-full bg-page border border-line rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
             value={selectedPreset}
             onChange={(e) => onPresetChange(e.target.value as SettingPreset)}
           >
@@ -165,7 +192,7 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
           </label>
           <select
             id="target-fps"
-            className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500 appearance-none cursor-pointer font-medium"
+            className="w-full bg-page border border-line rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 focus-visible:ring-2 focus-visible:ring-blue-500 appearance-none cursor-pointer font-medium"
             value={selectedTargetFps}
             onChange={(e) =>
               onTargetFpsChange(Number(e.target.value) as TargetFps)
@@ -180,11 +207,15 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
         </div>
 
         <div className="col-span-2">
-          <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold">
+          <label
+            htmlFor="hw-resolution"
+            className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold"
+          >
             Target Resolution
           </label>
           <select
-            className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
+            id="hw-resolution"
+            className="w-full bg-page border border-line rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 appearance-none cursor-pointer font-medium"
             value={selectedResolutionKey}
             onChange={(e) => onResolutionKeyChange(e.target.value)}
           >
@@ -203,12 +234,16 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
         {selectedResolutionKey === 'custom' && (
           <div className="col-span-2 grid grid-cols-2 gap-2">
             <div>
-              <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold">
+              <label
+                htmlFor="hw-width"
+                className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold"
+              >
                 Width
               </label>
               <input
+                id="hw-width"
                 type="number"
-                className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium"
+                className="w-full bg-page border border-line rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium"
                 value={customWidth}
                 onChange={(e) =>
                   onCustomWidthChange(parseInt(e.target.value, 10) || 0)
@@ -218,12 +253,16 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
               />
             </div>
             <div>
-              <label className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold">
+              <label
+                htmlFor="hw-height"
+                className="block text-[0.75rem] text-gray-400 mb-1.5 uppercase tracking-wider font-semibold"
+              >
                 Height
               </label>
               <input
+                id="hw-height"
                 type="number"
-                className="w-full bg-[#0f0f13] border border-[#2a2a3a] rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium"
+                className="w-full bg-page border border-line rounded-md text-white p-2.5 text-sm focus:outline-none focus:border-blue-500 font-medium"
                 value={customHeight}
                 onChange={(e) =>
                   onCustomHeightChange(parseInt(e.target.value, 10) || 0)

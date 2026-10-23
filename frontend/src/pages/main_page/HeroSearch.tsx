@@ -1,6 +1,6 @@
 import { Search } from 'lucide-react';
 import { useMutation } from '@tanstack/react-query';
-import { useEffect, useReducer, useRef } from 'react';
+import { useEffect, useId, useReducer, useRef } from 'react';
 import type { ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -17,12 +17,15 @@ import { useGameSearch } from './useGameSearch';
 interface SearchState {
   query: string;
   dropdownOpen: boolean;
+  /** Keyboard-highlighted result, -1 when none */
+  activeIndex: number;
 }
 
 type SearchAction =
   | { type: 'SET_QUERY'; payload: string }
   | { type: 'CLOSE_DROPDOWN' }
-  | { type: 'SELECT_GAME'; payload: string };
+  | { type: 'SELECT_GAME'; payload: string }
+  | { type: 'SET_ACTIVE'; payload: number };
 
 function searchReducer(state: SearchState, action: SearchAction): SearchState {
   switch (action.type) {
@@ -30,11 +33,14 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
       return {
         query: action.payload,
         dropdownOpen: action.payload.trim().length > 0,
+        activeIndex: -1,
       };
     case 'CLOSE_DROPDOWN':
-      return { ...state, dropdownOpen: false };
+      return { ...state, dropdownOpen: false, activeIndex: -1 };
     case 'SELECT_GAME':
-      return { query: action.payload, dropdownOpen: false };
+      return { query: action.payload, dropdownOpen: false, activeIndex: -1 };
+    case 'SET_ACTIVE':
+      return { ...state, activeIndex: action.payload };
     default:
       return state;
   }
@@ -42,11 +48,17 @@ function searchReducer(state: SearchState, action: SearchAction): SearchState {
 
 export const HeroSearch = (): ReactElement => {
   const navigate = useNavigate();
-  const [{ query, dropdownOpen }, dispatch] = useReducer(searchReducer, {
-    query: '',
-    dropdownOpen: false,
-  });
+  const [{ query, dropdownOpen, activeIndex }, dispatch] = useReducer(
+    searchReducer,
+    { query: '', dropdownOpen: false, activeIndex: -1 },
+  );
+  const listboxId = useId();
+  const optionId = (index: number): string => `${listboxId}-option-${index}`;
   const { results, rawgAvailable, isLoading, isError } = useGameSearch(query);
+  const navigableResults = !isLoading && !isError ? results : [];
+  // Results can change under a stale index after the debounce settles
+  const active =
+    dropdownOpen && activeIndex < navigableResults.length ? activeIndex : -1;
   const selection = useMutation<RawgSelectionResponse, Error, number>({
     mutationFn: async (rawgId: number): Promise<RawgSelectionResponse> => {
       try {
@@ -94,9 +106,35 @@ export const HeroSearch = (): ReactElement => {
     });
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>): void => {
+    if (e.key === 'Escape') {
+      dispatch({ type: 'CLOSE_DROPDOWN' });
+      return;
+    }
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    // ArrowDown opens a closed list (non-empty query only); ArrowUp only moves within an open one
+    if (!dropdownOpen && (e.key === 'ArrowUp' || query.trim().length === 0))
+      return;
+    e.preventDefault();
+    const count = navigableResults.length;
+    if (count === 0) return;
+    if (!dropdownOpen) dispatch({ type: 'SET_QUERY', payload: query });
+    const step = e.key === 'ArrowDown' ? 1 : -1;
+    const next =
+      active === -1
+        ? step === 1
+          ? 0
+          : count - 1
+        : (active + step + count) % count;
+    dispatch({ type: 'SET_ACTIVE', payload: next });
+    document
+      .getElementById(optionId(next))
+      ?.scrollIntoView?.({ block: 'nearest' });
+  };
+
   return (
-    <div className="relative bg-[#0f1115] pt-[80px] pb-[100px] px-5 text-center">
-      <div className="absolute inset-0 [background:radial-gradient(circle_at_top,#1c232b_0%,#0f1115_70%)] z-0"></div>
+    <div className="relative bg-page pt-[80px] pb-[100px] px-5 text-center">
+      <div className="absolute inset-0 [background:radial-gradient(circle_at_top,var(--color-surface-raised)_0%,var(--color-page)_70%)] z-0"></div>
 
       <div className="relative z-10 max-w-[900px] mx-auto">
         {/* Main Heading */}
@@ -115,14 +153,25 @@ export const HeroSearch = (): ReactElement => {
 
         {/* Search Bar */}
         <div className="relative max-w-[600px] mx-auto" ref={wrapperRef}>
-          <div className="relative group/searchbar">
+          <form
+            className="relative group/searchbar"
+            role="search"
+            onSubmit={(e) => {
+              e.preventDefault();
+              // Enter / Check picks the highlighted (or top) result; nothing to pick just closes the list
+              const picked = navigableResults[Math.max(active, 0)];
+              if (picked) handleSelect(picked);
+              else dispatch({ type: 'CLOSE_DROPDOWN' });
+            }}
+          >
             <Search
+              aria-hidden="true"
               className="absolute left-5 top-1/2 -translate-y-1/2 text-white/60 pointer-events-none transition-colors duration-200 group-focus-within/searchbar:text-blue-500"
               size={20}
             />
             <input
               type="text"
-              className="w-full py-4 pl-[45px] pr-4 md:py-5 md:pl-[50px] md:pr-[120px] bg-[#161b22] border-2 border-[#30363d] rounded-xl text-white/[0.87] text-base md:text-[1.1rem] outline-none transition-all duration-200 focus:border-blue-500 focus:shadow-[0_0_0_4px_rgba(59,130,246,0.15)] box-border"
+              className="w-full py-4 pl-[45px] pr-4 md:py-5 md:pl-[50px] bg-surface border-2 border-line rounded-xl text-white/[0.87] text-base md:text-[1.1rem] outline-none transition-all duration-200 focus:border-blue-500 focus:shadow-[0_0_0_4px_rgba(59,130,246,0.15)] box-border"
               placeholder="Search game title (e.g., Cyberpunk 2077)..."
               value={query}
               onChange={(e) =>
@@ -133,25 +182,23 @@ export const HeroSearch = (): ReactElement => {
                   dispatch({ type: 'SET_QUERY', payload: query });
                 }
               }}
+              onKeyDown={handleKeyDown}
+              role="combobox"
               aria-label="Search for a game"
               aria-expanded={dropdownOpen}
+              aria-controls={dropdownOpen ? listboxId : undefined}
+              aria-activedescendant={active >= 0 ? optionId(active) : undefined}
               aria-autocomplete="list"
               autoComplete="off"
             />
-            <button
-              className="absolute right-[10px] top-[10px] bottom-[10px] px-6 bg-blue-600 text-white border-0 rounded-lg font-bold cursor-pointer transition-colors duration-200 hover:bg-blue-500 max-md:hidden"
-              type="button"
-              // TODO: Navigate to the check page once the Game detail page is created
-              onClick={() => dispatch({ type: 'CLOSE_DROPDOWN' })}
-            >
-              Check
-            </button>
-          </div>
+          </form>
 
           {/* Search Dropdown */}
           {dropdownOpen && (
             <ul
-              className="absolute top-[calc(100%+6px)] left-0 right-0 z-[100] m-0 max-h-[60vh] overflow-y-auto py-1.5 list-none bg-[#1c2330] border border-[#30363d] rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.5)] animate-dropdown-fade"
+              id={listboxId}
+              role="listbox"
+              className="absolute top-[calc(100%+6px)] left-0 right-0 z-[100] m-0 max-h-[60vh] overflow-y-auto py-1.5 list-none bg-surface-raised border border-line rounded-[10px] shadow-[0_8px_32px_rgba(0,0,0,0.5)] animate-dropdown-fade"
               aria-label="Search results"
             >
               {isLoading &&
@@ -167,37 +214,50 @@ export const HeroSearch = (): ReactElement => {
                 ))}
 
               {isError && (
-                <li className="px-4 py-3 text-sm text-red-400 text-left">
+                <li
+                  role="presentation"
+                  className="px-4 py-3 text-sm text-red-400 text-left"
+                >
                   Something went wrong. Please try again.
                 </li>
               )}
 
               {!isLoading && !isError && !rawgAvailable && (
-                <li className="px-4 py-2 text-xs text-amber-300 text-left">
+                <li
+                  role="presentation"
+                  className="px-4 py-2 text-xs text-amber-300 text-left"
+                >
                   RAWG unavailable. Local results are still available.
                 </li>
               )}
 
               {!isLoading && !isError && results.length === 0 && (
-                <li className="px-4 py-3 text-sm text-gray-400 text-left">
+                <li
+                  role="presentation"
+                  className="px-4 py-3 text-sm text-gray-400 text-left"
+                >
                   No games found for &ldquo;{query}&rdquo;
                 </li>
               )}
 
               {!isLoading &&
                 !isError &&
-                results.map((game) => (
+                results.map((game, index) => (
                   <li
                     key={
                       game.source === 'local'
                         ? `local-${game.id}`
                         : `rawg-${game.rawgId}`
                     }
+                    role="presentation"
                     className="flex items-center justify-between gap-3 px-4 py-2.5"
                   >
                     <button
                       type="button"
-                      className="flex items-center min-w-0 flex-1 bg-transparent border-0 text-left cursor-pointer transition-colors duration-[0.12s] gap-3 hover:bg-blue-500/10"
+                      id={optionId(index)}
+                      role="option"
+                      aria-selected={index === active}
+                      className="flex items-center min-w-0 flex-1 bg-transparent border-0 text-left cursor-pointer transition-colors duration-[0.12s] gap-3 hover:bg-blue-500/10 aria-selected:bg-blue-500/10"
                       aria-label={`Select ${game.name}`}
                       onClick={() => handleSelect(game)}
                       disabled={selection.isPending}

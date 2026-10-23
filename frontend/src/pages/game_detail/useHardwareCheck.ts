@@ -28,6 +28,7 @@ export function useHardwareCheck(target?: HardwareCheckTarget) {
           if (error.response?.status === 429) {
             throw new Error(
               'Too many compatibility checks. Please wait a minute and try again.',
+              { cause: error },
             );
           }
 
@@ -38,11 +39,14 @@ export function useHardwareCheck(target?: HardwareCheckTarget) {
           ) {
             throw new Error(
               'The compatibility check timed out. Please try again.',
+              { cause: error },
             );
           }
         }
 
-        throw new Error("We couldn't check compatibility. Please try again.");
+        throw new Error("We couldn't check compatibility. Please try again.", {
+          cause: error,
+        });
       }
     },
   });

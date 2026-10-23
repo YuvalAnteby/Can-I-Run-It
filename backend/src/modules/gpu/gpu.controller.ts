@@ -7,8 +7,8 @@ import {
     ApiTags,
     getSchemaPath,
 } from '@nestjs/swagger';
-import { PaginatedResult } from 'src/common/dto/paginated-result.dto';
 
+import { PaginatedResult } from '../../common/dto/paginated-result.dto';
 import { ClientGpuDto } from './dto/client-gpu-dto';
 import { GpusFilterDto } from './dto/filter-gpu-dto';
 import { GpuSearchDto } from './dto/search-gpu-dto';

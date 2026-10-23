@@ -84,9 +84,7 @@ describe('GamesController', () => {
         };
 
         const discoveryController = (): DiscoveryController =>
-            new GamesController(
-                discoveryService as never,
-            ) as DiscoveryController;
+            new GamesController(discoveryService as never);
 
         beforeEach(() => {
             jest.clearAllMocks();

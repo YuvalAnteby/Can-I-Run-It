@@ -3,6 +3,14 @@
 @theme {
   --animate-drawer-slide-down: drawerSlideDown 0.18s ease-out;
   --animate-dropdown-fade: dropdownFadeIn 0.12s ease-out;
+
+  --color-page: #0f1115;
+  --color-surface: #161b22;
+  --color-surface-raised: #1c2330;
+  --color-line-subtle: #21262d;
+  --color-line: #30363d;
+  --color-line-strong: #484f58;
+  --color-ink: #e8e8e8;
 }
 
 @keyframes drawerSlideDown {
@@ -34,7 +42,7 @@ body {
     'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background-color: #0f1115;
+  background-color: var(--color-page);
   color: rgba(255, 255, 255, 0.87);
 }
 

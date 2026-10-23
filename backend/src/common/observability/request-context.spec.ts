@@ -11,7 +11,8 @@ import {
     requestContextMiddleware,
 } from './request-context';
 
-type TestResponse = Response & EventEmitter & { setHeader: jest.Mock };
+type TestResponse = Omit<Response, 'setHeader'> &
+    EventEmitter & { setHeader: jest.Mock };
 type JsonObject = Record<string, unknown>;
 
 const parseJson = (value: unknown): JsonObject =>

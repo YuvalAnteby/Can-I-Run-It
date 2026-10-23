@@ -29,7 +29,7 @@ src/
 
 ## Swagger
 
-- Swagger is enabled at `/api/docs`.
+- Swagger is enabled at `/api/docs` outside production only (`NODE_ENV=production` disables it).
 - Always decorate controllers, DTOs and entities with appropriate swagger tags
 
 ## Testing Standards

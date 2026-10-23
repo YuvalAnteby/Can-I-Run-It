@@ -20,7 +20,6 @@ const routes = [
       { path: 'pending-games/:id', element: <GameDetailPage /> },
       { path: 'about', element: <AboutPage /> },
       // TODO: Add route for /games once the Games browse page is created
-      // TODO: Add route for /hardware-rank once the Hardware Rank page is created
       { path: '*', element: <Navigate to="/" replace /> },
     ],
   },

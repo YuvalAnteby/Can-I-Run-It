@@ -19,6 +19,7 @@ const completeFormProps: ComponentProps<typeof HardwareCheckForm> = {
   selectedCpu: '',
   selectedRam: 16,
   onRamChange: vi.fn(),
+  isRamValid: true,
   selectedStorage: 'ssd',
   onStorageChange: vi.fn(),
   selectedPreset: SettingPreset.HIGH,
