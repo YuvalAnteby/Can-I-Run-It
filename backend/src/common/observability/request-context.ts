@@ -12,7 +12,10 @@ import {
     recordHttpRequest,
 } from './telemetry';
 
-export const requestContext = new AsyncLocalStorage<{ requestId: string }>();
+export const requestContext = new AsyncLocalStorage<{
+    requestId: string;
+    ip?: string; // for per-client provider limits only; never logged
+}>();
 
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
 const PROBE_PATHS = new Set([
@@ -135,7 +138,7 @@ export function requestContextMiddleware(
     response.once('finish', () => complete(false));
     response.once('close', () => complete(!response.writableFinished));
 
-    requestContext.run({ requestId }, () => {
+    requestContext.run({ requestId, ip: request.ip }, () => {
         try {
             next();
         } catch (error) {

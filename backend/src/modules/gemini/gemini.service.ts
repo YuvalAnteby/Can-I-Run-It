@@ -3,6 +3,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 import { AbuseProtectionService } from '../../common/abuse-protection/abuse-protection.service';
+import { requestContext } from '../../common/observability/request-context';
 import { observeProvider } from '../../common/observability/telemetry';
 import { SettingsDto } from '../check/dto/settings.dto';
 import { Cpu } from '../cpu/entities/cpu.entity';
@@ -90,7 +91,10 @@ export class GeminiService {
 
         const existing = this.pending.get(userPrompt);
         if (existing) return existing;
-        const release = this.abuseProtection.tryAcquireProvider('gemini');
+        const release = this.abuseProtection.tryAcquireProvider(
+            'gemini',
+            requestContext.getStore()?.ip,
+        );
         if (!release) return null;
         const estimate = this.requestEstimate(userPrompt, release);
         this.pending.set(userPrompt, estimate);

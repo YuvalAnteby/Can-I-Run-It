@@ -110,6 +110,23 @@ describe('AbuseProtectionService', () => {
         );
     });
 
+    it('caps Gemini calls per IP without blocking other IPs', () => {
+        const service = makeService();
+        const acquire = (ip: string) => {
+            const release = service.tryAcquireProvider('gemini', ip);
+            release?.();
+            return release;
+        };
+
+        for (let attempt = 0; attempt < 5; attempt += 1)
+            expect(acquire('203.0.113.10')).toEqual(expect.any(Function));
+        expect(acquire('203.0.113.10')).toBeNull();
+        expect(acquire('203.0.113.11')).toEqual(expect.any(Function));
+
+        jest.mocked(Date.now).mockReturnValue(60_000);
+        expect(acquire('203.0.113.10')).toEqual(expect.any(Function));
+    });
+
     it('applies the default RAWG concurrency and minute budget', () => {
         const service = makeService();
         const releases = Array.from({ length: 4 }, () =>
