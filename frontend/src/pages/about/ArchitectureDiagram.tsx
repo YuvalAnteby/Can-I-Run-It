@@ -51,7 +51,7 @@ function DiagramNode({
 
 export function ArchitectureDiagram(): ReactElement {
   return (
-    <figure className="mt-8 overflow-hidden rounded-2xl border border-[#263244] bg-[#111820] p-4 shadow-[0_18px_45px_-28px_rgba(56,189,248,0.65)] md:p-6">
+    <figure className="mt-8 overflow-hidden rounded-2xl border border-line bg-surface p-4 shadow-[0_18px_45px_-28px_rgba(56,189,248,0.65)] md:p-6">
       <div
         role="img"
         aria-label="Service architecture diagram"
@@ -73,7 +73,7 @@ export function ArchitectureDiagram(): ReactElement {
           className="md:max-w-[230px]"
         />
         <FlowArrow label="routes" />
-        <div className="relative flex flex-1 flex-col gap-3 rounded-xl border border-dashed border-[#2a394d] p-3 pt-8 md:min-w-[260px]">
+        <div className="relative flex flex-1 flex-col gap-3 rounded-xl border border-dashed border-line p-3 pt-8 md:min-w-[260px]">
           <div className="flex items-center gap-3">
             <span
               className="hidden h-px w-4 bg-blue-300/70 md:block"

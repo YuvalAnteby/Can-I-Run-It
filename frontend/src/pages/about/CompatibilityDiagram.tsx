@@ -109,7 +109,7 @@ function EvidenceRow({
 
 export function CompatibilityDiagram(): ReactElement {
   return (
-    <figure className="mt-8 overflow-hidden rounded-2xl border border-[#263244] bg-[#111820] p-4 shadow-[0_18px_45px_-28px_rgba(56,189,248,0.65)] md:p-6">
+    <figure className="mt-8 overflow-hidden rounded-2xl border border-line bg-surface p-4 shadow-[0_18px_45px_-28px_rgba(56,189,248,0.65)] md:p-6">
       <div
         role="img"
         aria-label="Compatibility evidence flow diagram"

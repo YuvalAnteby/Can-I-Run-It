@@ -160,7 +160,7 @@ describe('GeminiService', () => {
 
         const estimate = (name: string) =>
             service.estimate(
-                { ...mockGame, name } as unknown as Game,
+                { ...mockGame, name },
                 mockCpu,
                 mockGpu,
                 mockRamGb,
@@ -257,7 +257,7 @@ describe('GeminiService', () => {
 
         const estimate = (name: string) =>
             timeoutService.estimate(
-                { ...mockGame, name } as unknown as Game,
+                { ...mockGame, name },
                 mockCpu,
                 mockGpu,
                 mockRamGb,
@@ -395,7 +395,7 @@ describe('GeminiService', () => {
             ok: true,
             headers: new Headers(),
             json: () => Promise.resolve(validGeminiPayload),
-        } as Response);
+        });
 
         const result = await service.estimate(
             mockGame,
@@ -438,7 +438,7 @@ describe('GeminiService', () => {
             ok: true,
             headers: new Headers(),
             json: () => Promise.resolve(payload),
-        } as Response);
+        });
 
         const result = await service.estimate(
             mockGame,
@@ -561,7 +561,7 @@ describe('GeminiService', () => {
                 headers: new Headers(),
                 status,
                 text: () => Promise.resolve('Rate limit exceeded'),
-            } as Response);
+            });
 
             const result = await service.estimate(
                 mockGame,
@@ -763,7 +763,7 @@ describe('GeminiService', () => {
                         { content: { parts: [{ text: 'not json at all' }] } },
                     ],
                 }),
-        } as Response);
+        });
 
         const result = await service.estimate(
             mockGame,
@@ -785,7 +785,7 @@ describe('GeminiService', () => {
                         { content: { parts: [{ text: '{"note": null}' }] } },
                     ],
                 }),
-        } as Response);
+        });
 
         const result = await service.estimate(
             mockGame,
@@ -823,7 +823,7 @@ describe('GeminiService', () => {
                         },
                     ],
                 }),
-        } as Response);
+        });
 
         const result = await service.estimate(
             mockGame,
@@ -840,7 +840,7 @@ describe('GeminiService', () => {
             ok: true,
             headers: new Headers(),
             json: () => Promise.resolve({ candidates: [] }),
-        } as Response);
+        });
 
         const result = await service.estimate(
             mockGame,
@@ -870,7 +870,7 @@ describe('GeminiService', () => {
                 Promise.resolve({
                     candidates: [{ content: { parts: [{ text: fenced }] } }],
                 }),
-        } as Response);
+        });
 
         const result = await service.estimate(
             mockGame,
@@ -910,7 +910,7 @@ describe('GeminiService', () => {
                         },
                     ],
                 }),
-        } as Response);
+        });
 
         const result = await service.estimate(
             mockGame,

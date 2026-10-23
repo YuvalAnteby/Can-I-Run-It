@@ -3,7 +3,7 @@ import type { ReactElement } from 'react';
 export const GameCardSkeleton = (): ReactElement => {
   return (
     <div
-      className="bg-[#161b22] rounded-xl overflow-hidden border border-gray-800 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-2px_rgba(0,0,0,0.05)] animate-pulse"
+      className="bg-surface rounded-xl overflow-hidden border border-gray-800 shadow-[0_10px_15px_-3px_rgba(0,0,0,0.1),0_4px_6px_-2px_rgba(0,0,0,0.05)] animate-pulse"
       aria-hidden="true"
     >
       {/* Cover image placeholder */}

@@ -7,6 +7,7 @@ import { CompatibilityDiagram } from './CompatibilityDiagram';
 export default function AboutPage(): ReactElement {
   return (
     <article className="mx-auto w-full max-w-6xl px-4 py-12 text-gray-300 md:py-16">
+      <title>About - Can I Run It?</title>
       <header className="max-w-3xl">
         <h1 className="m-0 text-4xl font-bold tracking-[-0.03em] text-white text-balance md:text-5xl">
           How Can I Run It works
@@ -134,8 +135,7 @@ export default function AboutPage(): ReactElement {
               The curated dataset covers only the configurations currently
               stored, so some checks rely on provider data, a heuristic, or
               return Insufficient data. V1 does not include accounts, automatic
-              ingestion or enrichment, or ML model support. A public URL is
-              pending.
+              ingestion or enrichment, or ML model support.
             </p>
           </div>
         </div>

@@ -34,9 +34,9 @@ describe('GameCard', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders "Can I Run It?" label', () => {
+  it('does not render a "Can I Run It?" label', () => {
     render(<GameCard game={mockGame} />);
-    expect(screen.getByText('Can I Run It?')).toBeInTheDocument();
+    expect(screen.queryByText('Can I Run It?')).not.toBeInTheDocument();
   });
 
   it('renders a cover image when coverImageUrl is provided', () => {

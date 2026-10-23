@@ -1,23 +1,26 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ClientGameDto } from '../../@types/game.types';
 import GameDetailPage from './GameDetailPage';
+import * as detail from './useGameDetail';
 
-const { useGameDetailMock, useGameDetailFormMock } = vi.hoisted(() => ({
-  useGameDetailMock: vi.fn(),
+const { useGameDetailFormMock } = vi.hoisted(() => ({
   useGameDetailFormMock: vi.fn(),
-}));
-
-vi.mock('./useGameDetail', () => ({
-  useGameDetail: useGameDetailMock,
 }));
 
 vi.mock('./useGameDetailForm', () => ({
   useGameDetailForm: useGameDetailFormMock,
 }));
+
+type GameDetailQuery = ReturnType<typeof detail.useGameDetail>;
+
+// Test fixtures only provide the fields each state reads, so cast the partial state.
+function gameDetailQuery(state: Partial<GameDetailQuery>): GameDetailQuery {
+  return state as GameDetailQuery;
+}
 
 const pendingGame = {
   id: 42,
@@ -110,11 +113,9 @@ function renderRoute(path: string): ReturnType<typeof render> {
 describe('GameDetailPage pending flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    useGameDetailMock.mockReturnValue({
-      data: pendingGame,
-      isLoading: false,
-      isError: false,
-    });
+    vi.spyOn(detail, 'useGameDetail').mockReturnValue(
+      gameDetailQuery({ data: pendingGame, isLoading: false, isError: false }),
+    );
     useGameDetailFormMock.mockReturnValue(makeFormState());
   });
 
@@ -136,17 +137,21 @@ describe('GameDetailPage pending flow', () => {
   });
 
   it('replace-navigates an approved pending response to the published slug', async () => {
-    useGameDetailMock
-      .mockReturnValueOnce({
-        data: publishedGame,
-        isLoading: false,
-        isError: false,
-      })
-      .mockReturnValue({
-        data: publishedGame,
-        isLoading: false,
-        isError: false,
-      });
+    vi.spyOn(detail, 'useGameDetail')
+      .mockReturnValueOnce(
+        gameDetailQuery({
+          data: publishedGame,
+          isLoading: false,
+          isError: false,
+        }),
+      )
+      .mockReturnValue(
+        gameDetailQuery({
+          data: publishedGame,
+          isLoading: false,
+          isError: false,
+        }),
+      );
 
     renderRoute('/pending-games/42');
 
@@ -155,5 +160,53 @@ describe('GameDetailPage pending flow', () => {
         '/games/issue-66-published',
       ),
     );
+  });
+});
+
+describe('GameDetailPage loading and error states', () => {
+  it('shows an alert with retry and back-to-search actions when loading fails', () => {
+    const refetch = vi.fn();
+    vi.spyOn(detail, 'useGameDetail').mockReturnValue(
+      gameDetailQuery({
+        data: undefined,
+        isLoading: false,
+        isError: true,
+        isFetching: false,
+        refetch,
+      }),
+    );
+
+    renderRoute('/games/broken-game');
+
+    expect(screen.getByRole('alert')).toHaveTextContent(
+      "Couldn't load this game",
+    );
+    expect(document.title).toBe('Game not found - Can I Run It?');
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    expect(refetch).toHaveBeenCalledTimes(1);
+    expect(
+      screen.getByRole('link', { name: 'Back to search' }),
+    ).toHaveAttribute('href', '/');
+  });
+
+  it('announces the loading state while the game is fetched', () => {
+    vi.spyOn(detail, 'useGameDetail').mockReturnValue(
+      gameDetailQuery({
+        data: undefined,
+        isLoading: true,
+        isError: false,
+        isFetching: true,
+        refetch: vi.fn(),
+      }),
+    );
+
+    renderRoute('/games/broken-game');
+
+    // LocationProbe's <output> also has role=status, so match by text.
+    expect(screen.getByText('Loading game details…')).toHaveAttribute(
+      'role',
+      'status',
+    );
+    expect(document.title).toBe('Loading… - Can I Run It?');
   });
 });

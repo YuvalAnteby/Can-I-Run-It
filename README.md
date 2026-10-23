@@ -120,7 +120,7 @@ With the template's default ports, open:
 
 - Frontend: <http://localhost:3000>
 - API: <http://localhost:4000/api>
-- Swagger: <http://localhost:4000/api/docs>
+- Swagger: <http://localhost:4000/api/docs> (dev only; disabled when `NODE_ENV=production`)
 - PostgreSQL health: <http://localhost:4000/api/health/postgres>
 
 Follow or stop the development stack with:

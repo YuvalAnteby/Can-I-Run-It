@@ -35,15 +35,7 @@ export const GamesCarousel = ({
           <Gamepad2 className="text-blue-500 shrink-0" aria-hidden="true" />
           {title}
         </h2>
-        {/* TODO: link to a /games browse page once it exists */}
-        {!isLoading && games.length > 0 && (
-          <span
-            className="text-sm text-blue-500 cursor-default"
-            aria-hidden="true"
-          >
-            View All
-          </span>
-        )}
+        {/* TODO: add a "View All" link once the /games browse page exists */}
       </div>
 
       <div
@@ -78,7 +70,7 @@ export const GamesCarousel = ({
 
         {!isLoading && games.length === 0 && (
           <div className="snap-start shrink-0 py-4" role="listitem">
-            <p className="text-gray-500 text-sm">No games to show right now.</p>
+            <p className="text-gray-400 text-sm">No games to show right now.</p>
           </div>
         )}
       </div>

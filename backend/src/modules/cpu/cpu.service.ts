@@ -1,6 +1,6 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
-import { PaginatedResult } from 'src/common/dto/paginated-result.dto';
 
+import { PaginatedResult } from '../../common/dto/paginated-result.dto';
 import { ClientCpuDto } from './dto/client-cpu-dto';
 import { CpuFilterDto } from './dto/filter-cpu-dto';
 import { CpuSearchDto } from './dto/search-cpu-dto';

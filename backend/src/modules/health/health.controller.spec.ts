@@ -1,4 +1,3 @@
-import { HealthCheckResult } from '@nestjs/terminus';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { HealthController } from './health.controller';
@@ -19,7 +18,7 @@ describe('HealthController', () => {
             postgres: jest.fn().mockResolvedValue({
                 status: 'ok',
                 info: { database: { status: 'up' } },
-            } as unknown as HealthCheckResult),
+            }),
         };
 
         const moduleFixture: TestingModule = await Test.createTestingModule({

@@ -7,10 +7,7 @@ export type AbuseEvent =
     | 'rate_limit.ip'
     | 'rate_limit.global'
     | `provider.${'gemini' | 'rawg'}.${
-          | 'budget'
-          | 'concurrency'
-          | 'timeout'
-          | 'failure'}`;
+          'budget' | 'concurrency' | 'timeout' | 'failure'}`;
 
 type ProviderName = 'gemini' | 'rawg';
 

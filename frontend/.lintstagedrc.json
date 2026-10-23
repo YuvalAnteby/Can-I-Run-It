@@ -1,0 +1,1 @@
+{ "*.{js,ts,jsx,tsx}": ["eslint --cache --cache-location node_modules/.cache/eslint/", "prettier --write"] }

@@ -8,3 +8,4 @@ crash.*.log
 *.tfvars.json
 *.tfplan
 backend.hcl
+tfplan
