@@ -16,7 +16,6 @@ interface SearchableSelectProps {
   isLoading: boolean;
   onSearch: (query: string) => void;
   onSelect: (id: string) => void;
-  disabled?: boolean;
   error?: boolean;
 }
 
@@ -32,7 +31,6 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   isLoading,
   onSearch,
   onSelect,
-  disabled = false,
   error = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -82,7 +80,6 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
   }, [activeIndex, listId]);
 
   const handleToggle = () => {
-    if (disabled) return;
     const nextState = !isOpen;
     setIsOpen(nextState);
 
@@ -152,7 +149,6 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
         ref={triggerRef}
         type="button"
         id={triggerId}
-        disabled={disabled}
         aria-haspopup="listbox"
         aria-expanded={isOpen}
         aria-invalid={error}
@@ -162,7 +158,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
             : error
               ? 'border-red-500/50 ring-1 ring-red-500/10'
               : 'border-line hover:border-line-strong'
-        } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        }`}
         onClick={handleToggle}
       >
         <div className="flex items-center justify-between p-2.5 min-h-[42px]">
@@ -230,7 +226,7 @@ export const SearchableSelect: React.FC<SearchableSelectProps> = ({
             id={listId}
             role="listbox"
             aria-label={`${label} results`}
-            className="max-h-[240px] overflow-y-auto py-1 custom-scrollbar bg-surface"
+            className="max-h-[240px] overflow-y-auto py-1 bg-surface"
           >
             {!isLoading && options.length === 0 && (
               <li

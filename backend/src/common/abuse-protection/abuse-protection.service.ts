@@ -30,7 +30,9 @@ export class AbuseProtectionService implements OnApplicationShutdown {
     // ponytail: process-local fixed windows; use a shared store before adding replicas.
     private readonly perIpLimit: number;
     private readonly globalLimit: number;
+    private readonly geminiPerIpLimit: number;
     private readonly ipWindows = new Map<string, Window>();
+    private readonly geminiIpWindows = new Map<string, Window>();
     private globalWindow: Window = { count: 0, resetAt: 0 };
     private nextCleanupAt = 0;
     private readonly providers: Record<ProviderName, ProviderState>;
@@ -52,6 +54,10 @@ export class AbuseProtectionService implements OnApplicationShutdown {
         this.globalLimit = this.number(
             'EXPENSIVE_REQUESTS_GLOBAL_PER_MINUTE',
             100,
+        );
+        this.geminiPerIpLimit = this.number(
+            'GEMINI_REQUESTS_PER_IP_PER_MINUTE',
+            5,
         );
         this.providers = {
             gemini: {
@@ -80,11 +86,7 @@ export class AbuseProtectionService implements OnApplicationShutdown {
             return this.retryAfter(this.globalWindow.resetAt, now);
         }
 
-        let window = this.ipWindows.get(ip);
-        if (!window || now >= window.resetAt) {
-            window = { count: 0, resetAt: now + WINDOW_MS };
-            this.ipWindows.set(ip, window);
-        }
+        const window = this.windowFor(this.ipWindows, ip, now);
         if (window.count >= this.perIpLimit) {
             this.recordEvent('rate_limit.ip');
             return this.retryAfter(window.resetAt, now);
@@ -95,7 +97,11 @@ export class AbuseProtectionService implements OnApplicationShutdown {
         return null;
     }
 
-    tryAcquireProvider(provider: ProviderName): (() => void) | null {
+    /** `ip` caps Gemini calls per client so a few IPs cannot drain the shared budget. */
+    tryAcquireProvider(
+        provider: ProviderName,
+        ip?: string,
+    ): (() => void) | null {
         const state = this.providers[provider];
         const now = Date.now();
         if (now >= state.window.resetAt) {
@@ -105,13 +111,22 @@ export class AbuseProtectionService implements OnApplicationShutdown {
             this.recordEvent(`provider.${provider}.concurrency`);
             return null;
         }
-        if (state.window.count >= state.budget) {
+        let ipWindow: Window | undefined;
+        if (provider === 'gemini' && ip) {
+            this.cleanupIpWindows(now);
+            ipWindow = this.windowFor(this.geminiIpWindows, ip, now);
+        }
+        if (
+            state.window.count >= state.budget ||
+            (ipWindow && ipWindow.count >= this.geminiPerIpLimit)
+        ) {
             this.recordEvent(`provider.${provider}.budget`);
             return null;
         }
 
         state.active += 1;
         state.window.count += 1;
+        if (ipWindow) ipWindow.count += 1;
         let released = false;
         return () => {
             if (released) return;
@@ -157,10 +172,25 @@ export class AbuseProtectionService implements OnApplicationShutdown {
 
     private cleanupIpWindows(now: number): void {
         if (now < this.nextCleanupAt) return;
-        for (const [ip, window] of this.ipWindows) {
-            if (window.resetAt <= now) this.ipWindows.delete(ip);
+        for (const windows of [this.ipWindows, this.geminiIpWindows]) {
+            for (const [ip, window] of windows) {
+                if (window.resetAt <= now) windows.delete(ip);
+            }
         }
         this.nextCleanupAt = now + WINDOW_MS;
+    }
+
+    private windowFor(
+        windows: Map<string, Window>,
+        ip: string,
+        now: number,
+    ): Window {
+        let window = windows.get(ip);
+        if (!window || now >= window.resetAt) {
+            window = { count: 0, resetAt: now + WINDOW_MS };
+            windows.set(ip, window);
+        }
+        return window;
     }
 
     private retryAfter(resetAt: number, now: number): number {

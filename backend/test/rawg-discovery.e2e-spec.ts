@@ -363,7 +363,6 @@ describe('RAWG discovery and pending game flow (isolated e2e)', () => {
         const gemini = app.get(GeminiService);
         const estimate = jest.spyOn(gemini, 'estimate').mockResolvedValue({
             fps: { low: 80, med: 70, high: 60, ultra: 45 },
-            note: null,
         });
         const pendingCheck = await api()
             .post(`/api/v2/check/pending/${gameId}`)

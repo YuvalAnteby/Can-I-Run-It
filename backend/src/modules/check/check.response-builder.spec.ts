@@ -8,6 +8,7 @@ import {
     SettingPreset,
     UpscalerType,
 } from '../performance/entities/performance-record.entity';
+import { estimateFPS, GPU_BENCHMARK_DIVISOR } from './check.helpers';
 import {
     buildInsufficientResponse,
     buildResponseFromFallback,
@@ -15,11 +16,7 @@ import {
     buildResponseFromRecord,
 } from './check.response-builder';
 import { HardwareDto } from './dto/hardware.dto';
-import {
-    SettingPreset as RequestSettingPreset,
-    SettingsDto,
-    TargetFps,
-} from './dto/settings.dto';
+import { SettingsDto, TargetFps } from './dto/settings.dto';
 
 const now = new Date('2026-09-11T00:00:00.000Z');
 
@@ -143,7 +140,6 @@ function geminiEstimate(
 ): GeminiEstimate {
     return {
         fps: { low: 120, med: 100, high: 80, ultra: 55, ...fpsOverrides },
-        note: null,
     };
 }
 
@@ -163,7 +159,7 @@ const settings: SettingsDto = {
     resolutionWidth: 1920,
     resolutionHeight: 1080,
     tier: 'recommended',
-    preset: RequestSettingPreset.HIGH,
+    preset: SettingPreset.HIGH,
     targetFps: 60,
     upscaler: UpscalerType.OFF,
 };
@@ -277,16 +273,13 @@ describe('check response builders', () => {
     );
 
     it.each([
-        [RequestSettingPreset.MEDIUM, 90, 'Likely can run'],
-        [RequestSettingPreset.HIGH, 90, "Likely can't run"],
+        [SettingPreset.MEDIUM, 90, 'Likely can run'],
+        [SettingPreset.HIGH, 90, "Likely can't run"],
     ] as const)(
         'uses AI %s FPS against target %s with advisory hardware checks',
         (preset, targetFps, verdict) => {
             const result = buildResponseFromGemini(
-                {
-                    ...geminiEstimate(),
-                    note: 'Shader compilation may stutter.',
-                },
+                geminiEstimate(),
                 gameWithRequirement({
                     cpu: cpu({ benchmarks: { passmark: 60_000 } }),
                     gpu: gpuWithVram(8, {
@@ -335,9 +328,9 @@ describe('check response builders', () => {
                     ramGb: 32,
                 }),
                 cpu({ benchmarks: { passmark: 1_000 } }),
-                gpuWithVram(8, { benchmarks: { timespy_extreme: 19_500 } }),
+                gpuWithVram(8, { benchmarks: { timespy_extreme: 5_850 } }),
                 hardwareWith({ isSsd: false }),
-                { ...settings, preset: RequestSettingPreset.MEDIUM, targetFps },
+                { ...settings, preset: SettingPreset.MEDIUM, targetFps },
             );
 
             expect(result).toMatchObject({
@@ -346,7 +339,7 @@ describe('check response builders', () => {
                 provider: null,
                 confidence: 'low',
                 targetFps,
-                fps: { low: 107, med: 80, high: 62, ultra: 46 },
+                fps: { low: 106, med: 79, high: 61, ultra: 46 },
                 cpuPass: false,
                 ramPass: false,
                 ssdPass: false,
@@ -356,6 +349,14 @@ describe('check response builders', () => {
             ]);
         },
     );
+
+    it('estimates the RTX 3060 12GB near its seeded measured 1080p high FPS', () => {
+        // Seed: RTX 3060 12GB timespy_extreme 4200, Cyberpunk 2077 1080p high measured 44fps
+        const { high } = estimateFPS(4_200 / GPU_BENCHMARK_DIVISOR, 1080);
+
+        expect(high).toBeGreaterThanOrEqual(44 * 0.8);
+        expect(high).toBeLessThanOrEqual(44 * 1.2);
+    });
 
     it('returns insufficient data from fallback when requirements are absent', () => {
         const game = gameWithRequirement();

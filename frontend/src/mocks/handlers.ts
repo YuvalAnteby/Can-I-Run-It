@@ -2,7 +2,7 @@ import { http, HttpResponse } from 'msw';
 
 import type { ClientCpuDto, CpuManufacturer } from '../@types/cpu.types';
 import type { CheckRequest, CheckResponse } from '../@types/check.types';
-import type { ClientGameDto } from '../@types/game.types';
+import type { ClientGameDto, GameSearchResult } from '../@types/game.types';
 import type { ClientGpuDto, GpuManufacturer } from '../@types/gpu.types';
 
 const BASE =
@@ -53,23 +53,7 @@ const MOCK_GAMES: ClientGameDto[] = [
   },
 ];
 
-type DiscoveryResult =
-  | {
-      source: 'local';
-      id: number;
-      slug: string;
-      name: string;
-      coverImageUrl: string | null;
-    }
-  | {
-      source: 'rawg';
-      rawgId: number;
-      name: string;
-      coverImageUrl: string | null;
-      rawgUrl: string;
-    };
-
-const MOCK_DISCOVERY_RESULTS: DiscoveryResult[] = [
+const MOCK_DISCOVERY_RESULTS: GameSearchResult[] = [
   ...MOCK_GAMES.map((game) => ({
     source: 'local' as const,
     id: game.id,
@@ -124,18 +108,6 @@ const MOCK_PENDING_GAME = {
  */
 export const handlers = [
   /* ── Games ───────────────────────────────────────────────────── */
-  http.get(`${BASE}/v1/games/mock`, () => {
-    return HttpResponse.json(MOCK_GAMES);
-  }),
-
-  http.get(`${BASE}/v1/games/mock/search`, ({ request }) => {
-    const q = new URL(request.url).searchParams.get('q') ?? '';
-    const results = MOCK_GAMES.filter((g) =>
-      g.name.toLowerCase().includes(q.toLowerCase()),
-    );
-    return HttpResponse.json(results);
-  }),
-
   http.get(`${BASE}/v2/games`, ({ request }) => {
     const url = new URL(request.url);
     const search = url.searchParams.get('search') ?? '';

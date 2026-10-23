@@ -2,6 +2,7 @@ import { ManagedIdentityCredential } from '@azure/identity';
 
 import { buildDatabaseOptions, POSTGRES_ENTRA_SCOPE } from './database.config';
 import { Baseline1792022400000 } from './migrations/1792022400000-baseline';
+import { SeededGameRawgIds1792108800000 } from './migrations/1792108800000-seeded-game-rawg-ids';
 
 jest.mock('@azure/identity');
 
@@ -48,9 +49,10 @@ describe('buildDatabaseOptions', () => {
             expect(CredentialMock).not.toHaveBeenCalled();
         });
 
-        it('runs the baseline migration at startup', () => {
+        it('runs the migrations at startup in order', () => {
             expect(buildDatabaseOptions({}).migrations).toEqual([
                 Baseline1792022400000,
+                SeededGameRawgIds1792108800000,
             ]);
         });
 

@@ -175,7 +175,7 @@ describe('telemetry bootstrap', () => {
         try {
             meterProvider
                 .getMeter('ciri-backend')
-                .createCounter('ciri.http.requests')
+                .createCounter('ciri.provider.calls')
                 .add(1);
             meterProvider
                 .getMeter('@opentelemetry/instrumentation-http')
@@ -190,7 +190,7 @@ describe('telemetry bootstrap', () => {
                         metrics.map(({ descriptor }) => descriptor.name),
                     ),
                 );
-            expect(metricNames).toContain('ciri.http.requests');
+            expect(metricNames).toContain('ciri.provider.calls');
             expect(metricNames).not.toContain('http.server.duration');
         } finally {
             await meterProvider.shutdown();

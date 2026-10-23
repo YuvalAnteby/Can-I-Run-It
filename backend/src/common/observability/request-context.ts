@@ -6,20 +6,14 @@ import { Logger } from '@nestjs/common';
 import { context as otelContext, trace } from '@opentelemetry/api';
 import type { NextFunction, Request, Response } from 'express';
 
-import {
-    type MetricAttributes,
-    normalizeHttpMethod,
-    recordHttpRequest,
-} from './telemetry';
+import { PROBE_PATHS, REQUEST_ID_PATTERN, ROUTE_PATTERN } from './safe-values';
+import { type MetricAttributes, normalizeHttpMethod } from './telemetry';
 
-export const requestContext = new AsyncLocalStorage<{ requestId: string }>();
+export const requestContext = new AsyncLocalStorage<{
+    requestId: string;
+    ip?: string; // for per-client provider limits only; never logged
+}>();
 
-const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{1,64}$/;
-const PROBE_PATHS = new Set([
-    '/api/health/live',
-    '/api/health/ready',
-    '/api/health/postgres',
-]);
 const logger = new Logger('HTTP');
 
 export function getRequestId(value: unknown): string {
@@ -43,9 +37,7 @@ const routeLabel = (request: Request): string => {
     const routePath = route && typeof route.path === 'string' ? route.path : '';
     const baseUrl = typeof request.baseUrl === 'string' ? request.baseUrl : '';
     const label = `${baseUrl}${routePath}`;
-    return routePath && /^\/[A-Za-z0-9_./:-]{0,159}$/.test(label)
-        ? label
-        : 'unmatched';
+    return routePath && ROUTE_PATTERN.test(label) ? label : 'unmatched';
 };
 
 const activeSpanContext = (): {
@@ -125,7 +117,6 @@ export function requestContextMiddleware(
 
         const successfulProbe = probe && !aborted && statusCode < 400;
         if (!successfulProbe) {
-            recordHttpRequest(request.method, route, statusCode, durationMs);
             if (aborted || statusCode >= 500) logger.error(fields);
             else if (statusCode >= 400) logger.warn(fields);
             else logger.log(fields);
@@ -135,7 +126,7 @@ export function requestContextMiddleware(
     response.once('finish', () => complete(false));
     response.once('close', () => complete(!response.writableFinished));
 
-    requestContext.run({ requestId }, () => {
+    requestContext.run({ requestId, ip: request.ip }, () => {
         try {
             next();
         } catch (error) {

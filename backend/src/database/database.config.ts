@@ -2,6 +2,7 @@ import { ManagedIdentityCredential } from '@azure/identity';
 import type { PostgresConnectionOptions } from 'typeorm/driver/postgres/PostgresConnectionOptions';
 
 import { Baseline1792022400000 } from './migrations/1792022400000-baseline';
+import { SeededGameRawgIds1792108800000 } from './migrations/1792108800000-seeded-game-rawg-ids';
 
 export const POSTGRES_ENTRA_SCOPE =
     'https://ossrdbms-aad.database.windows.net/.default';
@@ -61,7 +62,7 @@ export function buildDatabaseOptions(
         poolSize: 5,
         entities: [__dirname + '/../**/*.entity.{js,ts}'],
         synchronize: false,
-        migrations: [Baseline1792022400000],
+        migrations: [Baseline1792022400000, SeededGameRawgIds1792108800000],
         migrationsRun: true,
     } satisfies Partial<PostgresConnectionOptions>;
 

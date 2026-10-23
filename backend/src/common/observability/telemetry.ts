@@ -5,6 +5,7 @@ import { metrics, SpanKind, SpanStatusCode, trace } from '@opentelemetry/api';
 
 import type { AbuseEvent } from '../abuse-protection/abuse-protection.service';
 import { requestContext } from './request-context';
+import { REQUEST_ID_PATTERN } from './safe-values';
 
 export type StageName =
     | 'check.inputs'
@@ -21,11 +22,6 @@ export type MetricAttributes = Record<string, string | number>;
 
 const logger = new Logger('Telemetry');
 const meter = metrics.getMeter('ciri-backend');
-const httpRequests = meter.createCounter('ciri.http.requests');
-const httpErrors = meter.createCounter('ciri.http.errors');
-const httpDuration = meter.createHistogram('ciri.http.duration', {
-    unit: 'ms',
-});
 const providerCalls = meter.createCounter('ciri.provider.calls');
 const providerFailures = meter.createCounter('ciri.provider.failures');
 const providerTimeouts = meter.createCounter('ciri.provider.timeouts');
@@ -47,12 +43,11 @@ export const normalizeHttpMethod = (method: unknown): string => {
     return HTTP_METHODS.has(value) ? value : 'OTHER';
 };
 
-const validRequestId = (value: unknown): value is string =>
-    typeof value === 'string' && /^[A-Za-z0-9._-]{1,64}$/.test(value);
-
 const correlationAttributes = (): MetricAttributes => {
     const requestId = requestContext.getStore()?.requestId;
-    return validRequestId(requestId) ? { 'ciri.request_id': requestId } : {};
+    return typeof requestId === 'string' && REQUEST_ID_PATTERN.test(requestId)
+        ? { 'ciri.request_id': requestId }
+        : {};
 };
 
 const spanOutcome = (value: unknown): 'success' | 'unavailable' =>
@@ -180,20 +175,4 @@ export function recordTelemetryEvent(event: AbuseEvent): void {
     } else if (reason === 'budget' || reason === 'concurrency') {
         providerRejections.add(1, { provider, reason });
     }
-}
-
-export function recordHttpRequest(
-    method: string,
-    route: string,
-    statusCode: number,
-    durationMs: number,
-): void {
-    const attributes: MetricAttributes = {
-        method: normalizeHttpMethod(method),
-        route,
-        statusCode,
-    };
-    httpRequests.add(1, attributes);
-    if (statusCode >= 500) httpErrors.add(1, attributes);
-    httpDuration.record(Math.max(0, durationMs), attributes);
 }

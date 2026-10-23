@@ -3,10 +3,7 @@ import { Game } from '../games/entities/game.entity';
 import { GameRequirement } from '../games/entities/game-requirement.entity';
 import { GeminiEstimate } from '../gemini/gemini.service';
 import { Gpu } from '../gpu/entities/gpu.entity';
-import {
-    PerformanceRecord,
-    SettingPreset,
-} from '../performance/entities/performance-record.entity';
+import { PerformanceRecord } from '../performance/entities/performance-record.entity';
 import {
     estimateFPS,
     estimateFPSFromRecord,
@@ -63,7 +60,7 @@ function getWarnings(
     };
 }
 
-function findRequirement(
+export function findRequirement(
     game: Game,
     settings: SettingsDto,
 ): GameRequirement | null {
@@ -117,7 +114,7 @@ export function buildResponseFromGemini(
     settings: SettingsDto,
     targetFps: TargetFps = settings.targetFps ?? 60,
 ): CheckResponseDto {
-    const preset = settings.preset ?? SettingPreset.HIGH;
+    const { preset } = settings;
     const userFps = estimate.fps[PRESET_TO_FPS_KEY[preset]];
     const requirement = findRequirement(game, settings);
     const warnings = getWarnings(requirement, userGpu, hardware);
@@ -173,7 +170,7 @@ export function buildResponseFromFallback(
         getHardwareScore(userGpu, 'gpu'),
         settings.resolutionHeight,
     );
-    const preset = settings.preset ?? SettingPreset.HIGH;
+    const { preset } = settings;
     const userFps = fps[PRESET_TO_FPS_KEY[preset]];
     const warnings = getWarnings(requirement, userGpu, hardware);
 

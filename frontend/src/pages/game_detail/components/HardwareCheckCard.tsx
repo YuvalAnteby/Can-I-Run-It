@@ -2,7 +2,12 @@ import React from 'react';
 import { HardwareCheckForm } from './HardwareCheckForm';
 import { CompatibilityResult } from './CompatibilityResult';
 import type { ClientGameDto } from '../../../@types/game.types';
-import { useGameDetailForm } from '../useGameDetailForm';
+import {
+  RAM_MAX_GB,
+  RAM_MIN_GB,
+  RESOLUTION_MAX,
+  useGameDetailForm,
+} from '../useGameDetailForm';
 
 const DEFAULT_RESOLUTIONS = [
   { label: '720p (HD)', width: 1280, height: 720 },
@@ -31,7 +36,9 @@ export const HardwareCheckCard: React.FC<HardwareCheckCardProps> = ({
     ? null
     : !form.selectedGpu || !form.selectedCpu
       ? 'Pick a GPU and CPU to check.'
-      : 'Enter RAM between 1 and 512 GB.';
+      : !form.isRamValid
+        ? `Enter RAM between ${RAM_MIN_GB} and ${RAM_MAX_GB} GB.`
+        : `Enter a custom resolution between 1 and ${RESOLUTION_MAX}.`;
 
   return (
     <div className="bg-surface border border-line-subtle rounded-xl p-6 sticky top-[72px]">

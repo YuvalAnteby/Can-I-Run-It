@@ -50,7 +50,7 @@ trace row, while their unsampled stdout completion record still contains the
 request ID. Azure ingestion or exporter outages do not make the API unavailable.
 
 Successful liveness, readiness, and PostgreSQL probes are suppressed from
-completion logs, metrics, and inbound spans. A failed probe is retained for
+completion logs and inbound spans. A failed probe is retained for
 operations. Normal provider availability is independent of liveness: missing or
 failed Gemini/RAWG calls return the existing fallback behavior, while liveness
 checks only whether the Nest process is serving.
