@@ -2,6 +2,7 @@ import { ConsoleLogger, type LogLevel } from '@nestjs/common';
 import { context as otelContext, trace } from '@opentelemetry/api';
 
 import { requestContext } from './request-context';
+import { REQUEST_ID_PATTERN, safeText } from './safe-values';
 
 const LOG_LEVELS: Record<string, LogLevel[]> = {
     debug: ['log', 'error', 'warn', 'debug', 'verbose', 'fatal'],
@@ -30,22 +31,6 @@ type RecordValue = Record<string, unknown>;
 const isRecord = (value: unknown): value is RecordValue =>
     typeof value === 'object' && value !== null && !Array.isArray(value);
 
-const containsUnsafeControl = (value: string): boolean => {
-    for (const character of value) {
-        const code = character.charCodeAt(0);
-        if (code <= 31 || code === 127) return true;
-    }
-    return false;
-};
-
-const safeText = (value: unknown, maxLength = 128): string | undefined => {
-    if (typeof value !== 'string' || value.length === 0) return undefined;
-    if (value.length > maxLength || containsUnsafeControl(value)) {
-        return undefined;
-    }
-    return value;
-};
-
 const safeEvent = (value: unknown): string => {
     const event = safeText(value, 80);
     return event && /^[A-Za-z0-9_.:-]+$/.test(event) ? event : 'log';
@@ -57,10 +42,7 @@ const safeNumber = (value: unknown): number | undefined =>
 const correlationFields = (): RecordValue => {
     const fields: RecordValue = {};
     const requestId = requestContext.getStore()?.requestId;
-    if (
-        typeof requestId === 'string' &&
-        /^[A-Za-z0-9._-]{1,64}$/.test(requestId)
-    ) {
+    if (typeof requestId === 'string' && REQUEST_ID_PATTERN.test(requestId)) {
         fields.requestId = requestId;
     }
     const span = trace.getSpan(otelContext.active());
