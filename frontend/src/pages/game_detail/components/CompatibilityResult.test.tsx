@@ -318,8 +318,7 @@ describe('hardware check mutation journey', () => {
   it('posts selected settings, shows a safe failure, and retries', async () => {
     let requestCount = 0;
     let capturedRequest:
-      | { method: string; pathname: string; body: CheckRequest }
-      | undefined;
+      { method: string; pathname: string; body: CheckRequest } | undefined;
     server.use(
       http.post(CHECK_URL, async ({ request }) => {
         const body = (await request.json()) as CheckRequest;

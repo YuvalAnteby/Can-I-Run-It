@@ -20,10 +20,7 @@ export interface Settings {
   targetFps?: TargetFps;
   upscaler?: 'off' | 'DLSS' | 'FSR' | 'XeSS';
   upscalerQuality?:
-    | 'quality'
-    | 'balanced'
-    | 'performance'
-    | 'ultra_performance';
+    'quality' | 'balanced' | 'performance' | 'ultra_performance';
 }
 
 export interface CheckRequest {

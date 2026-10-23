@@ -65,7 +65,7 @@ describe('useHardwareCheck route selection', () => {
       { wrapper: makeWrapper() },
     );
 
-    result.current.mutate(pendingRequest as never);
+    result.current.mutate(pendingRequest);
     await waitFor(() => expect(result.current.data).toBeDefined());
 
     expect(result.current.data).toMatchObject({
