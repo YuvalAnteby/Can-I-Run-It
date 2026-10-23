@@ -28,32 +28,6 @@ import {
 export class GamesController {
     constructor(private readonly gamesService: GamesService) {}
 
-    /* ── V1 Endpoints (Mock) ─────────────────────────────────── */
-
-    @Get('mock')
-    @Version('1')
-    @ApiOperation({
-        summary: 'Get all mock games',
-        deprecated: true,
-        description: 'Use v2/games instead for live database data.',
-    })
-    @ApiOkResponse({ type: [ClientGameDto] })
-    async getMockGames(): Promise<ClientGameDto[]> {
-        return this.gamesService.getMockGames();
-    }
-
-    @Get('mock/search')
-    @Version('1')
-    @ApiOperation({
-        summary: 'Search mock games by name',
-        deprecated: true,
-        description: 'Use v2/games?search=... instead for live database data.',
-    })
-    @ApiOkResponse({ type: [ClientGameDto] })
-    async searchMockGames(@Query('q') q: string): Promise<ClientGameDto[]> {
-        return this.gamesService.searchMockGames(q || '');
-    }
-
     /* ── V2 Endpoints (Database) ─────────────────────────────── */
 
     @Get()

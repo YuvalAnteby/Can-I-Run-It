@@ -16,7 +16,6 @@ import { FilterGameDto } from './dto/filter-game.dto';
 import { Game } from './entities/game.entity';
 import { GameRequirement } from './entities/game-requirement.entity';
 import type { GameStatus } from './game-lifecycle.contract';
-import { MOCK_GAMES } from './games.constants';
 import type { IGamesRepository } from './igames.repository';
 import { IGamesRepositoryToken } from './igames.repository';
 import type { RawgGameDetail, RawgSearchResponse } from './rawg.client';
@@ -350,20 +349,6 @@ export class GamesService {
 
     private isUniqueViolation(error: unknown): boolean {
         return isRecord(error) && error.code === '23505';
-    }
-
-    async getMockGames(): Promise<ClientGameDto[]> {
-        return Promise.resolve(MOCK_GAMES);
-    }
-
-    async searchMockGames(query: string): Promise<ClientGameDto[]> {
-        if (!query) {
-            return Promise.resolve([]);
-        }
-        const q = query.toLowerCase();
-        return Promise.resolve(
-            MOCK_GAMES.filter((g) => g.name.toLowerCase().includes(q)),
-        );
     }
 
     /**
