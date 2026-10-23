@@ -19,6 +19,9 @@ export const CPU_BENCHMARK_DIVISOR = 600;
 // Allow up to 10% below the requirement score before marking as failing
 export const MIN_PASS_RATIO = 0.9;
 
+// Scales GPU score to FPS; calibrated so the RTX 3060 12GB hits its measured 44fps (Cyberpunk 2077, 1080p high)
+const FPS_CALIBRATION_FACTOR = 3.3;
+
 // TODO: Remove once benchmarks and Gemini API cover all hardware.
 // Rough estimates used only when a hardware entry has no benchmark data.
 export const FALLBACK_GPU_SCORE: Record<string, number> = {
@@ -90,7 +93,7 @@ export function estimateFPS(score: number, resolution: number): CheckFps {
     else if (resolution === 2160) resMultiplier = 0.35;
     // 1080p → multiplier stays 1.0
 
-    const s = score * resMultiplier;
+    const s = score * resMultiplier * FPS_CALIBRATION_FACTOR;
 
     return {
         low: Math.round(s * 1.05 + 2),
