@@ -11,7 +11,8 @@ const { useGameDetailFormMock } = vi.hoisted(() => ({
   useGameDetailFormMock: vi.fn(),
 }));
 
-vi.mock('./useGameDetailForm', () => ({
+vi.mock('./useGameDetailForm', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./useGameDetailForm')>()),
   useGameDetailForm: useGameDetailFormMock,
 }));
 

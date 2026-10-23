@@ -6,6 +6,14 @@ import { ClientGpuDto } from '../../@types/gpu.types';
 import { SettingPreset, TargetFps } from '../../@types/check.types';
 import { ClientGameDto } from '../../@types/game.types';
 
+// Mirror the backend check DTO bounds (hardware.dto.ts / settings.dto.ts).
+export const RAM_MIN_GB = 4;
+export const RAM_MAX_GB = 128;
+export const RESOLUTION_MAX = 16384;
+
+const isValidDimension = (value: number) =>
+  Number.isInteger(value) && value >= 1 && value <= RESOLUTION_MAX;
+
 export function useGameDetailForm(
   game: ClientGameDto | undefined,
   slug: string | undefined,
@@ -66,8 +74,14 @@ export function useGameDetailForm(
   }, [activeTier, resetCheck]);
 
   const isRamValid =
-    Number.isInteger(selectedRam) && selectedRam >= 1 && selectedRam <= 512;
-  const isFormValid = !!selectedGpu && !!selectedCpu && isRamValid;
+    Number.isInteger(selectedRam) &&
+    selectedRam >= RAM_MIN_GB &&
+    selectedRam <= RAM_MAX_GB;
+  const isResolutionValid =
+    selectedResolutionKey !== 'custom' ||
+    (isValidDimension(customWidth) && isValidDimension(customHeight));
+  const isFormValid =
+    !!selectedGpu && !!selectedCpu && isRamValid && isResolutionValid;
 
   const handleCheck = () => {
     setHasAttemptedSubmit(true);

@@ -89,4 +89,32 @@ describe('useGameDetailForm', () => {
     expect(runCheck).toHaveBeenCalledOnce();
     expect(runCheck.mock.calls[0][0].settings.upscaler).toBe('off');
   });
+
+  it('rejects RAM outside the API range', () => {
+    const { result } = renderHook(() =>
+      useGameDetailForm(undefined, 'cyberpunk-2077'),
+    );
+    act(() => {
+      result.current.handleCpuSelect('1');
+      result.current.handleGpuSelect('2');
+      result.current.setSelectedRam(256);
+    });
+
+    expect(result.current.isFormValid).toBe(false);
+  });
+
+  it('rejects a custom resolution with a zero width', () => {
+    const { result } = renderHook(() =>
+      useGameDetailForm(undefined, 'cyberpunk-2077'),
+    );
+    act(() => {
+      result.current.handleCpuSelect('1');
+      result.current.handleGpuSelect('2');
+      result.current.setSelectedResolutionKey('custom');
+    });
+    expect(result.current.isFormValid).toBe(true);
+
+    act(() => result.current.setCustomWidth(0));
+    expect(result.current.isFormValid).toBe(false);
+  });
 });
