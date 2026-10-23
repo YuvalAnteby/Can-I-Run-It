@@ -173,9 +173,7 @@ export function useGameDetailForm(
 
   return {
     // Search
-    gpuQuery,
     setGpuQuery,
-    cpuQuery,
     setCpuQuery,
     gpuResults,
     isLoadingGpus,
@@ -214,6 +212,5 @@ export function useGameDetailForm(
     handleCheck,
     handleGpuSelect,
     handleCpuSelect,
-    resetCheck,
   };
 }

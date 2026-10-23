@@ -1,6 +1,6 @@
 /**
  * Shared types for the CPU domain — mirrors ClientCpuDto from the backend.
- * Source of truth: backend/src/cpu/dto/client-cpu-dto.ts
+ * Source of truth: backend/src/modules/cpu/dto/client-cpu-dto.ts
  */
 
 export type CpuManufacturer = 'AMD' | 'Intel';
