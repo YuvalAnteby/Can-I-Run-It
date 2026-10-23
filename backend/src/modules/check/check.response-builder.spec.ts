@@ -16,11 +16,7 @@ import {
     buildResponseFromRecord,
 } from './check.response-builder';
 import { HardwareDto } from './dto/hardware.dto';
-import {
-    SettingPreset as RequestSettingPreset,
-    SettingsDto,
-    TargetFps,
-} from './dto/settings.dto';
+import { SettingsDto, TargetFps } from './dto/settings.dto';
 
 const now = new Date('2026-09-11T00:00:00.000Z');
 
@@ -144,7 +140,6 @@ function geminiEstimate(
 ): GeminiEstimate {
     return {
         fps: { low: 120, med: 100, high: 80, ultra: 55, ...fpsOverrides },
-        note: null,
     };
 }
 
@@ -164,7 +159,7 @@ const settings: SettingsDto = {
     resolutionWidth: 1920,
     resolutionHeight: 1080,
     tier: 'recommended',
-    preset: RequestSettingPreset.HIGH,
+    preset: SettingPreset.HIGH,
     targetFps: 60,
     upscaler: UpscalerType.OFF,
 };
@@ -278,16 +273,13 @@ describe('check response builders', () => {
     );
 
     it.each([
-        [RequestSettingPreset.MEDIUM, 90, 'Likely can run'],
-        [RequestSettingPreset.HIGH, 90, "Likely can't run"],
+        [SettingPreset.MEDIUM, 90, 'Likely can run'],
+        [SettingPreset.HIGH, 90, "Likely can't run"],
     ] as const)(
         'uses AI %s FPS against target %s with advisory hardware checks',
         (preset, targetFps, verdict) => {
             const result = buildResponseFromGemini(
-                {
-                    ...geminiEstimate(),
-                    note: 'Shader compilation may stutter.',
-                },
+                geminiEstimate(),
                 gameWithRequirement({
                     cpu: cpu({ benchmarks: { passmark: 60_000 } }),
                     gpu: gpuWithVram(8, {
@@ -338,7 +330,7 @@ describe('check response builders', () => {
                 cpu({ benchmarks: { passmark: 1_000 } }),
                 gpuWithVram(8, { benchmarks: { timespy_extreme: 5_850 } }),
                 hardwareWith({ isSsd: false }),
-                { ...settings, preset: RequestSettingPreset.MEDIUM, targetFps },
+                { ...settings, preset: SettingPreset.MEDIUM, targetFps },
             );
 
             expect(result).toMatchObject({

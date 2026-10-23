@@ -49,7 +49,6 @@ const validGeminiPayload = {
                     {
                         text: JSON.stringify({
                             fps: { low: 95, med: 72, high: 55, ultra: 38 },
-                            note: null,
                         }),
                     },
                 ],
@@ -178,12 +177,10 @@ describe('GeminiService', () => {
         first.resolve({
             text: JSON.stringify({
                 fps: { low: 95, med: 72, high: 55, ultra: 38 },
-                note: null,
             }),
         });
         await expect(firstEstimate).resolves.toEqual({
             fps: { low: 95, med: 72, high: 55, ultra: 38 },
-            note: null,
         });
         await Promise.resolve();
         await Promise.resolve();
@@ -193,13 +190,11 @@ describe('GeminiService', () => {
         second.resolve({
             text: JSON.stringify({
                 fps: { low: 90, med: 70, high: 50, ultra: 35 },
-                note: null,
             }),
         });
         third.resolve({
             text: JSON.stringify({
                 fps: { low: 80, med: 60, high: 45, ultra: 30 },
-                note: null,
             }),
         });
         await expect(secondEstimate).resolves.not.toBeNull();
@@ -251,7 +246,6 @@ describe('GeminiService', () => {
             .mockResolvedValue({
                 text: JSON.stringify({
                     fps: { low: 80, med: 60, high: 45, ultra: 30 },
-                    note: null,
                 }),
             });
 
@@ -283,7 +277,6 @@ describe('GeminiService', () => {
         underlying.resolve({
             text: JSON.stringify({
                 fps: { low: 80, med: 60, high: 45, ultra: 30 },
-                note: null,
             }),
         });
         await Promise.resolve();
@@ -390,7 +383,7 @@ describe('GeminiService', () => {
 
     // --- Happy path ---
 
-    it('returns fps estimate and null note on a valid response', async () => {
+    it('returns fps estimate on a valid response', async () => {
         fetchSpy.mockResolvedValueOnce({
             ok: true,
             headers: new Headers(),
@@ -407,47 +400,7 @@ describe('GeminiService', () => {
 
         expect(result).toEqual({
             fps: { low: 95, med: 72, high: 55, ultra: 38 },
-            note: null,
         });
-    });
-
-    it('returns the note string when Gemini provides one', async () => {
-        const payload = {
-            candidates: [
-                {
-                    content: {
-                        parts: [
-                            {
-                                text: JSON.stringify({
-                                    fps: {
-                                        low: 90,
-                                        med: 68,
-                                        high: 50,
-                                        ultra: 35,
-                                    },
-                                    note: 'May stutter during shader compilation',
-                                }),
-                            },
-                        ],
-                    },
-                },
-            ],
-        };
-
-        fetchSpy.mockResolvedValueOnce({
-            ok: true,
-            headers: new Headers(),
-            json: () => Promise.resolve(payload),
-        });
-
-        const result = await service.estimate(
-            mockGame,
-            mockCpu,
-            mockGpu,
-            mockRamGb,
-            mockSettings,
-        );
-        expect(result?.note).toBe('May stutter during shader compilation');
     });
 
     it('uses the same no-upscaling prompt for omitted and explicit off', async () => {
@@ -465,7 +418,6 @@ describe('GeminiService', () => {
             .mockResolvedValue({
                 text: JSON.stringify({
                     fps: { low: 95, med: 72, high: 55, ultra: 38 },
-                    note: null,
                 }),
             });
 
@@ -781,9 +733,7 @@ describe('GeminiService', () => {
             headers: new Headers(),
             json: () =>
                 Promise.resolve({
-                    candidates: [
-                        { content: { parts: [{ text: '{"note": null}' }] } },
-                    ],
+                    candidates: [{ content: { parts: [{ text: '{}' }] } }],
                 }),
         });
 
@@ -815,7 +765,6 @@ describe('GeminiService', () => {
                                                 high: '55',
                                                 ultra: '38',
                                             },
-                                            note: null,
                                         }),
                                     },
                                 ],
@@ -859,7 +808,6 @@ describe('GeminiService', () => {
             '```json\n' +
             JSON.stringify({
                 fps: { low: 80, med: 60, high: 45, ultra: 30 },
-                note: null,
             }) +
             '\n```';
 
@@ -902,7 +850,6 @@ describe('GeminiService', () => {
                                                 high: 54.9,
                                                 ultra: 37.1,
                                             },
-                                            note: null,
                                         }),
                                     },
                                 ],

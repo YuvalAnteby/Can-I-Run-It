@@ -1,9 +1,11 @@
-import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 
 import { AbuseProtectionService } from '../../common/abuse-protection/abuse-protection.service';
 import { CheckRateLimitGuard } from '../../common/guards/check-rate-limit.guard';
+import { DiscoverGamesDto } from './dto/discover-games.dto';
 import { GamesController } from './games.controller';
 import { GamesService } from './games.service';
 
@@ -78,7 +80,9 @@ describe('GamesController', () => {
                 rawgAvailable: false,
             });
 
-            await discoveryController().discoverGames({ q: '  Elden Ring  ' });
+            await discoveryController().discoverGames(
+                plainToInstance(DiscoverGamesDto, { q: '  Elden Ring  ' }),
+            );
 
             expect(discoveryService.discover).toHaveBeenCalledWith(
                 'Elden Ring',
@@ -90,9 +94,8 @@ describe('GamesController', () => {
             'rejects an invalid discovery query: %j',
             async (q) => {
                 await expect(
-                    discoveryController().discoverGames({ q }),
-                ).rejects.toThrow(BadRequestException);
-                expect(discoveryService.discover).not.toHaveBeenCalled();
+                    validate(plainToInstance(DiscoverGamesDto, { q })),
+                ).resolves.not.toHaveLength(0);
             },
         );
 

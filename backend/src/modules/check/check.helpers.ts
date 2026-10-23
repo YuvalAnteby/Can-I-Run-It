@@ -23,20 +23,7 @@ export const MIN_PASS_RATIO = 0.9;
 const FPS_CALIBRATION_FACTOR = 3.3;
 
 // TODO: Remove once benchmarks and Gemini API cover all hardware.
-// Rough estimates used only when a hardware entry has no benchmark data.
-export const FALLBACK_GPU_SCORE: Record<string, number> = {
-    'nvidia-geforce-rtx-4090': 100,
-    'nvidia-geforce-rtx-4080': 80,
-    'nvidia-geforce-rtx-4070': 62,
-    'nvidia-geforce-rtx-3080': 58,
-    'nvidia-geforce-rtx-3070': 48,
-    'nvidia-geforce-rtx-3060': 34,
-    'nvidia-geforce-rtx-2080-ti': 52,
-    'nvidia-geforce-gtx-1080-ti': 30,
-    'nvidia-geforce-gtx-1060': 14,
-};
-
-// TODO: Remove once benchmarks and Gemini API cover all hardware.
+// Rough estimates used only when a CPU entry has no benchmark data.
 export const FALLBACK_CPU_SCORE: Record<string, number> = {
     'intel-core-i9-13900k': 100,
     'intel-core-i7-13700k': 85,
@@ -54,7 +41,7 @@ export const FALLBACK_CPU_SCORE: Record<string, number> = {
 
 /**
  * Returns a normalized hardware score (0–100) for use in the fallback heuristic.
- * Prefers benchmark data from the entity; falls back to the hardcoded slug maps
+ * Prefers benchmark data from the entity; falls back to the hardcoded CPU slug map
  * for hardware that hasn't been benchmarked yet.
  */
 export function getHardwareScore(
@@ -72,9 +59,9 @@ export function getHardwareScore(
         }
     }
 
-    const map = type === 'gpu' ? FALLBACK_GPU_SCORE : FALLBACK_CPU_SCORE;
     // Default to 30 — roughly a mid-range card from 2–3 generations ago
-    return map[hw.slug] ?? 30;
+    if (type === 'gpu') return 30;
+    return FALLBACK_CPU_SCORE[hw.slug] ?? 30;
 }
 
 // ---------------------------------------------------------------------------

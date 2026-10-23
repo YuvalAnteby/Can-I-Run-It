@@ -36,11 +36,6 @@ CREATE TABLE IF NOT EXISTS performance_records (
   created_at TIMESTAMP DEFAULT NOW()
 );
 
-ALTER TABLE performance_records ADD COLUMN IF NOT EXISTS source VARCHAR(50);
-UPDATE performance_records SET source = 'measured' WHERE source IS NULL;
-ALTER TABLE performance_records ALTER COLUMN source SET DEFAULT 'measured';
-ALTER TABLE performance_records ALTER COLUMN source SET NOT NULL;
-
 -- Composite index for the most common lookup pattern:
 -- "give me all records for this game at this resolution and settings"
 CREATE INDEX idx_perf_lookup ON performance_records(game_id, res_width, res_height, settings);

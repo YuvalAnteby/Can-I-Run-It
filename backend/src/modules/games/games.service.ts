@@ -19,7 +19,7 @@ import type { GameStatus } from './game-lifecycle.contract';
 import type { IGamesRepository } from './igames.repository';
 import { IGamesRepositoryToken } from './igames.repository';
 import type { RawgGameDetail, RawgSearchResponse } from './rawg.client';
-import { RawgClient } from './rawg.client';
+import { RawgClient, safeImageUrl } from './rawg.client';
 
 export type GameDiscoveryResult =
     | {
@@ -65,18 +65,6 @@ const displayedRequirementFields = new Set<keyof ClientGameRequirementDto>([
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === 'object' && value !== null && !Array.isArray(value);
-
-const safeCoverImage = (value: unknown): string | null => {
-    if (typeof value !== 'string' || value.trim() === '') return null;
-    try {
-        const url = new URL(value);
-        return url.protocol === 'https:' && !url.username && !url.password
-            ? url.toString()
-            : null;
-    } catch {
-        return null;
-    }
-};
 
 const rawgAttribution = (game: Game): PublicAttributionDto | undefined => {
     const payload = game.rawgPayload;
@@ -276,7 +264,7 @@ export class GamesService {
 
     private toGameValues(detail: RawgGameDetail, slug: string): Partial<Game> {
         const name = detail.name.trim().slice(0, 200);
-        const coverImageUrl = safeCoverImage(detail.background_image);
+        const coverImageUrl = safeImageUrl(detail.background_image);
         const releaseDate = validReleaseDate(detail.released);
         const developer =
             firstNamedValue(detail.developers)?.slice(0, 200) ?? null;
@@ -433,21 +421,8 @@ export class GamesService {
         dto: ClientGameDto,
     ): PublicAttributionDto[] {
         const attributions: PublicAttributionDto[] = [];
-        if (
-            Number.isInteger(game.rawgId) &&
-            (game.rawgId ?? 0) > 0 &&
-            game.rawgPayload &&
-            typeof game.rawgPayload.id === 'number' &&
-            game.rawgPayload.id === game.rawgId &&
-            typeof game.rawgPayload.slug === 'string' &&
-            /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(game.rawgPayload.slug)
-        ) {
-            attributions.push({
-                source: 'rawg',
-                label: 'RAWG',
-                url: `https://rawg.io/games/${game.rawgPayload.slug}`,
-            });
-        }
+        const rawg = rawgAttribution(game);
+        if (rawg) attributions.push(rawg);
 
         const publicFields = new Set([
             'name',

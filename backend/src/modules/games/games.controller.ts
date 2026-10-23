@@ -1,5 +1,4 @@
 import {
-    BadRequestException,
     Controller,
     Get,
     Param,
@@ -48,13 +47,7 @@ export class GamesController {
     async discoverGames(
         @Query() dto: DiscoverGamesDto,
     ): Promise<GameDiscoveryResponse> {
-        const query = typeof dto?.q === 'string' ? dto.q.trim() : '';
-        if (!query || query.length > 100) {
-            throw new BadRequestException(
-                'Search query must be between 1 and 100 characters',
-            );
-        }
-        return this.gamesService.discover(query);
+        return this.gamesService.discover(dto.q);
     }
 
     @Post('rawg/:rawgId/select')
