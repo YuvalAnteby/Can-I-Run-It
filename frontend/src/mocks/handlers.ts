@@ -124,18 +124,6 @@ const MOCK_PENDING_GAME = {
  */
 export const handlers = [
   /* ── Games ───────────────────────────────────────────────────── */
-  http.get(`${BASE}/v1/games/mock`, () => {
-    return HttpResponse.json(MOCK_GAMES);
-  }),
-
-  http.get(`${BASE}/v1/games/mock/search`, ({ request }) => {
-    const q = new URL(request.url).searchParams.get('q') ?? '';
-    const results = MOCK_GAMES.filter((g) =>
-      g.name.toLowerCase().includes(q.toLowerCase()),
-    );
-    return HttpResponse.json(results);
-  }),
-
   http.get(`${BASE}/v2/games`, ({ request }) => {
     const url = new URL(request.url);
     const search = url.searchParams.get('search') ?? '';
