@@ -91,9 +91,6 @@ const insufficientResult: CheckResponse = {
 };
 
 const formState: ReturnType<typeof gameDetailForm.useGameDetailForm> = {
-  gpuQuery: '',
-  cpuQuery: '',
-  resetCheck: vi.fn(),
   gpuResults: [],
   isLoadingGpus: false,
   setGpuQuery: vi.fn(),

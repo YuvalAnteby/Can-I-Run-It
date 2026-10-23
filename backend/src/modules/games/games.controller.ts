@@ -1,5 +1,4 @@
 import {
-    BadRequestException,
     Controller,
     Get,
     Param,
@@ -28,32 +27,6 @@ import {
 export class GamesController {
     constructor(private readonly gamesService: GamesService) {}
 
-    /* ── V1 Endpoints (Mock) ─────────────────────────────────── */
-
-    @Get('mock')
-    @Version('1')
-    @ApiOperation({
-        summary: 'Get all mock games',
-        deprecated: true,
-        description: 'Use v2/games instead for live database data.',
-    })
-    @ApiOkResponse({ type: [ClientGameDto] })
-    async getMockGames(): Promise<ClientGameDto[]> {
-        return this.gamesService.getMockGames();
-    }
-
-    @Get('mock/search')
-    @Version('1')
-    @ApiOperation({
-        summary: 'Search mock games by name',
-        deprecated: true,
-        description: 'Use v2/games?search=... instead for live database data.',
-    })
-    @ApiOkResponse({ type: [ClientGameDto] })
-    async searchMockGames(@Query('q') q: string): Promise<ClientGameDto[]> {
-        return this.gamesService.searchMockGames(q || '');
-    }
-
     /* ── V2 Endpoints (Database) ─────────────────────────────── */
 
     @Get()
@@ -74,13 +47,7 @@ export class GamesController {
     async discoverGames(
         @Query() dto: DiscoverGamesDto,
     ): Promise<GameDiscoveryResponse> {
-        const query = typeof dto?.q === 'string' ? dto.q.trim() : '';
-        if (!query || query.length > 100) {
-            throw new BadRequestException(
-                'Search query must be between 1 and 100 characters',
-            );
-        }
-        return this.gamesService.discover(query);
+        return this.gamesService.discover(dto.q);
     }
 
     @Post('rawg/:rawgId/select')

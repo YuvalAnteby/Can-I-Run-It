@@ -11,7 +11,7 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { label: 'Home', to: '/' },
-  // TODO: Build the Games browse page (GET /v2/games + GamesGrid), add the /games route in router.tsx, then drop comingSoon
+  // TODO: Build the Games browse page (GET /v2/games), add the /games route in router.tsx, then drop comingSoon
   { label: 'Games', to: '/games', comingSoon: true },
   { label: 'About', to: '/about' },
 ];

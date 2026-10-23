@@ -9,6 +9,13 @@ import type {
     SpanProcessor,
 } from '@opentelemetry/sdk-trace-base';
 
+import {
+    PROBE_PATHS,
+    REQUEST_ID_PATTERN,
+    ROUTE_PATTERN,
+    safeText,
+} from './safe-values';
+
 export interface ObservabilityConfig {
     enabled: boolean;
     connectionString?: string;
@@ -64,31 +71,8 @@ export function readObservabilityConfig(
     };
 }
 
-const isProbePath = (value: unknown): boolean => {
-    if (typeof value !== 'string') return false;
-    const path = value.split('?', 1)[0];
-    return (
-        path === '/api/health/live' ||
-        path === '/api/health/ready' ||
-        path === '/api/health/postgres'
-    );
-};
-
-const containsUnsafeControl = (value: string): boolean => {
-    for (const character of value) {
-        const code = character.charCodeAt(0);
-        if (code <= 31 || code === 127) return true;
-    }
-    return false;
-};
-
-const safeText = (value: unknown, maxLength = 160): string | undefined => {
-    if (typeof value !== 'string' || value.length === 0) return undefined;
-    if (value.length > maxLength || containsUnsafeControl(value)) {
-        return undefined;
-    }
-    return value;
-};
+const isProbePath = (value: unknown): boolean =>
+    typeof value === 'string' && PROBE_PATHS.has(value.split('?', 1)[0]);
 
 const safeAttribute = (key: string, value: unknown): unknown => {
     if (key === 'http.request.method' || key === 'http.method') {
@@ -96,10 +80,8 @@ const safeAttribute = (key: string, value: unknown): unknown => {
         return method && /^[A-Z]+$/.test(method) ? method : undefined;
     }
     if (key === 'http.route') {
-        const route = safeText(value);
-        return route && /^\/[A-Za-z0-9_./:-]{0,159}$/.test(route)
-            ? route
-            : 'unmatched';
+        const route = safeText(value, 160);
+        return route && ROUTE_PATTERN.test(route) ? route : 'unmatched';
     }
     if (key === 'http.response.status_code' || key === 'http.status_code') {
         return Number.isInteger(value) && (value as number) >= 100
@@ -126,10 +108,10 @@ const safeAttribute = (key: string, value: unknown): unknown => {
         key === 'service.instance.id' ||
         key === 'deployment.environment.name'
     ) {
-        return safeText(value);
+        return safeText(value, 160);
     }
     if (key === 'ciri.request_id') {
-        return typeof value === 'string' && /^[A-Za-z0-9._-]{1,64}$/.test(value)
+        return typeof value === 'string' && REQUEST_ID_PATTERN.test(value)
             ? value
             : undefined;
     }

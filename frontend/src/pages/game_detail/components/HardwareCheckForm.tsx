@@ -7,6 +7,7 @@ import {
 } from '../../../@types/check.types';
 import { ClientCpuDto } from '../../../@types/cpu.types';
 import { ClientGpuDto } from '../../../@types/gpu.types';
+import { RAM_MAX_GB, RAM_MIN_GB, RESOLUTION_MAX } from '../useGameDetailForm';
 
 interface HardwareCheckFormProps {
   gpuResults: ClientGpuDto[];
@@ -133,14 +134,14 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
                 e.target.value === '' ? 0 : parseInt(e.target.value, 10),
               )
             }
-            min="1"
-            max="512"
+            min={RAM_MIN_GB}
+            max={RAM_MAX_GB}
             aria-invalid={!isRamValid}
             aria-describedby={isRamValid ? undefined : 'hw-ram-error'}
           />
           {!isRamValid && (
             <p id="hw-ram-error" className="mt-1 text-red-400 text-xs">
-              Enter 1–512 GB
+              Enter {RAM_MIN_GB}–{RAM_MAX_GB} GB
             </p>
           )}
         </div>
@@ -249,7 +250,7 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
                   onCustomWidthChange(parseInt(e.target.value, 10) || 0)
                 }
                 min="1"
-                max="7680"
+                max={RESOLUTION_MAX}
               />
             </div>
             <div>
@@ -268,7 +269,7 @@ export const HardwareCheckForm: React.FC<HardwareCheckFormProps> = ({
                   onCustomHeightChange(parseInt(e.target.value, 10) || 0)
                 }
                 min="1"
-                max="4320"
+                max={RESOLUTION_MAX}
               />
             </div>
           </div>

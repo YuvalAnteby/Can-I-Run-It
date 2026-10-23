@@ -256,7 +256,6 @@ describe('CheckService', () => {
     it('persists a new Gemini average with the normalized request identity', async () => {
         mockGeminiService.estimate.mockResolvedValue({
             fps: { low: 80, med: 70, high: 60, ultra: 45 },
-            note: null,
         });
 
         await service.checkCompatibility(
@@ -311,7 +310,6 @@ describe('CheckService', () => {
         );
         mockGeminiService.estimate.mockResolvedValue({
             fps: { low: 80, med: 70, high: 60, ultra: 45 },
-            note: null,
         });
 
         await service.checkCompatibility(request);
@@ -340,7 +338,6 @@ describe('CheckService', () => {
         );
         mockGeminiService.estimate.mockResolvedValue({
             fps: { low: 80, med: 70, high: 60, ultra: 45 },
-            note: null,
         });
 
         await service.checkCompatibility(validRequest());
@@ -529,7 +526,6 @@ describe('CheckService', () => {
         mockGameRepo.findOne.mockResolvedValue(pendingGame);
         mockGeminiService.estimate.mockResolvedValue({
             fps: { low: 80, med: 70, high: 60, ultra: 45 },
-            note: null,
         });
 
         await checkPending(1, {

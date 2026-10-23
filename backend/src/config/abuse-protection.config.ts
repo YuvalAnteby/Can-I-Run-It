@@ -14,6 +14,11 @@ const LIMITS = {
         min: 1,
         max: 1_000,
     },
+    GEMINI_REQUESTS_PER_IP_PER_MINUTE: {
+        defaultValue: 5,
+        min: 1,
+        max: 1_000,
+    },
     RAWG_REQUESTS_PER_MINUTE: {
         defaultValue: 60,
         min: 1,

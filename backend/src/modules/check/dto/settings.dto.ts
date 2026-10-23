@@ -13,16 +13,10 @@ import {
 } from 'class-validator';
 
 import {
+    SettingPreset,
     UpscalerQualityMode,
     UpscalerType,
 } from '../../performance/entities/performance-record.entity';
-
-export enum SettingPreset {
-    LOW = 'low',
-    MEDIUM = 'medium',
-    HIGH = 'high',
-    ULTRA = 'ultra',
-}
 
 export const TARGET_FPS_VALUES = [30, 60, 90, 120, 144] as const;
 export type TargetFps = (typeof TARGET_FPS_VALUES)[number];
@@ -61,7 +55,6 @@ export class SettingsDto {
         description: 'The settings preset (e.g., low, medium, high, ultra)',
         enum: SettingPreset,
         example: SettingPreset.HIGH,
-        required: false,
     })
     @IsEnum(SettingPreset)
     preset: SettingPreset;

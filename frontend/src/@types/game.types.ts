@@ -1,4 +1,4 @@
-import { ClientCpuDto } from './cpu.types';
+import { ClientCpuDto, PaginationMeta } from './cpu.types';
 import { ClientGpuDto } from './gpu.types';
 
 export type GameStatus = 'pending_approval' | 'published';
@@ -75,12 +75,6 @@ export interface ClientGameDto {
   trendingRank: number | null;
   requirements: ClientGameRequirementDto[];
   attributions?: PublicAttributionDto[];
-}
-
-export interface PaginationMeta {
-  total: number;
-  page: number;
-  lastPage: number;
 }
 
 export interface PaginatedGamesResult {

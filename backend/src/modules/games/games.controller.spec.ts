@@ -1,10 +1,11 @@
-import { BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test, TestingModule } from '@nestjs/testing';
+import { plainToInstance } from 'class-transformer';
+import { validate } from 'class-validator';
 
 import { AbuseProtectionService } from '../../common/abuse-protection/abuse-protection.service';
 import { CheckRateLimitGuard } from '../../common/guards/check-rate-limit.guard';
-import { MOCK_GAMES } from './games.constants';
+import { DiscoverGamesDto } from './dto/discover-games.dto';
 import { GamesController } from './games.controller';
 import { GamesService } from './games.service';
 
@@ -12,12 +13,6 @@ describe('GamesController', () => {
     let controller: GamesController;
 
     const mockGamesService = {
-        getMockGames: jest.fn().mockResolvedValue(MOCK_GAMES),
-        searchMockGames: jest
-            .fn()
-            .mockResolvedValue(
-                MOCK_GAMES.filter((game) => game.name.includes('Cyberpunk')),
-            ),
         findPaged: jest.fn(),
         findBySlug: jest.fn(),
         findPendingPageById: jest.fn(),
@@ -53,17 +48,6 @@ describe('GamesController', () => {
         expect(controller).toBeDefined();
     });
 
-    it('should return mock games', async () => {
-        const games = await controller.getMockGames();
-        expect(games).toEqual(MOCK_GAMES);
-    });
-
-    it('should search mock games', async () => {
-        const result = await controller.searchMockGames('Cyberpunk');
-        expect(result.length).toBeGreaterThan(0);
-        expect(result[0].name).toContain('Cyberpunk');
-    });
-
     it('requires the games service in Nest wiring', async () => {
         const module = Test.createTestingModule({
             controllers: [GamesController],
@@ -96,7 +80,9 @@ describe('GamesController', () => {
                 rawgAvailable: false,
             });
 
-            await discoveryController().discoverGames({ q: '  Elden Ring  ' });
+            await discoveryController().discoverGames(
+                plainToInstance(DiscoverGamesDto, { q: '  Elden Ring  ' }),
+            );
 
             expect(discoveryService.discover).toHaveBeenCalledWith(
                 'Elden Ring',
@@ -108,9 +94,8 @@ describe('GamesController', () => {
             'rejects an invalid discovery query: %j',
             async (q) => {
                 await expect(
-                    discoveryController().discoverGames({ q }),
-                ).rejects.toThrow(BadRequestException);
-                expect(discoveryService.discover).not.toHaveBeenCalled();
+                    validate(plainToInstance(DiscoverGamesDto, { q })),
+                ).resolves.not.toHaveLength(0);
             },
         );
 

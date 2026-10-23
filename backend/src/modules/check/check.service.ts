@@ -16,6 +16,7 @@ import {
     buildResponseFromFallback,
     buildResponseFromGemini,
     buildResponseFromRecord,
+    findRequirement,
 } from './check.response-builder';
 import { CheckRequestDto } from './dto/check-request.dto';
 import { CheckFps, CheckResponseDto } from './dto/check-response.dto';
@@ -48,10 +49,6 @@ export class CheckService {
      */
     async checkCompatibility(dto: CheckRequestDto): Promise<CheckResponseDto> {
         const { hardware, settings, gameSlug } = dto;
-
-        if (!settings.preset) {
-            settings.preset = SettingPreset.HIGH;
-        }
 
         const { game, userCpu, userGpu } = await observeStage(
             'check.inputs',
@@ -99,14 +96,10 @@ export class CheckService {
         )[0];
 
         if (record) {
-            const requirement =
-                game.requirements?.find(({ tier }) => tier === settings.tier) ??
-                game.requirements?.[0] ??
-                null;
             return buildResponseFromRecord(
                 record,
                 hardware,
-                requirement,
+                findRequirement(game, settings),
                 settings.targetFps ?? 60,
             );
         }
@@ -167,7 +160,6 @@ export class CheckService {
         }
 
         const { hardware, settings } = dto;
-        if (!settings.preset) settings.preset = SettingPreset.HIGH;
 
         const { game, userCpu, userGpu } = await observeStage(
             'check.inputs',
@@ -208,15 +200,11 @@ export class CheckService {
             }),
         );
 
-        const requirement =
-            game.requirements?.find(({ tier }) => tier === settings.tier) ??
-            game.requirements?.[0] ??
-            null;
         if (record) {
             return buildResponseFromRecord(
                 record,
                 hardware,
-                requirement,
+                findRequirement(game, settings),
                 settings.targetFps ?? 60,
             );
         }
@@ -272,7 +260,7 @@ export class CheckService {
      * Failures are swallowed - a cache miss is not fatal.
      */
     private async cacheGeminiResult(
-        estimate: { fps: CheckFps; note: string | null },
+        estimate: { fps: CheckFps },
         game: Game,
         cpu: Cpu,
         gpu: Gpu,
@@ -280,7 +268,6 @@ export class CheckService {
         settings: SettingsDto,
     ): Promise<void> {
         try {
-            const preset = settings.preset ?? SettingPreset.HIGH;
             const presetToFps: Record<SettingPreset, number> = {
                 [SettingPreset.LOW]: estimate.fps.low,
                 [SettingPreset.MEDIUM]: estimate.fps.med,
@@ -295,10 +282,10 @@ export class CheckService {
                 ramGb: hardware.ramGb,
                 resolutionWidth: settings.resolutionWidth,
                 resolutionHeight: settings.resolutionHeight,
-                settings: preset,
+                settings: settings.preset,
                 upscaler: settings.upscaler ?? UpscalerType.OFF,
                 upscalerQuality: settings.upscalerQuality ?? null,
-                fpsAvg: presetToFps[preset],
+                fpsAvg: presetToFps[settings.preset],
                 fps1PercentLow: null,
                 verified: false,
                 source: 'gemini',

@@ -41,7 +41,7 @@ const validSlug = (value: unknown): value is string =>
 const validName = (value: unknown): value is string =>
     typeof value === 'string' && value.trim().length > 0;
 
-const safeImageUrl = (value: unknown): string | null => {
+export const safeImageUrl = (value: unknown): string | null => {
     if (typeof value !== 'string' || value.trim() === '') return null;
 
     try {

@@ -1,7 +1,9 @@
 /**
  * Shared types for the GPU domain — mirrors ClientGpuDto from the backend.
- * Source of truth: backend/src/gpu/dto/client-gpu-dto.ts
+ * Source of truth: backend/src/modules/gpu/dto/client-gpu-dto.ts
  */
+
+import type { PaginationMeta } from './cpu.types';
 
 export type GpuManufacturer = 'Nvidia' | 'AMD' | 'Intel';
 
@@ -15,12 +17,6 @@ export interface ClientGpuDto {
   tdpWatts: number | null;
   releaseYear: number | null;
   benchmarks?: Record<string, number>;
-}
-
-export interface PaginationMeta {
-  total: number;
-  page: number;
-  lastPage: number;
 }
 
 export interface PaginatedGpusResult {
